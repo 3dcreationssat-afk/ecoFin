@@ -9,4 +9,3 @@ export const householdSettingsSchema = z.object({
   emergencyFundTargetMinor: z.number().int().min(0),
   debtStrategy: z.enum(["AVALANCHE", "SNOWBALL", "CUSTOM"]),
 });
-

@@ -8,4 +8,3 @@ export const categorySchema = z.object({
   budgetMinor: z.number().int().min(0),
   sortOrder: z.number().int().min(0),
 });
-

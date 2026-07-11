@@ -12,4 +12,3 @@ describe("money helpers", () => {
     expect(subtractMinor(5000, [1250, 750])).toBe(3000);
   });
 });
-

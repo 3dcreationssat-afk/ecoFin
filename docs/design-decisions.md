@@ -30,11 +30,12 @@
 ## Collapsible And Mobile Navigation
 
 - Reference behavior: original screenshots show a persistent expanded desktop sidebar; supplemental enhancement references add expanded, collapsed, tablet, and mobile navigation states.
-- Implemented behavior: desktop navigation can collapse and persists the preference locally; tablet and mobile use an off-canvas navigation drawer.
+- Implemented behavior: desktop navigation can collapse and persists the preference locally; tablet and mobile use an off-canvas navigation drawer with Escape/backdrop close and focus return to the trigger.
 - Reason: improves responsive usability while preserving the approved navigation model.
-- Accessibility impact: icon-only items retain accessible labels and active links use `aria-current`.
+- Accessibility impact: icon-only items retain accessible labels, visible hover/focus tooltips, active links use `aria-current`, and the active state includes a marker beyond color.
 - Responsive impact: content has more space at constrained widths and mobile navigation is reachable.
 - Product impact: preserves the local-data indicator and route recognition in all navigation modes.
+- Intentional differences: the implementation omits Base44 editor chrome, uses the product's existing Lucide icon set, and keeps tablet navigation in the same drawer pattern as mobile rather than showing a narrow permanent rail.
 
 ## Disabled Planned Controls
 

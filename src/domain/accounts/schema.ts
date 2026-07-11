@@ -12,4 +12,3 @@ export const accountSchema = z.object({
   dueDay: z.number().int().min(1).max(31).nullable().optional(),
   lastUpdated: z.coerce.date(),
 });
-

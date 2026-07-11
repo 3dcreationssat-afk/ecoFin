@@ -16,4 +16,3 @@ export function addMinor(values: MinorUnit[]) {
 export function subtractMinor(start: MinorUnit, values: MinorUnit[]) {
   return values.reduce((total, value) => total - value, start);
 }
-

@@ -12,4 +12,3 @@ export async function POST(request: Request) {
   const account = await prisma.account.create({ data: body });
   return NextResponse.json({ account }, { status: 201 });
 }
-

@@ -8,6 +8,9 @@
 - API routes under `src/app/api/` expose local CRUD foundations for Phase 1 domain records.
 - Zod validates household, account, and category writes.
 - Desktop navigation collapse preference and the Phase 1 household settings form use browser local storage.
+- The navigation preference is stored as `financial-compass-nav=expanded|collapsed`; missing or cleared preference defaults to expanded.
+- The app shell reads the navigation preference with `useSyncExternalStore` and a server snapshot of expanded to avoid Next.js hydration mismatches.
+- Tablet and mobile navigation use a client-only drawer state and do not write financial data to browser storage.
 - `npm run db:migrate` applies the committed SQLite SQL migration through `prisma db execute`.
 - `npm run db:reset` refuses non-`file:` URLs, refuses SQLite files outside `prisma/`, recreates schema, and seeds synthetic data.
 

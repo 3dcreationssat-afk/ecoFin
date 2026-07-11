@@ -10,3 +10,4 @@
 - Added Vitest, Playwright, ESLint, and Prettier configuration.
 - Added Phase 1 audit corrections: required package scripts, committed SQLite migration SQL, deterministic local database reset, disabled planned controls, collapsible desktop navigation, mobile navigation drawer, drawer Escape handling, stronger e2e tests, and dependency audit documentation.
 - Upgraded Prisma packages to `6.19.3` to remediate the high-severity transitive `effect` advisory.
+- Refined the collapsible navigation enhancement with reusable shell pieces, visible collapsed-state tooltips, focus-return drawer behavior, backdrop close, non-color active markers, and responsive shell tests.

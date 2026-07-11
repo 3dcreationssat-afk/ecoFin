@@ -31,6 +31,8 @@ Tokens are implemented in `src/app/globals.css` and reusable primitives in `src/
 - Sidebar width: 282px, estimated from 2048px screenshots.
 - Collapsed sidebar width: 76px, estimated from supplemental collapsible navigation references.
 - Header height: 72px, estimated from screenshots.
+- Desktop shell: persistent sidebar at `lg` and wider; expanded by default unless the local UI preference is `collapsed`.
+- Tablet/mobile shell: off-canvas drawer from the header menu button instead of a permanent rail.
 - Cards: 8px radius, subtle border, subtle shadow.
 - Tables: full-width, accessible headers, row borders, no dense grid lines.
 - Drawer: right side panel over dimmed page; implemented from transaction detail reference.
@@ -43,6 +45,8 @@ Tokens are implemented in `src/app/globals.css` and reusable primitives in `src/
 - Status pills use semantic tone colors.
 - Focus states use a visible teal outline, chosen for accessibility.
 - Reduced motion disables transitions and animations.
+- Collapsed navigation uses icon-only controls with accessible names, visible hover/focus tooltips, and explicit expand/collapse labels.
+- Active navigation uses `aria-current="page"`, teal fill, and a non-color marker so state is not conveyed by color alone.
 
 ## Charts
 
