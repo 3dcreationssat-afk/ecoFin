@@ -8,8 +8,10 @@ Financial Compass is local-first.
 - SQLite is configured for local persistence.
 - `.gitignore` excludes local databases, exports, imports, statements, backups, and environment files.
 - Demonstration data is synthetic.
-- Browser local storage is used only for UI preferences and the current Phase 1 household settings form.
+- Browser local storage is used only for UI preferences such as navigation state. Household financial settings are stored in SQLite.
 - `npm run db:reset` is restricted to SQLite `file:` URLs under the repository `prisma/` directory.
+- The in-app demonstration reset requires explicit confirmation and runs server-side against the synthetic single-household dataset.
+- Audit records store field-level values for material manual changes and must not be used for secrets or complete object snapshots.
 
 ## Prohibited Data
 

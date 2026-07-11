@@ -2,28 +2,27 @@
 
 Financial Compass is a private, local-first personal finance decision-support application for one household.
 
-It helps a household understand income, spending, debts, safe savings capacity, recurring expenses, goals, and decision scenarios. It is not a bank, accounting platform, tax product, investment adviser, credit counselor, bill-payment service, credit-score estimator, or substitute for professional financial advice.
+It helps a household understand income, spending, debts, recurring expenses, goals, data quality, and future decision tradeoffs. It is not a bank, accounting platform, tax product, investment adviser, credit counselor, bill-payment service, credit-score estimator, or substitute for professional financial advice.
 
 ## Current Status
 
-Phase 1 is complete with documented limitations.
+Phase 1.5 persistence hardening is in progress on top of the completed Phase 1 foundation.
 
 Implemented:
 
 - Next.js App Router application with strict TypeScript and Tailwind CSS.
-- Responsive application shell with collapsible desktop navigation, mobile navigation drawer, compact header, local-data indicator, and demonstration-data labeling.
-- Phase 1 demonstration screens for overview, transactions, transaction drawer, cash flow, Safe to Save explanation, budget, recurring expenses, debt, goals, decisions, reports, data quality, accounts, and settings.
-- SQLite/Prisma schema for households, accounts, and categories.
-- Committed SQLite migration SQL and deterministic local reset script.
-- Zod-validated local API route foundations for household settings, accounts, and categories.
-- Synthetic seed data for household, accounts, and categories.
-- Vitest and Playwright validation.
+- Responsive application shell with persistent collapsible desktop navigation and mobile/tablet drawer navigation.
+- SQLite/Prisma source of truth for household settings, accounts, categories, goals, goal contributions, transactions, and audit records.
+- Repository/service-backed API routes with Zod validation and structured errors.
+- Persistent household settings, account management, category management, goal management/contributions, and transaction normalization edits.
+- Immutable original transaction fields for normal drawer edits.
+- Synthetic seed/reset flow for one local demo household.
+- Repository-derived overview, accounts, transactions, goals, settings, and data-quality values.
 
-Not implemented:
+Still planned:
 
-- CSV import, transfer matching, recurring detection, advanced debt planning, backup/restore, report export, and validated financial engines.
-- Account/category/goal/transaction editing persistence from the UI.
-- Transaction original/normalized value persistence.
+- CSV import, CSV mapping, import profiles, transfer matching, duplicate import detection, recurring detection, advanced debt planning, backup/restore, report export, and validated financial engines.
+- Production-grade safe-to-save, cash-flow, budget forecast, debt payoff, recurring, and decision scenario engines.
 
 ## Local Setup
 
@@ -53,12 +52,35 @@ Open `http://localhost:3000`.
 - `npm run format` formats source files with Prettier.
 - `npm run format:check` verifies Prettier formatting.
 - `npm run db:generate` generates Prisma Client.
-- `npm run db:migrate` applies the committed SQLite SQL migration.
+- `npm run db:migrate` applies all committed SQLite SQL migrations in order.
 - `npm run db:seed` replaces contents of the target database with synthetic demonstration data.
 - `npm run db:reset` deletes the target SQLite file under `prisma/`, recreates schema, and seeds synthetic data.
 - `npm run db:studio` opens Prisma Studio.
 
 Do not point `db:seed` or `db:reset` at any database containing personal financial data.
+
+## Data And Privacy
+
+- The application is local-first and single-household in the current implementation.
+- SQLite is the source of truth for household financial configuration and persisted Phase 1 domain data.
+- Browser local storage is limited to non-financial UI preferences such as navigation expanded/collapsed state.
+- No direct bank connectivity, telemetry, analytics, ads, or external AI services are included.
+- `.env`, SQLite database files, imports, exports, statements, backups, and secrets are ignored.
+- Only synthetic demonstration data should be committed.
+- Never store bank credentials, card PINs, MFA secrets, security-question answers, complete card numbers, real statements, or real account identifiers.
+
+## Money Rules
+
+- Monetary domain values use integer minor units.
+- User-entered decimal strings are parsed centrally before persistence.
+- APR values use basis points, for example `2149` means `21.49%`.
+- Demonstration-only financial screens remain labeled until validated engines exist.
+
+## Demo Data And Backup Status
+
+- Seed/reset creates one synthetic household with accounts, categories, goals, contribution records, transactions, and audit records.
+- In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA` and runs through a server-side reset service.
+- Backup/restore is not implemented.
 
 ## Verification
 
@@ -70,21 +92,6 @@ npm run test
 npm run test:e2e
 npm run build
 ```
-
-## Data And Privacy
-
-- The application is local-first.
-- No direct bank connectivity, telemetry, analytics, ads, or external AI services are included.
-- `.env`, SQLite database files, imports, exports, statements, backups, and secrets are ignored.
-- Only synthetic demonstration data should be committed.
-- Never store bank credentials, card PINs, MFA secrets, security-question answers, complete card numbers, real statements, or real account identifiers.
-
-## Money Rules
-
-- Monetary domain values use integer minor units.
-- APR values in persisted demo records use basis points.
-- Phase 1 UI financial values are demonstration values unless a document explicitly says otherwise.
-- Validated Safe to Save, cash-flow, debt, goal, and scenario engines are planned but not implemented.
 
 ## Documentation
 

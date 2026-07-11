@@ -2,9 +2,18 @@
 
 ## Executive Status
 
-Complete with documented limitations.
+Superseded by Phase 1.5 persistence hardening.
 
-The repository is safe to build on for Phase 1 foundation work. CSV import should not begin until the remaining blockers listed below are accepted or resolved.
+The repository is safe to build on for local-first Phase 1.5 persistence work. CSV import should not begin until the remaining CSV-specific blockers are accepted or resolved.
+
+## Phase 1.5 Update
+
+- Governance review found committed `AGENTS.md` was concise and did not contain the full guardrail set requested for Phase 1.5. Guardrails were restored and clarified for operating behavior, scope control, financial correctness, transaction preservation, migrations, destructive operations, privacy, testing, stop conditions, and final reporting.
+- README product scope was restored/expanded to document local-first operation, SQLite source of truth, current versus planned behavior, demo reset, non-goals, and disclaimers.
+- SQLite is now the source of truth for household settings, accounts, categories, goals, goal contributions, transactions, and audit records.
+- Browser local storage is limited to non-financial UI preferences such as navigation state.
+- Original transaction imported values are persisted separately and are not writable through the normal drawer update API.
+- Material manual changes create SQLite-backed audit records.
 
 ## Repository Inspection
 
@@ -18,23 +27,23 @@ The repository is safe to build on for Phase 1 foundation work. CSV import shoul
 
 ## Requirements Matrix
 
-| Requirement              | Status                    | Evidence                                                                | Test                                                                                         | Limitation                                                            | Follow-up                                    |
-| ------------------------ | ------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
-| Governance               | Complete                  | `AGENTS.md`, README, docs reviewed                                      | `git log`, `git status`                                                                      | None                                                                  | Keep change ledger current                   |
-| Package scripts          | Complete                  | All requested scripts exist                                             | `npm run format:check`, `lint`, `typecheck`, `test`, `test:e2e`, `build`; DB commands tested | `db:migrate` uses committed SQL via `prisma db execute`               | Revisit Prisma migrate engine later          |
-| Type safety              | Complete                  | Strict TypeScript                                                       | `npm run typecheck` passed                                                                   | None                                                                  | Add more domain types with engines           |
-| Formatting               | Complete                  | Prettier configured                                                     | `npm run format:check` passed                                                                | None                                                                  | None                                         |
-| Database reproducibility | Complete                  | Disposable `prisma/audit-exec.db` initialized and reset                 | `db:generate`, `db:migrate`, `db:seed`, `db:reset`; counts `1/6/11`                          | Reset is CLI-only                                                     | Add in-app reset after data separation       |
-| Local persistence        | Limited                   | SQLite API foundation; settings/nav local storage                       | E2E settings and nav persistence tests                                                       | Accounts/categories/goals/transactions UI persistence not implemented | Connect forms to Prisma before import        |
-| UI fidelity              | Complete with limitations | Compared all Base44 screenshots and supplemental nav references         | 1440 screenshots captured under `test-results/phase-1-audit/`                                | Values and calculations are demo-only                                 | Continue visual QA as screens become dynamic |
-| Responsive behavior      | Complete                  | 1440, 1280, 1024, 768, 390 route sweep                                  | All routes 200; no document overflow                                                         | Tables use horizontal internal scrolling                              | Add richer mobile table views later          |
-| Accessibility            | Improved                  | Landmarks, tables, labels, drawer role, Escape close, disabled controls | Playwright drawer/mobile nav tests                                                           | Full automated a11y scan not added                                    | Add axe when scope justifies dependency      |
-| Demo-data isolation      | Complete with limitation  | Demo data centralized in `src/data/demo.ts` and Prisma seed             | Seed/reset counts verified                                                                   | UI static demo values are separate from DB demo rows                  | Replace static demo reads with repositories  |
-| Financial representation | Complete with limitations | Money helpers use integer minor units; APR basis points documented      | Money unit tests                                                                             | Static UI strings repeat formatted values                             | Centralize all display values with engines   |
-| Security/privacy         | Complete with limitation  | `.gitignore`, docs, no telemetry/bank connectivity                      | filename scan, docs review                                                                   | Browser local storage for settings only                               | Move settings to SQLite                      |
-| Dependency audit         | Complete with finding     | Prisma upgraded to `6.19.3`                                             | `npm audit`, `npm audit --omit=dev`                                                          | Moderate Next/PostCSS advisory remains                                | Track upstream safe fix                      |
-| Documentation accuracy   | Complete                  | README rewritten; docs updated                                          | Review                                                                                       | Phase 1 limitations explicit                                          | Keep docs synced                             |
-| Test adequacy            | Partial                   | Money, schema, drawer, settings, nav, disabled controls                 | Vitest 4 tests; Playwright 12 tests                                                          | Persistence workflows not covered because not implemented             | Add tests when workflows are implemented     |
+| Requirement              | Status                    | Evidence                                                                | Test                                                                                         | Limitation                                                | Follow-up                                    |
+| ------------------------ | ------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------- |
+| Governance               | Complete                  | `AGENTS.md`, README, docs reviewed                                      | `git log`, `git status`                                                                      | None                                                      | Keep change ledger current                   |
+| Package scripts          | Complete                  | All requested scripts exist                                             | `npm run format:check`, `lint`, `typecheck`, `test`, `test:e2e`, `build`; DB commands tested | `db:migrate` uses committed SQL via `prisma db execute`   | Revisit Prisma migrate engine later          |
+| Type safety              | Complete                  | Strict TypeScript                                                       | `npm run typecheck` passed                                                                   | None                                                      | Add more domain types with engines           |
+| Formatting               | Complete                  | Prettier configured                                                     | `npm run format:check` passed                                                                | None                                                      | None                                         |
+| Database reproducibility | Complete                  | Disposable `prisma/audit-exec.db` initialized and reset                 | `db:generate`, `db:migrate`, `db:seed`, `db:reset`; counts `1/6/11`                          | Reset is CLI-only                                         | Add in-app reset after data separation       |
+| Local persistence        | Complete for Phase 1.5    | SQLite-backed household, accounts, categories, goals, transactions      | Unit/integration and Playwright persistence tests                                            | Advanced engines and CSV import not implemented           | Keep CSV blocked until import contracts      |
+| UI fidelity              | Complete with limitations | Compared all Base44 screenshots and supplemental nav references         | 1440 screenshots captured under `test-results/phase-1-audit/`                                | Values and calculations are demo-only                     | Continue visual QA as screens become dynamic |
+| Responsive behavior      | Complete                  | 1440, 1280, 1024, 768, 390 route sweep                                  | All routes 200; no document overflow                                                         | Tables use horizontal internal scrolling                  | Add richer mobile table views later          |
+| Accessibility            | Improved                  | Landmarks, tables, labels, drawer role, Escape close, disabled controls | Playwright drawer/mobile nav tests                                                           | Full automated a11y scan not added                        | Add axe when scope justifies dependency      |
+| Demo-data isolation      | Complete with limitation  | Central seed/reset creates persisted synthetic records                  | Seed/reset and demo reset tests                                                              | Single-household reset safety model only                  | Add backup/restore before real data          |
+| Financial representation | Complete with limitations | Money helpers parse/format integer minor units; APR basis points        | Money unit tests                                                                             | Date/duration formatting not fully centralized            | Centralize date display                      |
+| Security/privacy         | Complete with limitation  | `.gitignore`, docs, no telemetry/bank connectivity                      | filename scan, docs review                                                                   | Single-household demo reset only                          | Add backup/restore safety model              |
+| Dependency audit         | Complete with finding     | Prisma upgraded to `6.19.3`                                             | `npm audit`, `npm audit --omit=dev`                                                          | Moderate Next/PostCSS advisory remains                    | Track upstream safe fix                      |
+| Documentation accuracy   | Complete                  | README rewritten; docs updated                                          | Review                                                                                       | Phase 1 limitations explicit                              | Keep docs synced                             |
+| Test adequacy            | Partial                   | Money, schema, drawer, settings, nav, disabled controls                 | Vitest 4 tests; Playwright 12 tests                                                          | Persistence workflows not covered because not implemented | Add tests when workflows are implemented     |
 
 ## Screen Matrix
 
@@ -100,9 +109,7 @@ Current audit result:
 
 ## Remaining Blockers Before CSV Import
 
-- UI account/category/goal/transaction persistence is not implemented.
-- Transaction original and normalized values are not stored in SQLite.
-- Demo UI values are static and not repository-derived.
-- In-app demo reset is disabled until it can avoid future user-data loss.
+- CSV import, mapping, import profiles, duplicate import detection, transfer matching, and source-file safety contracts are not implemented.
+- Budget, recurring, debt payoff, cash-flow forecasting, safe-to-save, report exports, and decision scenarios remain demonstration-only.
 - Moderate Next/PostCSS advisory remains unresolved pending a safe upstream remediation.
 - Date, duration, and all formatted financial display strings are not fully centralized.
