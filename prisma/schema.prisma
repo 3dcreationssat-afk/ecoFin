@@ -24,6 +24,7 @@ model Household {
   transactions          Transaction[]
   importProfiles        ImportProfile[]
   importBatches         ImportBatch[]
+  backupRecords         BackupRecord[]
   auditLogs             AuditLog[]
 }
 
@@ -238,4 +239,27 @@ model AuditLog {
   source          String   @default("user")
   createdAt       DateTime @default(now())
   household       Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+}
+
+model BackupRecord {
+  id                String   @id @default(cuid())
+  householdId       String?
+  filename          String
+  sizeBytes         Int
+  hash              String
+  appVersion        String
+  schemaVersion     String
+  countsJson        String
+  status            String
+  deletedAt         DateTime?
+  isRestoreSource   Boolean  @default(false)
+  isPreRestore      Boolean  @default(false)
+  validationJson    String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  household         Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status])
 }
