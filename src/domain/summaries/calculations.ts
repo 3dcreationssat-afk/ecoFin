@@ -48,7 +48,7 @@ export function goalProgress(goal: GoalSummaryInput) {
 }
 
 export function dataQualityRules(input: {
-  transactions: { categoryId?: string | null; reviewStatus: string }[];
+  transactions: { categoryId?: string | null; reviewStatus: string; type?: string | null }[];
   accounts: {
     lastUpdated: Date;
     type: string;
@@ -59,6 +59,12 @@ export function dataQualityRules(input: {
     linkedAccountId?: string | null;
     targetMinor: number;
     archivedAt?: Date | string | null;
+  }[];
+  importBatches?: {
+    status: string;
+    rejectedRowCount: number;
+    duplicateCandidateCount: number;
+    repeatedFile?: boolean;
   }[];
   asOf: Date;
 }) {
@@ -79,5 +85,36 @@ export function dataQualityRules(input: {
   const incompleteGoals = input.goals.filter(
     (goal) => !goal.archivedAt && (goal.targetMinor <= 0 || !goal.linkedAccountId),
   ).length;
-  return { uncategorized, unreviewed, staleAccounts, missingDebtTerms, incompleteGoals };
+  const importBatches = input.importBatches ?? [];
+  const failedImportBatches = importBatches.filter((batch) => batch.status === "FAILED").length;
+  const partialImportBatches = importBatches.filter(
+    (batch) => batch.status === "PARTIALLY_IMPORTED",
+  ).length;
+  const invalidImportRows = importBatches.reduce(
+    (total, batch) => total + batch.rejectedRowCount,
+    0,
+  );
+  const duplicateImportCandidates = importBatches.reduce(
+    (total, batch) => total + batch.duplicateCandidateCount,
+    0,
+  );
+  const repeatedFileAttempts = importBatches.filter((batch) => batch.repeatedFile).length;
+  const unknownTypeTransactions = input.transactions.filter(
+    (transaction) =>
+      !transaction.type ||
+      !["DEBIT", "CREDIT", "TRANSFER", "PAYMENT", "REFUND"].includes(transaction.type),
+  ).length;
+  return {
+    uncategorized,
+    unreviewed,
+    staleAccounts,
+    missingDebtTerms,
+    incompleteGoals,
+    failedImportBatches,
+    partialImportBatches,
+    invalidImportRows,
+    duplicateImportCandidates,
+    repeatedFileAttempts,
+    unknownTypeTransactions,
+  };
 }

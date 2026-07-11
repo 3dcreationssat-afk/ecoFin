@@ -3,16 +3,17 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { Card, PageHeader, Pill } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { dataQualityRules } from "@/domain/summaries/calculations";
-import { getHousehold } from "@/server/data/repositories";
+import { importDashboard } from "@/server/data/imports";
 
 export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
-  const household = await getHousehold();
+  const { household, batches } = await importDashboard();
   const quality = dataQualityRules({
     transactions: household.transactions,
     accounts: household.accounts,
     goals: household.goals,
+    importBatches: batches,
     asOf: new Date("2026-07-11"),
   });
   const issues = [
@@ -20,15 +21,68 @@ export default async function DataQualityPage() {
       "Uncategorized transactions",
       quality.uncategorized,
       "Spending by category may be incomplete.",
+      "Assign categories from the transaction drawer.",
     ],
-    ["Transactions lacking review", quality.unreviewed, "Review status may affect confidence."],
-    ["Stale accounts", quality.staleAccounts, "Balances may need a manual update."],
+    [
+      "Transactions lacking review",
+      quality.unreviewed,
+      "Review status may affect confidence.",
+      "Review imported or edited rows before relying on summaries.",
+    ],
+    [
+      "Stale accounts",
+      quality.staleAccounts,
+      "Balances may need a manual update.",
+      "Update account balances or import recent transactions.",
+    ],
     [
       "Missing debt APR or minimum",
       quality.missingDebtTerms,
       "Debt payoff estimates remain demonstration-only.",
+      "Add APR and minimum payment details on Accounts.",
     ],
-    ["Incomplete goals", quality.incompleteGoals, "Goal progress may be incomplete."],
+    [
+      "Incomplete goals",
+      quality.incompleteGoals,
+      "Goal progress may be incomplete.",
+      "Link goals to accounts and set targets.",
+    ],
+    [
+      "Failed import batches",
+      quality.failedImportBatches,
+      "Transactions from failed imports were not created.",
+      "Open the import workflow and correct file or mapping errors.",
+    ],
+    [
+      "Partial import batches",
+      quality.partialImportBatches,
+      "Some rows were skipped or invalid.",
+      "Review the batch history and row validation errors.",
+    ],
+    [
+      "Invalid import rows",
+      quality.invalidImportRows,
+      "Invalid rows were not imported.",
+      "Fix date, amount, or required description values and re-import.",
+    ],
+    [
+      "Duplicate import candidates",
+      quality.duplicateImportCandidates,
+      "Potential duplicates require explicit review.",
+      "Skip duplicates or mark rows for later review before confirming.",
+    ],
+    [
+      "Repeated file attempts",
+      quality.repeatedFileAttempts,
+      "Repeated file hashes can create duplicate transactions.",
+      "Use the override only when importing the same file is intentional.",
+    ],
+    [
+      "Transactions with unknown type",
+      quality.unknownTypeTransactions,
+      "Unknown transaction types can distort summaries.",
+      "Set a supported transaction type in the drawer.",
+    ],
   ] as const;
   const issueCount = issues.reduce((total, [, count]) => total + count, 0);
   return (
@@ -56,13 +110,14 @@ export default async function DataQualityPage() {
       <Card className="p-6">
         <h2 className="text-xl font-semibold">Issues Found</h2>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          {issues.map(([title, count, impact]) => (
+          {issues.map(([title, count, impact, action]) => (
             <div key={title} className="rounded-md border border-[var(--border)] p-4">
               <Pill tone={count ? "warn" : "good"}>{count ? "Review" : "Clear"}</Pill>
               <p className="mt-3 font-semibold">
                 {count} {title.toLowerCase()}
               </p>
               <p className="mt-2 text-sm text-[var(--muted)]">{impact}</p>
+              <p className="mt-2 text-sm font-medium">Action: {action}</p>
             </div>
           ))}
         </div>

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, SlidersHorizontal, Upload } from "lucide-react";
+import { CheckCircle2, FileText, Plus, RotateCcw, SlidersHorizontal, Upload } from "lucide-react";
 import { Button, Card, Pill, PlannedControl } from "@/components/data-display/primitives";
 import { formatMoney } from "@/domain/money/money";
 
 type CategoryDto = { id: string; name: string };
+type AccountDto = { id: string; name: string; type: string };
 type TransactionDto = {
   id: string;
   originalDescription: string;
@@ -16,6 +17,9 @@ type TransactionDto = {
   amountMinor: number;
   transactionDate: string;
   postedDate?: string | null;
+  sourceType?: string;
+  sourceFilename?: string | null;
+  sourceRowNumber?: number | null;
   type: string;
   reviewStatus: string;
   excluded: boolean;
@@ -32,19 +36,110 @@ type AuditDto = {
   newValue?: string | null;
   createdAt: string;
 };
+type ProfileDto = {
+  id: string;
+  name: string;
+  delimiter: "," | ";" | "\t";
+  encoding: "UTF-8" | "UTF-8-BOM";
+  hasHeader: boolean;
+  dateColumn: string;
+  postedDateColumn?: string | null;
+  descriptionColumn: string;
+  merchantColumn?: string | null;
+  amountMode: "SIGNED_AMOUNT" | "DEBIT_CREDIT_COLUMNS";
+  amountColumn?: string | null;
+  debitColumn?: string | null;
+  creditColumn?: string | null;
+  dateFormat: DateFormat;
+  decimalSeparator: "." | ",";
+  thousandsSeparator: "," | "." | " " | "";
+  signConvention: "DEBITS_NEGATIVE" | "DEBITS_POSITIVE";
+  currency: string;
+  archivedAt?: string | null;
+};
+type ImportRowDto = {
+  id: string;
+  rowNumber: number;
+  sourceFieldsJson: string;
+  parsedTransactionDate?: string | null;
+  parsedAmountMinor?: number | null;
+  originalDescription?: string | null;
+  duplicateStatus: string;
+  duplicateReason?: string | null;
+  validationStatus: string;
+  validationErrorsJson: string;
+  importDecision: "IMPORT" | "SKIP" | "REVIEW";
+};
+type BatchDto = {
+  id: string;
+  originalFilename: string;
+  status: string;
+  fileSize: number;
+  encoding: string;
+  delimiter: string;
+  repeatedFile: boolean;
+  totalRowCount: number;
+  acceptedRowCount: number;
+  rejectedRowCount: number;
+  duplicateCandidateCount: number;
+  importedTransactionCount: number;
+  summaryJson?: string | null;
+  createdAt: string;
+  account: { name: string };
+  rows: ImportRowDto[];
+};
+type DateFormat =
+  "MM/DD/YYYY" | "M/D/YYYY" | "YYYY-MM-DD" | "DD/MM/YYYY" | "D/M/YYYY" | "MM/DD/YY" | "DD/MM/YY";
+type Mapping = {
+  name?: string;
+  saveProfile: boolean;
+  delimiter: "," | ";" | "\t";
+  encoding: "UTF-8" | "UTF-8-BOM";
+  hasHeader: boolean;
+  dateColumn: string;
+  postedDateColumn?: string | null;
+  descriptionColumn: string;
+  merchantColumn?: string | null;
+  amountMode: "SIGNED_AMOUNT" | "DEBIT_CREDIT_COLUMNS";
+  amountColumn?: string | null;
+  debitColumn?: string | null;
+  creditColumn?: string | null;
+  dateFormat: DateFormat;
+  decimalSeparator: "." | ",";
+  thousandsSeparator: "," | "." | " " | "";
+  signConvention: "DEBITS_NEGATIVE" | "DEBITS_POSITIVE";
+  currency: string;
+};
+
+const dateFormats: DateFormat[] = [
+  "MM/DD/YYYY",
+  "M/D/YYYY",
+  "YYYY-MM-DD",
+  "DD/MM/YYYY",
+  "D/M/YYYY",
+  "MM/DD/YY",
+  "DD/MM/YY",
+];
 
 export function TransactionsClient({
   transactions,
   categories,
+  accounts,
+  profiles,
+  batches,
 }: {
   transactions: TransactionDto[];
   categories: CategoryDto[];
+  accounts: AccountDto[];
+  profiles: ProfileDto[];
+  batches: BatchDto[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<TransactionDto | null>(null);
   const [audit, setAudit] = useState<AuditDto[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState({
     normalizedMerchant: "",
     categoryId: "",
@@ -90,10 +185,20 @@ export function TransactionsClient({
     startTransition(() => router.refresh());
   }
 
+  async function undoBatch(batchId: string) {
+    const response = await fetch(`/api/imports/${batchId}/undo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: "UNDO IMPORT" }),
+    });
+    setStatus(response.ok ? "saved" : "error");
+    startTransition(() => router.refresh());
+  }
+
   return (
     <>
       <div className="mb-4 flex flex-wrap gap-3">
-        <Button variant="secondary" disabled title="CSV import is planned for Phase 2">
+        <Button variant="secondary" onClick={() => setImportOpen(true)}>
           <Upload className="h-4 w-4" /> Import CSV
         </Button>
         <Button disabled title="Manual transaction creation is planned">
@@ -104,201 +209,1040 @@ export function TransactionsClient({
         </PlannedControl>
         {status === "saving" || isPending ? <Pill tone="info">Saving</Pill> : null}
         {status === "saved" ? <Pill tone="good">Saved</Pill> : null}
+        {status === "error" ? <Pill tone="bad">Action failed</Pill> : null}
       </div>
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="border-b border-[var(--border)] text-[var(--muted)]">
-              <tr>
-                {[
-                  "Date",
-                  "Merchant / Original",
-                  "Account",
-                  "Category",
-                  "Amount",
-                  "Status",
-                  "Excluded",
-                ].map((h) => (
-                  <th key={h} className="px-4 py-4 font-semibold">
-                    {h}
+      <ImportHistory batches={batches} onUndo={undoBatch} />
+      <TransactionTable transactions={transactions} open={open} />
+      {importOpen ? (
+        <ImportDialog
+          accounts={accounts}
+          profiles={profiles}
+          onClose={() => setImportOpen(false)}
+          onComplete={() => {
+            setImportOpen(false);
+            startTransition(() => router.refresh());
+          }}
+        />
+      ) : null}
+      {selected ? (
+        <TransactionDrawer
+          selected={selected}
+          form={form}
+          categories={categories}
+          audit={audit}
+          setSelected={setSelected}
+          setForm={setForm}
+          save={save}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ImportHistory({ batches, onUndo }: { batches: BatchDto[]; onUndo: (id: string) => void }) {
+  if (!batches.length) return null;
+  return (
+    <Card className="mb-4 p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <FileText className="h-4 w-4 text-[var(--teal)]" />
+        <h2 className="text-lg font-semibold">Import Batch History</h2>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="text-[var(--muted)]">
+            <tr>
+              {["File", "Account", "Status", "Rows", "Duplicates", "Imported", "Action"].map(
+                (head) => (
+                  <th key={head} className="py-2 pr-4">
+                    {head}
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((transaction) => (
-                <tr
-                  key={transaction.id}
-                  className="border-b border-[var(--border)] hover:bg-[var(--surface-muted)]"
-                >
-                  <td className="px-4 py-3 text-[var(--muted)]">
-                    {new Date(transaction.transactionDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      className="text-left font-semibold"
-                      onClick={() => open(transaction)}
-                    >
-                      {transaction.normalizedMerchant}
-                    </button>
-                    <div className="text-xs text-[var(--muted)]">
-                      {transaction.originalDescription}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[var(--muted)]">{transaction.account.name}</td>
-                  <td className="px-4 py-3">
-                    {transaction.category?.name ?? (
-                      <span className="italic text-[var(--amber)]">Uncategorized</span>
-                    )}
-                  </td>
-                  <td
-                    className={
-                      transaction.amountMinor > 0
-                        ? "px-4 py-3 text-right font-semibold text-[var(--green)]"
-                        : "px-4 py-3 text-right font-semibold"
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {batches.map((batch) => (
+              <tr key={batch.id} className="border-t border-[var(--border)]">
+                <td className="py-3 pr-4">{batch.originalFilename}</td>
+                <td className="py-3 pr-4">{batch.account.name}</td>
+                <td className="py-3 pr-4">
+                  <Pill
+                    tone={
+                      batch.status === "FAILED"
+                        ? "bad"
+                        : batch.status === "UNDONE"
+                          ? "warn"
+                          : "info"
                     }
                   >
-                    {formatMoney(transaction.amountMinor)}
+                    {batch.status}
+                  </Pill>
+                </td>
+                <td className="py-3 pr-4">{batch.totalRowCount}</td>
+                <td className="py-3 pr-4">{batch.duplicateCandidateCount}</td>
+                <td className="py-3 pr-4">{batch.importedTransactionCount}</td>
+                <td className="py-3 pr-4">
+                  {["IMPORTED", "PARTIALLY_IMPORTED"].includes(batch.status) ? (
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1 text-xs font-semibold"
+                      onClick={() => onUndo(batch.id)}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Undo import
+                    </button>
+                  ) : (
+                    <span className="text-[var(--muted)]">No action</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function ImportDialog({
+  accounts,
+  profiles,
+  onClose,
+  onComplete,
+}: {
+  accounts: AccountDto[];
+  profiles: ProfileDto[];
+  onClose: () => void;
+  onComplete: () => void;
+}) {
+  const firstAccount = accounts[0]?.id ?? "";
+  const [step, setStep] = useState(1);
+  const [accountId, setAccountId] = useState(firstAccount);
+  const [profileId, setProfileId] = useState("");
+  const [file, setFile] = useState<{ name: string; size: number; content: string } | null>(null);
+  const [batch, setBatch] = useState<BatchDto | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [allowRepeated, setAllowRepeated] = useState(false);
+  const [decisions, setDecisions] = useState<Record<string, "IMPORT" | "SKIP" | "REVIEW">>({});
+  const [mapping, setMapping] = useState<Mapping>({
+    saveProfile: false,
+    delimiter: ",",
+    encoding: "UTF-8",
+    hasHeader: true,
+    dateColumn: "",
+    postedDateColumn: "",
+    descriptionColumn: "",
+    merchantColumn: "",
+    amountMode: "SIGNED_AMOUNT",
+    amountColumn: "",
+    debitColumn: "",
+    creditColumn: "",
+    dateFormat: "MM/DD/YYYY",
+    decimalSeparator: ".",
+    thousandsSeparator: ",",
+    signConvention: "DEBITS_NEGATIVE",
+    currency: "USD",
+  });
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const summary = useMemo(() => parseSummary(batch), [batch]);
+  const headers = summary.headers ?? [];
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [step]);
+
+  function applyProfile(id: string) {
+    setProfileId(id);
+    const profile = profiles.find((item) => item.id === id);
+    if (!profile) return;
+    setMapping({
+      name: profile.name,
+      saveProfile: false,
+      delimiter: profile.delimiter,
+      encoding: profile.encoding,
+      hasHeader: profile.hasHeader,
+      dateColumn: profile.dateColumn,
+      postedDateColumn: profile.postedDateColumn ?? "",
+      descriptionColumn: profile.descriptionColumn,
+      merchantColumn: profile.merchantColumn ?? "",
+      amountMode: profile.amountMode,
+      amountColumn: profile.amountColumn ?? "",
+      debitColumn: profile.debitColumn ?? "",
+      creditColumn: profile.creditColumn ?? "",
+      dateFormat: profile.dateFormat,
+      decimalSeparator: profile.decimalSeparator,
+      thousandsSeparator: profile.thousandsSeparator,
+      signConvention: profile.signConvention,
+      currency: profile.currency,
+    });
+  }
+
+  async function onFile(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    if (!selected) return;
+    setError("");
+    if (!selected.name.toLowerCase().endsWith(".csv")) {
+      setError("Only .csv files are supported.");
+      return;
+    }
+    const content = await selected.text();
+    setFile({ name: selected.name, size: selected.size, content });
+  }
+
+  async function preview() {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    const response = await postJson("/api/imports/preview", {
+      accountId,
+      filename: file.name,
+      fileSize: file.size,
+      content: file.content,
+      delimiter: mapping.delimiter,
+      encoding: mapping.encoding,
+      hasHeader: mapping.hasHeader,
+      profileId: profileId || null,
+    });
+    setBusy(false);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setBatch(response.batch);
+    const nextHeaders = parseSummary(response.batch).headers ?? [];
+    setMapping((current) => ({
+      ...current,
+      dateColumn: current.dateColumn || findHeader(nextHeaders, ["date", "transaction date"]),
+      postedDateColumn:
+        current.postedDateColumn || findHeader(nextHeaders, ["posted", "post date"]),
+      descriptionColumn:
+        current.descriptionColumn || findHeader(nextHeaders, ["description", "memo", "details"]),
+      merchantColumn: current.merchantColumn || findHeader(nextHeaders, ["merchant", "payee"]),
+      amountColumn: current.amountColumn || findHeader(nextHeaders, ["amount"]),
+      debitColumn: current.debitColumn || findHeader(nextHeaders, ["debit", "withdrawal"]),
+      creditColumn: current.creditColumn || findHeader(nextHeaders, ["credit", "deposit"]),
+    }));
+    setStep(3);
+  }
+
+  async function validate() {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    const response = await postJson("/api/imports/validate", {
+      batchId: batch?.id,
+      accountId,
+      filename: file.name,
+      fileSize: file.size,
+      content: file.content,
+      delimiter: mapping.delimiter,
+      encoding: mapping.encoding,
+      hasHeader: mapping.hasHeader,
+      profileId: profileId || null,
+      mapping,
+    });
+    setBusy(false);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setBatch(response.batch);
+    const initial: Record<string, "IMPORT" | "SKIP" | "REVIEW"> = {};
+    response.batch.rows.forEach((row: ImportRowDto) => {
+      initial[row.id] = row.importDecision;
+    });
+    setDecisions(initial);
+    setStep(6);
+  }
+
+  async function confirm() {
+    if (!batch) return;
+    setBusy(true);
+    setError("");
+    const response = await postJson("/api/imports/confirm", {
+      batchId: batch.id,
+      decisions: Object.entries(decisions).map(([rowId, decision]) => ({ rowId, decision })),
+      allowRepeatedFile: allowRepeated,
+      confirm: "IMPORT CSV",
+    });
+    setBusy(false);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setBatch(response.batch);
+    setStep(9);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 p-3 sm:p-6" onClick={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-title"
+        className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-lg bg-[var(--surface)] shadow-[var(--shadow)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-5">
+          <div>
+            <h2 id="import-title" ref={headingRef} tabIndex={-1} className="text-2xl font-semibold">
+              CSV Transaction Import
+            </h2>
+            <p className="text-sm text-[var(--muted)]">
+              Preview, map, validate, and confirm before transactions are written.
+            </p>
+          </div>
+          <button
+            className="rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+        <ol className="grid grid-cols-3 gap-2 border-b border-[var(--border)] p-4 text-xs font-semibold md:grid-cols-9">
+          {[
+            "Account",
+            "File",
+            "Preview",
+            "Mapping",
+            "Parsing",
+            "Review",
+            "Confirm",
+            "Import",
+            "Summary",
+          ].map((label, index) => (
+            <li
+              key={label}
+              aria-current={step === index + 1 ? "step" : undefined}
+              className={`rounded-md px-2 py-2 ${step >= index + 1 ? "bg-[var(--teal)] text-white" : "bg-[var(--surface-muted)] text-[var(--muted)]"}`}
+            >
+              {index + 1}. {label}
+            </li>
+          ))}
+        </ol>
+        {error ? (
+          <div
+            role="alert"
+            className="mx-5 mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
+            {error}
+          </div>
+        ) : null}
+        <div className="flex-1 overflow-y-auto p-5">
+          {step <= 2 ? (
+            <div className="grid gap-5 lg:grid-cols-2">
+              <Card className="p-5">
+                <h3 className="mb-4 text-lg font-semibold">1. Select Account</h3>
+                <label className="block text-sm text-[var(--muted)]">
+                  Destination account
+                  <select
+                    className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+                    value={accountId}
+                    onChange={(event) => setAccountId(event.target.value)}
+                  >
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="mt-4 block text-sm text-[var(--muted)]">
+                  Reusable profile
+                  <select
+                    className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+                    value={profileId}
+                    onChange={(event) => applyProfile(event.target.value)}
+                  >
+                    <option value="">No profile</option>
+                    {profiles
+                      .filter((profile) => !profile.archivedAt)
+                      .map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </Card>
+              <Card className="p-5">
+                <h3 className="mb-4 text-lg font-semibold">2. Select File</h3>
+                <label
+                  className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[var(--teal)] p-5 text-center focus-within:ring-2 focus-within:ring-[var(--teal)]"
+                  tabIndex={0}
+                >
+                  <Upload className="mb-3 h-7 w-7 text-[var(--teal)]" />
+                  <span className="font-semibold">{file ? file.name : "Choose synthetic CSV"}</span>
+                  <span className="text-sm text-[var(--muted)]">
+                    {file
+                      ? `${Math.round(file.size / 1024)} KB selected`
+                      : "UTF-8 CSV up to 512 KB"}
+                  </span>
+                  <input className="sr-only" type="file" accept=".csv,text/csv" onChange={onFile} />
+                </label>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <Select
+                    label="Delimiter"
+                    value={mapping.delimiter}
+                    values={[",", ";", "\t"]}
+                    onChange={(delimiter) => setMapping({ ...mapping, delimiter })}
+                  />
+                  <Select
+                    label="Encoding"
+                    value={mapping.encoding}
+                    values={["UTF-8", "UTF-8-BOM"]}
+                    onChange={(encoding) => setMapping({ ...mapping, encoding })}
+                  />
+                  <label className="flex items-end gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={mapping.hasHeader}
+                      onChange={(event) =>
+                        setMapping({ ...mapping, hasHeader: event.target.checked })
+                      }
+                    />
+                    Header row
+                  </label>
+                </div>
+                <div className="mt-5">
+                  <Button onClick={preview} disabled={!file || !accountId || busy}>
+                    Preview CSV
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          ) : null}
+          {step >= 3 && step <= 5 ? (
+            <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+              <PreviewTable batch={batch} />
+              <Card className="p-5">
+                <h3 className="mb-4 text-lg font-semibold">Mapping And Parsing</h3>
+                <div className="grid gap-3">
+                  <ColumnSelect
+                    label="Date column"
+                    value={mapping.dateColumn}
+                    headers={headers}
+                    onChange={(dateColumn) => setMapping({ ...mapping, dateColumn })}
+                  />
+                  <ColumnSelect
+                    label="Posted date column"
+                    value={mapping.postedDateColumn ?? ""}
+                    headers={headers}
+                    optional
+                    onChange={(postedDateColumn) => setMapping({ ...mapping, postedDateColumn })}
+                  />
+                  <ColumnSelect
+                    label="Description column"
+                    value={mapping.descriptionColumn}
+                    headers={headers}
+                    onChange={(descriptionColumn) => setMapping({ ...mapping, descriptionColumn })}
+                  />
+                  <ColumnSelect
+                    label="Merchant column"
+                    value={mapping.merchantColumn ?? ""}
+                    headers={headers}
+                    optional
+                    onChange={(merchantColumn) => setMapping({ ...mapping, merchantColumn })}
+                  />
+                  <Select
+                    label="Amount mode"
+                    value={mapping.amountMode}
+                    values={["SIGNED_AMOUNT", "DEBIT_CREDIT_COLUMNS"]}
+                    onChange={(amountMode) => setMapping({ ...mapping, amountMode })}
+                  />
+                  {mapping.amountMode === "SIGNED_AMOUNT" ? (
+                    <ColumnSelect
+                      label="Amount column"
+                      value={mapping.amountColumn ?? ""}
+                      headers={headers}
+                      onChange={(amountColumn) => setMapping({ ...mapping, amountColumn })}
+                    />
+                  ) : (
+                    <>
+                      <ColumnSelect
+                        label="Debit column"
+                        value={mapping.debitColumn ?? ""}
+                        headers={headers}
+                        onChange={(debitColumn) => setMapping({ ...mapping, debitColumn })}
+                      />
+                      <ColumnSelect
+                        label="Credit column"
+                        value={mapping.creditColumn ?? ""}
+                        headers={headers}
+                        onChange={(creditColumn) => setMapping({ ...mapping, creditColumn })}
+                      />
+                    </>
+                  )}
+                  <Select
+                    label="Date format"
+                    value={mapping.dateFormat}
+                    values={dateFormats}
+                    onChange={(dateFormat) => setMapping({ ...mapping, dateFormat })}
+                  />
+                  <Select
+                    label="Decimal separator"
+                    value={mapping.decimalSeparator}
+                    values={[".", ","]}
+                    onChange={(decimalSeparator) => setMapping({ ...mapping, decimalSeparator })}
+                  />
+                  <Select
+                    label="Thousands separator"
+                    value={mapping.thousandsSeparator}
+                    values={[",", ".", " ", ""]}
+                    onChange={(thousandsSeparator) =>
+                      setMapping({ ...mapping, thousandsSeparator })
+                    }
+                  />
+                  <Select
+                    label="Sign convention"
+                    value={mapping.signConvention}
+                    values={["DEBITS_NEGATIVE", "DEBITS_POSITIVE"]}
+                    onChange={(signConvention) => setMapping({ ...mapping, signConvention })}
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={mapping.saveProfile}
+                      onChange={(event) =>
+                        setMapping({ ...mapping, saveProfile: event.target.checked })
+                      }
+                    />
+                    Save reusable profile
+                  </label>
+                  {mapping.saveProfile ? (
+                    <input
+                      aria-label="Profile name"
+                      className="h-10 rounded-md border border-[var(--border)] px-3"
+                      value={mapping.name ?? ""}
+                      onChange={(event) => setMapping({ ...mapping, name: event.target.value })}
+                      placeholder="Profile name"
+                    />
+                  ) : null}
+                </div>
+                <div className="mt-5">
+                  <Button onClick={validate} disabled={busy}>
+                    Validate rows
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          ) : null}
+          {step >= 6 && step <= 8 ? (
+            <div className="space-y-5">
+              <ValidationSummary batch={batch} />
+              {batch?.repeatedFile ? (
+                <div
+                  role="alert"
+                  className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                >
+                  This file hash was already imported for this account. Import is blocked by
+                  default.
+                  <label className="mt-2 flex items-center gap-2">
+                    <input
+                      checked={allowRepeated}
+                      onChange={(event) => setAllowRepeated(event.target.checked)}
+                      type="checkbox"
+                    />
+                    I understand and want to override the repeated-file block.
+                  </label>
+                </div>
+              ) : null}
+              <ReviewRows batch={batch} decisions={decisions} setDecisions={setDecisions} />
+              <Button onClick={confirm} disabled={busy || (batch?.repeatedFile && !allowRepeated)}>
+                Confirm import
+              </Button>
+            </div>
+          ) : null}
+          {step === 9 && batch ? (
+            <Card className="p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <CheckCircle2 className="h-8 w-8 text-[var(--green)]" />
+                <h3 className="text-2xl font-semibold">Import Summary</h3>
+              </div>
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <SummaryLine label="Imported" value={String(batch.importedTransactionCount)} />
+                <SummaryLine
+                  label="Skipped"
+                  value={String(batch.totalRowCount - batch.importedTransactionCount)}
+                />
+                <SummaryLine label="Invalid" value={String(batch.rejectedRowCount)} />
+                <SummaryLine
+                  label="Duplicate candidates"
+                  value={String(batch.duplicateCandidateCount)}
+                />
+                <SummaryLine label="Account" value={batch.account.name} />
+                <SummaryLine label="Batch" value={batch.originalFilename} />
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button onClick={onComplete}>View imported transactions</Button>
+                {["IMPORTED", "PARTIALLY_IMPORTED"].includes(batch.status) ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      postJson(`/api/imports/${batch.id}/undo`, { confirm: "UNDO IMPORT" }).then(
+                        onComplete,
+                      )
+                    }
+                  >
+                    Undo import
+                  </Button>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TransactionTable({
+  transactions,
+  open,
+}: {
+  transactions: TransactionDto[];
+  open: (transaction: TransactionDto) => void;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[980px] text-left text-sm">
+          <thead className="border-b border-[var(--border)] text-[var(--muted)]">
+            <tr>
+              {[
+                "Date",
+                "Merchant / Original",
+                "Account",
+                "Category",
+                "Amount",
+                "Status",
+                "Source",
+              ].map((h) => (
+                <th key={h} className="px-4 py-4 font-semibold">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((transaction) => (
+              <tr
+                key={transaction.id}
+                className="border-b border-[var(--border)] hover:bg-[var(--surface-muted)]"
+              >
+                <td className="px-4 py-3 text-[var(--muted)]">
+                  {new Date(transaction.transactionDate).toLocaleDateString()}
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    className="text-left font-semibold"
+                    onClick={() => open(transaction)}
+                  >
+                    {transaction.normalizedMerchant}
+                  </button>
+                  <div className="text-xs text-[var(--muted)]">
+                    {transaction.originalDescription}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-[var(--muted)]">{transaction.account.name}</td>
+                <td className="px-4 py-3">
+                  {transaction.category?.name ?? (
+                    <span className="italic text-[var(--amber)]">Uncategorized</span>
+                  )}
+                </td>
+                <td
+                  className={
+                    transaction.amountMinor > 0
+                      ? "px-4 py-3 text-right font-semibold text-[var(--green)]"
+                      : "px-4 py-3 text-right font-semibold"
+                  }
+                >
+                  {formatMoney(transaction.amountMinor)}
+                </td>
+                <td className="px-4 py-3">
+                  <Pill
+                    tone={
+                      transaction.reviewStatus === "REVIEWED"
+                        ? "good"
+                        : transaction.reviewStatus === "FLAGGED"
+                          ? "bad"
+                          : "warn"
+                    }
+                  >
+                    {transaction.reviewStatus}
+                  </Pill>
+                </td>
+                <td className="px-4 py-3 text-[var(--muted)]">
+                  {transaction.sourceType ?? "MANUAL"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function PreviewTable({ batch }: { batch: BatchDto | null }) {
+  const summary = parseSummary(batch);
+  const headers = summary.headers ?? [];
+  const rows = summary.sampleRows ?? [];
+  return (
+    <Card className="overflow-hidden">
+      <div className="border-b border-[var(--border)] p-5">
+        <h3 className="text-lg font-semibold">CSV Preview</h3>
+        <p className="text-sm text-[var(--muted)]">
+          {batch
+            ? `${batch.originalFilename} · ${batch.totalRowCount} rows · ${batch.encoding} · delimiter ${displayDelimiter(batch.delimiter)}`
+            : "No preview yet"}
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead>
+            <tr>
+              {headers.map((header: string) => (
+                <th key={header} className="px-4 py-3">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row: string[], index: number) => (
+              <tr key={index} className="border-t border-[var(--border)]">
+                {row.map((cell, cellIndex) => (
+                  <td key={`${index}-${cellIndex}`} className="px-4 py-3">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function ValidationSummary({ batch }: { batch: BatchDto | null }) {
+  if (!batch) return null;
+  return (
+    <Card className="grid gap-3 p-5 sm:grid-cols-4">
+      <SummaryLine label="Accepted" value={String(batch.acceptedRowCount)} />
+      <SummaryLine label="Rejected" value={String(batch.rejectedRowCount)} />
+      <SummaryLine label="Duplicate candidates" value={String(batch.duplicateCandidateCount)} />
+      <SummaryLine label="Rows" value={String(batch.totalRowCount)} />
+    </Card>
+  );
+}
+
+function ReviewRows({
+  batch,
+  decisions,
+  setDecisions,
+}: {
+  batch: BatchDto | null;
+  decisions: Record<string, "IMPORT" | "SKIP" | "REVIEW">;
+  setDecisions: (value: Record<string, "IMPORT" | "SKIP" | "REVIEW">) => void;
+}) {
+  if (!batch) return null;
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[920px] text-left text-sm">
+          <thead className="text-[var(--muted)]">
+            <tr>
+              {["Row", "Description", "Amount", "Validation", "Duplicate", "Decision"].map(
+                (head) => (
+                  <th key={head} className="px-4 py-3">
+                    {head}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {batch.rows.map((row) => {
+              const errors = parseErrors(row);
+              return (
+                <tr key={row.id} className="border-t border-[var(--border)]">
+                  <td className="px-4 py-3">{row.rowNumber}</td>
+                  <td className="px-4 py-3">{row.originalDescription ?? "-"}</td>
+                  <td className="px-4 py-3">
+                    {row.parsedAmountMinor == null ? "-" : formatMoney(row.parsedAmountMinor)}
                   </td>
                   <td className="px-4 py-3">
                     <Pill
                       tone={
-                        transaction.reviewStatus === "REVIEWED"
-                          ? "good"
-                          : transaction.reviewStatus === "FLAGGED"
-                            ? "bad"
-                            : "warn"
+                        row.validationStatus === "INVALID"
+                          ? "bad"
+                          : row.validationStatus === "WARNING"
+                            ? "warn"
+                            : "good"
                       }
                     >
-                      {transaction.reviewStatus}
+                      {row.validationStatus}
                     </Pill>
+                    {errors.length ? (
+                      <div className="mt-1 text-xs text-[var(--muted)]">{errors.join("; ")}</div>
+                    ) : null}
                   </td>
-                  <td className="px-4 py-3">{transaction.excluded ? "Yes" : "No"}</td>
+                  <td className="px-4 py-3">
+                    {row.duplicateStatus === "NONE"
+                      ? "None"
+                      : `${row.duplicateStatus}: ${row.duplicateReason ?? ""}`}
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      aria-label={`Decision for row ${row.rowNumber}`}
+                      className="h-9 rounded-md border border-[var(--border)] px-2"
+                      disabled={row.validationStatus === "INVALID"}
+                      value={decisions[row.id] ?? row.importDecision}
+                      onChange={(event) =>
+                        setDecisions({
+                          ...decisions,
+                          [row.id]: event.target.value as "IMPORT" | "SKIP" | "REVIEW",
+                        })
+                      }
+                    >
+                      <option>IMPORT</option>
+                      <option>SKIP</option>
+                      <option>REVIEW</option>
+                    </select>
+                  </td>
                 </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function TransactionDrawer({
+  selected,
+  form,
+  categories,
+  audit,
+  setSelected,
+  setForm,
+  save,
+}: {
+  selected: TransactionDto;
+  form: {
+    normalizedMerchant: string;
+    categoryId: string;
+    type: string;
+    reviewStatus: string;
+    excluded: boolean;
+    notes: string;
+  };
+  categories: CategoryDto[];
+  audit: AuditDto[];
+  setSelected: (value: TransactionDto | null) => void;
+  setForm: (value: {
+    normalizedMerchant: string;
+    categoryId: string;
+    type: string;
+    reviewStatus: string;
+    excluded: boolean;
+    notes: string;
+  }) => void;
+  save: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setSelected(null)}>
+      <aside
+        data-testid="transaction-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transaction-drawer-title"
+        className="ml-auto h-full w-full max-w-[560px] overflow-y-auto bg-[var(--surface)] p-8"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          aria-label="Close transaction drawer"
+          className="float-right rounded-full border border-[var(--teal)] px-3 py-1 text-[var(--teal)]"
+          onClick={() => setSelected(null)}
+        >
+          x
+        </button>
+        <h2 id="transaction-drawer-title" className="text-2xl font-semibold">
+          {selected.normalizedMerchant}
+        </h2>
+        <p className="mt-2 text-[var(--muted)]">
+          Original imported values are immutable through this editor.
+        </p>
+        <div className="my-8 flex justify-between border-b border-[var(--border)] pb-6">
+          <span className="text-[var(--muted)]">Parsed amount</span>
+          <strong className="text-3xl">{formatMoney(selected.amountMinor)}</strong>
+        </div>
+        <Section
+          title="Imported Data"
+          rows={[
+            ["Original description", selected.originalDescription],
+            ["Original amount", selected.originalAmountText],
+            ["Original date", selected.originalDateText],
+            [
+              "Source",
+              `${selected.sourceType ?? "MANUAL"}${selected.sourceRowNumber ? ` row ${selected.sourceRowNumber}` : ""}`,
+            ],
+          ]}
+        />
+        <div className="mt-8 space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+            Editable Normalized Values
+          </h3>
+          <Field
+            label="Merchant"
+            value={form.normalizedMerchant}
+            onChange={(normalizedMerchant) => setForm({ ...form, normalizedMerchant })}
+          />
+          <label className="block text-sm text-[var(--muted)]">
+            Category
+            <select
+              className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+              value={form.categoryId}
+              onChange={(event) => setForm({ ...form, categoryId: event.target.value })}
+            >
+              <option value="">Uncategorized</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-      {selected ? (
-        <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setSelected(null)}>
-          <aside
-            data-testid="transaction-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="transaction-drawer-title"
-            className="ml-auto h-full w-full max-w-[560px] overflow-y-auto bg-[var(--surface)] p-8"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              aria-label="Close transaction drawer"
-              className="float-right rounded-full border border-[var(--teal)] px-3 py-1 text-[var(--teal)]"
-              onClick={() => setSelected(null)}
+            </select>
+          </label>
+          <label className="block text-sm text-[var(--muted)]">
+            Transaction type
+            <select
+              className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+              value={form.type}
+              onChange={(event) => setForm({ ...form, type: event.target.value })}
             >
-              x
-            </button>
-            <h2 id="transaction-drawer-title" className="text-2xl font-semibold">
-              {selected.normalizedMerchant}
-            </h2>
-            <p className="mt-2 text-[var(--muted)]">
-              Original imported values are immutable through this editor.
-            </p>
-            <div className="my-8 flex justify-between border-b border-[var(--border)] pb-6">
-              <span className="text-[var(--muted)]">Parsed amount</span>
-              <strong className="text-3xl">{formatMoney(selected.amountMinor)}</strong>
-            </div>
-            <Section
-              title="Imported Data"
-              rows={[
-                ["Original description", selected.originalDescription],
-                ["Original amount", selected.originalAmountText],
-                ["Original date", selected.originalDateText],
-              ]}
-            />
-            <div className="mt-8 space-y-4">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-                Editable Normalized Values
-              </h3>
-              <Field
-                label="Merchant"
-                value={form.normalizedMerchant}
-                onChange={(normalizedMerchant) => setForm({ ...form, normalizedMerchant })}
-              />
-              <label className="block text-sm text-[var(--muted)]">
-                Category
-                <select
-                  className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
-                  value={form.categoryId}
-                  onChange={(event) => setForm({ ...form, categoryId: event.target.value })}
-                >
-                  <option value="">Uncategorized</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm text-[var(--muted)]">
-                Transaction type
-                <select
-                  className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
-                  value={form.type}
-                  onChange={(event) => setForm({ ...form, type: event.target.value })}
-                >
-                  {["DEBIT", "CREDIT", "TRANSFER", "PAYMENT", "REFUND"].map((type) => (
-                    <option key={type}>{type}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm text-[var(--muted)]">
-                Review status
-                <select
-                  className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
-                  value={form.reviewStatus}
-                  onChange={(event) => setForm({ ...form, reviewStatus: event.target.value })}
-                >
-                  {["NEEDS_REVIEW", "REVIEWED", "FLAGGED"].map((status) => (
-                    <option key={status}>{status}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.excluded}
-                  onChange={(event) => setForm({ ...form, excluded: event.target.checked })}
-                />{" "}
-                Exclude from summaries
-              </label>
-              <Field
-                label="Notes"
-                value={form.notes}
-                onChange={(notes) => setForm({ ...form, notes })}
-              />
-            </div>
-            <button
-              className="mt-6 h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white"
-              onClick={save}
+              {["DEBIT", "CREDIT", "TRANSFER", "PAYMENT", "REFUND"].map((type) => (
+                <option key={type}>{type}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm text-[var(--muted)]">
+            Review status
+            <select
+              className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+              value={form.reviewStatus}
+              onChange={(event) => setForm({ ...form, reviewStatus: event.target.value })}
             >
-              Save transaction
-            </button>
-            <Section
-              title="Audit History"
-              rows={
-                audit.length
-                  ? audit.map((entry) => [
-                      entry.field ?? entry.action,
-                      `${entry.previousValue ?? "-"} -> ${entry.newValue ?? "-"} (${new Date(entry.createdAt).toLocaleString()})`,
-                    ])
-                  : [["No manual changes", "No audit records yet"]]
-              }
-            />
-          </aside>
+              {["NEEDS_REVIEW", "REVIEWED", "FLAGGED"].map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.excluded}
+              onChange={(event) => setForm({ ...form, excluded: event.target.checked })}
+            />{" "}
+            Exclude from summaries
+          </label>
+          <Field
+            label="Notes"
+            value={form.notes}
+            onChange={(notes) => setForm({ ...form, notes })}
+          />
         </div>
-      ) : null}
-    </>
+        <button
+          className="mt-6 h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white"
+          onClick={save}
+        >
+          Save transaction
+        </button>
+        <Section
+          title="Audit History"
+          rows={
+            audit.length
+              ? audit.map((entry) => [
+                  entry.field ?? entry.action,
+                  `${entry.previousValue ?? "-"} -> ${entry.newValue ?? "-"} (${new Date(entry.createdAt).toLocaleString()})`,
+                ])
+              : [["No manual changes", "No audit records yet"]]
+          }
+        />
+      </aside>
+    </div>
+  );
+}
+
+function Select<T extends string>({
+  label,
+  value,
+  values,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  values: readonly T[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <label className="block text-sm text-[var(--muted)]">
+      {label}
+      <select
+        className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+      >
+        {values.map((item) => (
+          <option key={item || "blank"} value={item}>
+            {item || "None"}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ColumnSelect({
+  label,
+  value,
+  headers,
+  optional,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  headers: string[];
+  optional?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-sm text-[var(--muted)]">
+      {label}
+      <select
+        className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {optional ? <option value="">None</option> : <option value="">Choose column</option>}
+        {headers.map((header) => (
+          <option key={header} value={header}>
+            {header}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SummaryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase text-[var(--muted)]">{label}</div>
+      <div className="mt-1 text-lg font-semibold">{value}</div>
+    </div>
   );
 }
 
@@ -338,5 +1282,46 @@ function Section({ title, rows }: { title: string; rows: string[][] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+async function postJson(url: string, body: unknown) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await response.json().catch(() => ({}));
+  return response.ok
+    ? { ok: true, ...json }
+    : { ok: false, error: json.error ?? "Request failed." };
+}
+
+function parseSummary(batch: BatchDto | null): { headers?: string[]; sampleRows?: string[][] } {
+  if (!batch?.summaryJson) return {};
+  try {
+    return JSON.parse(batch.summaryJson);
+  } catch {
+    return {};
+  }
+}
+
+function parseErrors(row: ImportRowDto) {
+  try {
+    return JSON.parse(row.validationErrorsJson) as string[];
+  } catch {
+    return [];
+  }
+}
+
+function displayDelimiter(delimiter: string) {
+  return delimiter === "\t" ? "tab" : delimiter;
+}
+
+function findHeader(headers: string[], candidates: string[]) {
+  return (
+    headers.find((header) =>
+      candidates.some((candidate) => header.toLowerCase().includes(candidate)),
+    ) ?? ""
   );
 }

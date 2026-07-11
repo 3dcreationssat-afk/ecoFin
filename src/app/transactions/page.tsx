@@ -1,13 +1,13 @@
 import { AppShell } from "@/components/app-shell/app-shell";
 import { PageHeader } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
-import { getHousehold } from "@/server/data/repositories";
+import { importDashboard } from "@/server/data/imports";
 import { TransactionsClient } from "./transactions-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function TransactionsPage() {
-  const household = await getHousehold();
+  const { household, accounts, categories, profiles, batches } = await importDashboard();
   return (
     <AppShell>
       <PageHeader
@@ -16,9 +16,10 @@ export default async function TransactionsPage() {
       />
       <TransactionsClient
         transactions={JSON.parse(JSON.stringify(household.transactions))}
-        categories={JSON.parse(
-          JSON.stringify(household.categories.filter((category) => !category.archivedAt)),
-        )}
+        categories={JSON.parse(JSON.stringify(categories))}
+        accounts={JSON.parse(JSON.stringify(accounts))}
+        profiles={JSON.parse(JSON.stringify(profiles))}
+        batches={JSON.parse(JSON.stringify(batches))}
       />
     </AppShell>
   );
