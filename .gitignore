@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+build/
+
+# local env and data
+.env
+.env*.local
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backups/
+exports/
+imports/
+*.csv
+*.ofx
+*.qfx
+*.qbo
+*.pdf
+
+# test output
+coverage/
+playwright-report/
+test-results/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
