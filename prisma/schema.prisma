@@ -22,6 +22,8 @@ model Household {
   categories            Category[]
   goals                 Goal[]
   transactions          Transaction[]
+  importProfiles        ImportProfile[]
+  importBatches         ImportBatch[]
   auditLogs             AuditLog[]
 }
 
@@ -48,6 +50,7 @@ model Account {
   household           Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   goals               Goal[]
   transactions        Transaction[]
+  importBatches       ImportBatch[]
 }
 
 model Category {
@@ -107,6 +110,12 @@ model Transaction {
   householdId           String
   accountId             String
   categoryId            String?
+  importBatchId         String?
+  importRowId           String?  @unique
+  sourceType            String   @default("MANUAL")
+  sourceFilename        String?
+  sourceAccountName     String?
+  sourceRowNumber       Int?
   originalDescription   String
   originalAmountText    String
   originalDateText      String
@@ -125,6 +134,95 @@ model Transaction {
   household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   account               Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
   category              Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  importBatch           ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+}
+
+model ImportProfile {
+  id                   String   @id @default(cuid())
+  householdId          String
+  name                 String
+  institutionName      String?
+  accountType          String?
+  delimiter            String
+  encoding             String
+  hasHeader            Boolean  @default(true)
+  dateColumn           String
+  postedDateColumn     String?
+  descriptionColumn    String
+  merchantColumn       String?
+  amountMode           String
+  amountColumn         String?
+  debitColumn          String?
+  creditColumn         String?
+  dateFormat           String
+  decimalSeparator     String   @default(".")
+  thousandsSeparator   String   @default(",")
+  signConvention       String   @default("DEBITS_NEGATIVE")
+  currency             String   @default("USD")
+  archivedAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  household            Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  importBatches        ImportBatch[]
+
+  @@index([householdId, archivedAt])
+}
+
+model ImportBatch {
+  id                       String   @id @default(cuid())
+  householdId              String
+  accountId                String
+  sourceType               String
+  originalFilename         String
+  fileHash                 String
+  fileSize                 Int
+  encoding                 String
+  delimiter                String
+  importProfileId          String?
+  status                   String
+  startedAt                DateTime @default(now())
+  completedAt              DateTime?
+  totalRowCount            Int      @default(0)
+  acceptedRowCount         Int      @default(0)
+  rejectedRowCount         Int      @default(0)
+  duplicateCandidateCount  Int      @default(0)
+  importedTransactionCount Int      @default(0)
+  repeatedFile             Boolean  @default(false)
+  summaryJson              String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  household                Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account                  Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  importProfile            ImportProfile? @relation(fields: [importProfileId], references: [id], onDelete: SetNull)
+  rows                     ImportRow[]
+  transactions             Transaction[]
+
+  @@index([householdId, createdAt])
+  @@index([fileHash])
+}
+
+model ImportRow {
+  id                     String   @id @default(cuid())
+  importBatchId          String
+  rowNumber              Int
+  sourceFieldsJson       String
+  parsedTransactionDate  DateTime?
+  parsedPostedDate       DateTime?
+  originalDescription    String?
+  originalAmountText     String?
+  parsedAmountMinor      Int?
+  currency               String   @default("USD")
+  suggestedCategory      String?
+  duplicateStatus        String   @default("NONE")
+  duplicateReason        String?
+  validationStatus       String
+  validationErrorsJson   String
+  importDecision         String
+  createdTransactionId   String?
+  createdAt              DateTime @default(now())
+  importBatch            ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([importBatchId, rowNumber])
 }
 
 model AuditLog {

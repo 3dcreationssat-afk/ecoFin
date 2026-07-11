@@ -4,7 +4,10 @@ export async function seedDemoData(source = "seed") {
   const prisma = new PrismaClient();
   try {
     await prisma.auditLog.deleteMany();
+    await prisma.importRow.deleteMany();
     await prisma.transaction.deleteMany();
+    await prisma.importBatch.deleteMany();
+    await prisma.importProfile.deleteMany();
     await prisma.goalContribution.deleteMany();
     await prisma.goal.deleteMany();
     await prisma.category.deleteMany();
