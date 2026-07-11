@@ -37,19 +37,18 @@ export const importProfileBaseSchema = z.object({
   currency: z.string().min(3).max(3).default("USD"),
 });
 
-export const importProfileSchema = importProfileBaseSchema
-  .superRefine((data, ctx) => {
-    if (data.amountMode === "SIGNED_AMOUNT" && !data.amountColumn) {
-      ctx.addIssue({ code: "custom", path: ["amountColumn"], message: "Amount column required." });
-    }
-    if (data.amountMode === "DEBIT_CREDIT_COLUMNS" && (!data.debitColumn || !data.creditColumn)) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["debitColumn"],
-        message: "Debit and credit columns required.",
-      });
-    }
-  });
+export const importProfileSchema = importProfileBaseSchema.superRefine((data, ctx) => {
+  if (data.amountMode === "SIGNED_AMOUNT" && !data.amountColumn) {
+    ctx.addIssue({ code: "custom", path: ["amountColumn"], message: "Amount column required." });
+  }
+  if (data.amountMode === "DEBIT_CREDIT_COLUMNS" && (!data.debitColumn || !data.creditColumn)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["debitColumn"],
+      message: "Debit and credit columns required.",
+    });
+  }
+});
 
 export const importProfileUpdateSchema = importProfileBaseSchema
   .partial({ householdId: true })

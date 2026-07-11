@@ -13,12 +13,12 @@ import {
 
 describe("csv import domain", () => {
   it("detects delimiters, headers, quoted commas, and UTF-8 BOM", () => {
-    expect(detectDelimiter("Date,Description,Amount\n2026-07-01,\"Coffee, Shop\",-4.50")).toBe(",");
+    expect(detectDelimiter('Date,Description,Amount\n2026-07-01,"Coffee, Shop",-4.50')).toBe(",");
     expect(detectDelimiter("Date;Description;Amount\n2026-07-01;Coffee;-4.50")).toBe(";");
     const parsed = parseCsv({
       filename: "synthetic.csv",
       fileSize: 64,
-      content: "\ufeffDate,Description,Amount\n2026-07-01,\"Coffee, Shop\",-4.50",
+      content: '\ufeffDate,Description,Amount\n2026-07-01,"Coffee, Shop",-4.50',
     });
     expect(parsed.encoding).toBe("UTF-8-BOM");
     expect(parsed.headers).toEqual(["Date", "Description", "Amount"]);
@@ -46,20 +46,18 @@ describe("csv import domain", () => {
       parseCsv({ filename: "synthetic.csv", fileSize: 32, content: "Date,Date\n2026-07-01,1.00" }),
     ).toThrow(/Duplicate/);
     expect(() =>
-      parseCsv({ filename: "../statement.txt", fileSize: 32, content: "Date,Amount\n2026-07-01,1.00" }),
+      parseCsv({
+        filename: "../statement.txt",
+        fileSize: 32,
+        content: "Date,Amount\n2026-07-01,1.00",
+      }),
     ).toThrow(/csv/);
   });
 
   it("parses explicit dates and requires explicit handling for ambiguous dates", () => {
-    expect(parseDateOnly("07/11/2026", "MM/DD/YYYY").toISOString().slice(0, 10)).toBe(
-      "2026-07-11",
-    );
-    expect(parseDateOnly("11/07/2026", "DD/MM/YYYY").toISOString().slice(0, 10)).toBe(
-      "2026-07-11",
-    );
-    expect(parseDateOnly("2026-07-11", "YYYY-MM-DD").toISOString().slice(0, 10)).toBe(
-      "2026-07-11",
-    );
+    expect(parseDateOnly("07/11/2026", "MM/DD/YYYY").toISOString().slice(0, 10)).toBe("2026-07-11");
+    expect(parseDateOnly("11/07/2026", "DD/MM/YYYY").toISOString().slice(0, 10)).toBe("2026-07-11");
+    expect(parseDateOnly("2026-07-11", "YYYY-MM-DD").toISOString().slice(0, 10)).toBe("2026-07-11");
     expect(isAmbiguousSlashDate("03/04/2026")).toBe(true);
     expect(() => parseDateOnly("03/04/2026", "AUTO")).toThrow(/explicit/);
   });

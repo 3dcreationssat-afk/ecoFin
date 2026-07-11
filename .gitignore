@@ -13,9 +13,9 @@ build/
 *.db-journal
 *.sqlite
 *.sqlite3
-backups/
-exports/
-imports/
+/backups/
+/exports/
+/imports/
 *.csv
 *.ofx
 *.qfx
@@ -31,4 +31,3 @@ test-results/
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
-

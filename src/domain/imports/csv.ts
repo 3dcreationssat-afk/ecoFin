@@ -45,7 +45,10 @@ export function rejectUnsafeText(content: string, fileSize: number) {
 }
 
 export function detectDelimiter(content: string): "," | ";" | "\t" | null {
-  const lines = content.split(/\r?\n/).filter((line) => line.trim()).slice(0, 5);
+  const lines = content
+    .split(/\r?\n/)
+    .filter((line) => line.trim())
+    .slice(0, 5);
   const scores = ([",", ";", "\t"] as const).map((delimiter) => {
     const counts = lines.map((line) => splitCsvLine(line, delimiter).length);
     const consistent = counts.every((count) => count === counts[0]);
@@ -87,10 +90,14 @@ export function parseCsv(
   }
 
   const hasHeader = options.hasHeader ?? looksLikeHeader(rows[0]);
-  const headers = hasHeader ? rows[0].map((header) => header.trim()) : rows[0].map((_, index) => `Column ${index + 1}`);
+  const headers = hasHeader
+    ? rows[0].map((header) => header.trim())
+    : rows[0].map((_, index) => `Column ${index + 1}`);
   const duplicateHeaders = headers.filter((header, index) => headers.indexOf(header) !== index);
   if (hasHeader && duplicateHeaders.length) {
-    throw new Error(`Duplicate headers are not supported: ${[...new Set(duplicateHeaders)].join(", ")}`);
+    throw new Error(
+      `Duplicate headers are not supported: ${[...new Set(duplicateHeaders)].join(", ")}`,
+    );
   }
   const dataRows = hasHeader ? rows.slice(1) : rows;
   return {
@@ -211,7 +218,11 @@ export function isAmbiguousSlashDate(value: string) {
 
 export function parseSignedAmount(
   value: string,
-  options: { decimalSeparator: "." | ","; thousandsSeparator: "," | "." | " " | ""; parenthesesNegative?: boolean },
+  options: {
+    decimalSeparator: "." | ",";
+    thousandsSeparator: "," | "." | " " | "";
+    parenthesesNegative?: boolean;
+  },
 ) {
   const raw = value.trim();
   if (!raw) throw new Error("Amount is required.");
@@ -223,7 +234,8 @@ export function parseSignedAmount(
   }
   if (options.thousandsSeparator) cleaned = cleaned.split(options.thousandsSeparator).join("");
   if (options.decimalSeparator === ",") cleaned = cleaned.replace(",", ".");
-  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) throw new Error("Amount has an unsupported format or precision.");
+  if (!/^\d+(\.\d{1,2})?$/.test(cleaned))
+    throw new Error("Amount has an unsupported format or precision.");
   const [major, minor = ""] = cleaned.split(".");
   const cents = minor.padEnd(2, "0");
   const amount = Number.parseInt(major, 10) * 100 + Number.parseInt(cents || "0", 10);
@@ -286,15 +298,24 @@ export function scoreDuplicate(row: DuplicateInput, existing: DuplicateInput[]) 
       score += 25;
       reasons.push("same amount");
     }
-    if (candidate.originalDescription.trim().toLowerCase() === row.originalDescription.trim().toLowerCase()) {
+    if (
+      candidate.originalDescription.trim().toLowerCase() ===
+      row.originalDescription.trim().toLowerCase()
+    ) {
       score += 15;
       reasons.push("same original description");
     }
-    if (candidate.fileHash && row.fileHash && candidate.fileHash === row.fileHash && candidate.rowNumber === row.rowNumber) {
+    if (
+      candidate.fileHash &&
+      row.fileHash &&
+      candidate.fileHash === row.fileHash &&
+      candidate.rowNumber === row.rowNumber
+    ) {
       score += 50;
       reasons.push("same file and row");
     }
-    const status = score >= 100 ? "EXACT" : score >= 75 ? "LIKELY" : score >= 50 ? "POSSIBLE" : "NONE";
+    const status =
+      score >= 100 ? "EXACT" : score >= 75 ? "LIKELY" : score >= 50 ? "POSSIBLE" : "NONE";
     if (rank(status) > rank(best.status)) best = { status, reason: reasons.join(", ") };
   }
   return best;
