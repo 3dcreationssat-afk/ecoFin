@@ -1,0 +1,130 @@
+{
+  "screenshots": [
+    {
+      "file": "design/reference/screens/01-overview.png",
+      "source": "image(1).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 997
+      },
+      "sha256": "e3a6cde3d3d90e970024de998c6d5f76f52bebcb0251777f33771de730ecd2be"
+    },
+    {
+      "file": "design/reference/screens/02-transactions.png",
+      "source": "image(2).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 995
+      },
+      "sha256": "204534df6f3b63838f16a56f0c5d6c593c3129d72fe7ba6a1be1c51536bc0cc9"
+    },
+    {
+      "file": "design/reference/screens/03-transaction-detail-drawer.png",
+      "source": "image(3).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1009
+      },
+      "sha256": "ea877f7c9f8b629f6c02d8f0af10f4285ab7f31e455a7db9c813b54aacf4e616"
+    },
+    {
+      "file": "design/reference/screens/04-cash-flow.png",
+      "source": "image(4).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 997
+      },
+      "sha256": "6b4699e30aa5cbd9348f01e32196960501f483356c1b50f8d8b6ee4a625f67f2"
+    },
+    {
+      "file": "design/reference/screens/05-safe-to-save-full-calculation.png",
+      "source": "image(5).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 934
+      },
+      "sha256": "30d4d620008fbbbf27032591b01be662e660acbb96207d28a76f2e0c85abd9e2"
+    },
+    {
+      "file": "design/reference/screens/06-budget.png",
+      "source": "image(6).png",
+      "dimensions": {
+        "width": 2047,
+        "height": 996
+      },
+      "sha256": "c2da5a130bf9fd10e32a3a2630e66f7bad121844b92e67a0bdb766ebd58ee0dc"
+    },
+    {
+      "file": "design/reference/screens/07-recurring-expenses.png",
+      "source": "image(7).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 992
+      },
+      "sha256": "3add2df454470afca3d529846f2302f504a1518d711c5b5dff7dfb3dcf08d54d"
+    },
+    {
+      "file": "design/reference/screens/08-debt-planner.png",
+      "source": "image(8).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1003
+      },
+      "sha256": "db2909994fc164118808b5c05f23e2a6ef9a227ef58316762e3deddbdbae5e42"
+    },
+    {
+      "file": "design/reference/screens/09-goals-and-sinking-funds.png",
+      "source": "image(9).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1000
+      },
+      "sha256": "69071d1e79ef31fb50806a7590d1fae04a8d8a513a840794ded6fcca739ff600"
+    },
+    {
+      "file": "design/reference/screens/10-decision-simulator.png",
+      "source": "image(11).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 992
+      },
+      "sha256": "f1087248f09bb05053d836e13e3e37c6ac6ff315ae0b1f4f422a5a37b8fe069c"
+    },
+    {
+      "file": "design/reference/screens/11-reports.png",
+      "source": "image(12).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1001
+      },
+      "sha256": "44f9e2d75fb67e6250fae33fbd09a0515839c5e7b8c78241f177cf6378e1e356"
+    },
+    {
+      "file": "design/reference/screens/12-data-quality.png",
+      "source": "image(13).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 986
+      },
+      "sha256": "1acd5d971021f2a72e5cb0e11fc4540e7b98f81905b510e566a3578244e2e93a"
+    },
+    {
+      "file": "design/reference/screens/13-accounts.png",
+      "source": "image(14).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 985
+      },
+      "sha256": "e07aca5ba664b725c078d4f8caa04619f71ffbf0ea4b5d37f7001f6f1cb58001"
+    },
+    {
+      "file": "design/reference/screens/14-settings.png",
+      "source": "image(15).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1157
+      },
+      "sha256": "0dc0c2e02b94c7f9663d8b121f3d6a677398dba4879c576afc6c1829d80815d8"
+    }
+  ]
+}
