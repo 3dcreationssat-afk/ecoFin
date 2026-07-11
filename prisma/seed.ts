@@ -76,14 +76,50 @@ async function main() {
         create: [
           { name: "Mortgage", group: "Fixed", type: "EXPENSE", budgetMinor: 165000, sortOrder: 10 },
           { name: "Auto Loan", group: "Fixed", type: "EXPENSE", budgetMinor: 38000, sortOrder: 20 },
-          { name: "Car Insurance", group: "Fixed", type: "EXPENSE", budgetMinor: 18000, sortOrder: 30 },
+          {
+            name: "Car Insurance",
+            group: "Fixed",
+            type: "EXPENSE",
+            budgetMinor: 18000,
+            sortOrder: 30,
+          },
           { name: "Phone", group: "Fixed", type: "EXPENSE", budgetMinor: 8500, sortOrder: 40 },
           { name: "Internet", group: "Fixed", type: "EXPENSE", budgetMinor: 7000, sortOrder: 50 },
-          { name: "Life Insurance", group: "Fixed", type: "EXPENSE", budgetMinor: 4500, sortOrder: 60 },
-          { name: "Groceries", group: "Essential Variable", type: "EXPENSE", budgetMinor: 65000, sortOrder: 70 },
-          { name: "Dining", group: "Discretionary", type: "EXPENSE", budgetMinor: 25000, sortOrder: 80 },
-          { name: "Gas", group: "Essential Variable", type: "EXPENSE", budgetMinor: 18000, sortOrder: 90 },
-          { name: "Subscriptions", group: "Discretionary", type: "EXPENSE", budgetMinor: 9000, sortOrder: 100 },
+          {
+            name: "Life Insurance",
+            group: "Fixed",
+            type: "EXPENSE",
+            budgetMinor: 4500,
+            sortOrder: 60,
+          },
+          {
+            name: "Groceries",
+            group: "Essential Variable",
+            type: "EXPENSE",
+            budgetMinor: 65000,
+            sortOrder: 70,
+          },
+          {
+            name: "Dining",
+            group: "Discretionary",
+            type: "EXPENSE",
+            budgetMinor: 25000,
+            sortOrder: 80,
+          },
+          {
+            name: "Gas",
+            group: "Essential Variable",
+            type: "EXPENSE",
+            budgetMinor: 18000,
+            sortOrder: 90,
+          },
+          {
+            name: "Subscriptions",
+            group: "Discretionary",
+            type: "EXPENSE",
+            budgetMinor: 9000,
+            sortOrder: 100,
+          },
           { name: "Income", group: "Income", type: "INCOME", budgetMinor: 485000, sortOrder: 110 },
         ],
       },
@@ -101,4 +137,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
