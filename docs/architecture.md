@@ -7,10 +7,13 @@
 - Prisma models represent households, accounts, and categories in SQLite.
 - API routes under `src/app/api/` expose local CRUD foundations for Phase 1 domain records.
 - Zod validates household, account, and category writes.
+- Desktop navigation collapse preference and the Phase 1 household settings form use browser local storage.
+- `npm run db:migrate` applies the committed SQLite SQL migration through `prisma db execute`.
+- `npm run db:reset` refuses non-`file:` URLs, refuses SQLite files outside `prisma/`, recreates schema, and seeds synthetic data.
 
 ## Planned
 
 - Transaction import and normalization services.
 - Financial calculation services with tests before production use.
 - Backup and restore services for local data.
-
+- UI forms for accounts, categories, goals, and transactions connected to the Prisma data layer.

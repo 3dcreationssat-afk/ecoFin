@@ -1,0 +1,49 @@
+{
+  "screenshots": [
+    {
+      "file": "design/enhancements/collapsible-navigation/screens/01-overview-expanded-top.png",
+      "source": "image(17).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 999
+      },
+      "sha256": "9555801198aa33da52bea0c910f46e2224b4509a2da9092644ab1706072ce49a"
+    },
+    {
+      "file": "design/enhancements/collapsible-navigation/screens/02-overview-expanded-attention.png",
+      "source": "image(18).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1008
+      },
+      "sha256": "a6954317f92897a430020d5f148fcbd47c893fc9b13e797bcc4a741503c0f0b1"
+    },
+    {
+      "file": "design/enhancements/collapsible-navigation/screens/03-overview-expanded-lower.png",
+      "source": "image(19).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 989
+      },
+      "sha256": "28c8d10644fe5287679860ec70230e9b09fc9fc5ce2bda272ea03d7437d2f3c4"
+    },
+    {
+      "file": "design/enhancements/collapsible-navigation/screens/04-overview-expanded-reference.png",
+      "source": "image(20).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1007
+      },
+      "sha256": "cf686be3bedc25f1dc575fe5839c852f8f680edeaecf4c74c64f96cfb31dfd8e"
+    },
+    {
+      "file": "design/enhancements/collapsible-navigation/screens/05-overview-collapsed-sidebar.png",
+      "source": "image(21).png",
+      "dimensions": {
+        "width": 2048,
+        "height": 1007
+      },
+      "sha256": "c735b9d65b19f641201406983c850b9e540f29a5aa3229bd969c2d6ca0eb25ae"
+    }
+  ]
+}

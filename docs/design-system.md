@@ -29,11 +29,13 @@ Tokens are implemented in `src/app/globals.css` and reusable primitives in `src/
 ## Layout
 
 - Sidebar width: 282px, estimated from 2048px screenshots.
+- Collapsed sidebar width: 76px, estimated from supplemental collapsible navigation references.
 - Header height: 72px, estimated from screenshots.
 - Cards: 8px radius, subtle border, subtle shadow.
 - Tables: full-width, accessible headers, row borders, no dense grid lines.
 - Drawer: right side panel over dimmed page; implemented from transaction detail reference.
-- Breakpoints: mobile single column, desktop persistent sidebar.
+- Mobile navigation drawer: left side panel over dimmed page; chosen for responsive behavior.
+- Breakpoints: desktop persistent/collapsible sidebar; tablet and mobile off-canvas navigation.
 
 ## Controls
 
@@ -51,4 +53,3 @@ Tokens are implemented in `src/app/globals.css` and reusable primitives in `src/
 
 - Domain helpers format integer minor units as USD.
 - Demonstration UI strings remain labeled as demonstration data.
-

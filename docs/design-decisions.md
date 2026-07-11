@@ -27,3 +27,20 @@
 - Responsive impact: none.
 - Product impact: avoids presenting placeholder calculations as financial truth.
 
+## Collapsible And Mobile Navigation
+
+- Reference behavior: original screenshots show a persistent expanded desktop sidebar; supplemental enhancement references add expanded, collapsed, tablet, and mobile navigation states.
+- Implemented behavior: desktop navigation can collapse and persists the preference locally; tablet and mobile use an off-canvas navigation drawer.
+- Reason: improves responsive usability while preserving the approved navigation model.
+- Accessibility impact: icon-only items retain accessible labels and active links use `aria-current`.
+- Responsive impact: content has more space at constrained widths and mobile navigation is reachable.
+- Product impact: preserves the local-data indicator and route recognition in all navigation modes.
+
+## Disabled Planned Controls
+
+- Reference behavior: screenshots show Add, Import, export, strategy, contribution, and editor controls.
+- Implemented behavior: controls outside Phase 1 persistence scope are disabled or explicitly labeled as demonstration-only/planned.
+- Reason: prevents silent no-op behavior from implying unsupported functionality.
+- Accessibility impact: disabled controls expose titles and visible planned labels where practical.
+- Responsive impact: no material impact.
+- Product impact: clarifies Phase 1 boundaries before CSV import begins.
