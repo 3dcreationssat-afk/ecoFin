@@ -178,6 +178,46 @@ test("category creation persists and validation errors are accessible", async ({
   await expect(page.getByRole("alert")).toBeVisible();
 });
 
+test("settings backup creation, download, deletion, and restore flow", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Create backup" }).click();
+  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+  const latestDownload = page.getByRole("link", { name: "Download" }).first();
+  await expect(latestDownload).toBeVisible();
+
+  const downloadHref = await latestDownload.getAttribute("href");
+  expect(downloadHref).toBeTruthy();
+  const backupResponse = await page.request.get(downloadHref!);
+  expect(backupResponse.ok()).toBe(true);
+  const backupBuffer = await backupResponse.body();
+
+  await page.getByLabel("Delete backup confirmation").fill("DELETE BACKUP");
+  await page.getByRole("button", { name: "Delete", exact: true }).first().click();
+  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+
+  await page.getByLabel("Restore backup file").setInputFiles({
+    name: "financial-compass-ui-backup.zip",
+    mimeType: "application/zip",
+    buffer: backupBuffer,
+  });
+  await page.getByRole("button", { name: "Validate restore package" }).click();
+  await expect(page.getByText("SUPPORTED_SAME_SCHEMA")).toBeVisible();
+  await page.getByLabel("Restore confirmation").fill("RESTORE BACKUP");
+  await page.getByRole("button", { name: "Restore backup", exact: true }).click();
+  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+});
+
+test("settings restore rejects invalid backup package", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByLabel("Restore backup file").setInputFiles({
+    name: "not-a-backup.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from("not a zip"),
+  });
+  await page.getByRole("button", { name: "Validate restore package" }).click();
+  await expect(page.getByText("Backup archive is corrupt or unreadable.")).toBeVisible();
+});
+
 test("goal contribution persists with traceable history", async ({ page }) => {
   await page.goto("/goals");
   await page.getByRole("button", { name: "Emergency Fund" }).click();
