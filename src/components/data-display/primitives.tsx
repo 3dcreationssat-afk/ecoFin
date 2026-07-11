@@ -106,16 +106,22 @@ export function Button({
   variant = "primary",
   disabled = false,
   title,
+  onClick,
+  type = "button",
 }: {
   children: React.ReactNode;
   variant?: "primary" | "secondary";
   disabled?: boolean;
   title?: string;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  type?: "button" | "submit" | "reset";
 }) {
   return (
     <button
+      type={type}
       disabled={disabled}
       title={title}
+      onClick={onClick}
       className={cn(
         "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold",
         variant === "primary" && "bg-[var(--teal)] text-white",

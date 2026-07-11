@@ -1,10 +1,53 @@
 import { ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button, Card, MetricCard, PageHeader, Pill } from "@/components/data-display/primitives";
-import { cashBars, overviewComparison, pageMeta, summaryCards } from "@/data/demo";
+import { cashBars, overviewComparison, pageMeta } from "@/data/demo";
+import { formatMoney } from "@/domain/money/money";
+import { accountSummaries, dataQualityRules, goalSummaries } from "@/domain/summaries/calculations";
+import { getHousehold } from "@/server/data/repositories";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
   const meta = pageMeta["/"];
+  const household = await getHousehold();
+  const accountSummary = accountSummaries(household.accounts);
+  const goalSummary = goalSummaries(household.goals);
+  const quality = dataQualityRules({
+    transactions: household.transactions,
+    accounts: household.accounts,
+    goals: household.goals,
+    asOf: new Date("2026-07-11"),
+  });
+  const summaryCards = [
+    {
+      label: "Available Cash",
+      value: formatMoney(accountSummary.totalAssetsMinor),
+      detail: `${accountSummary.activeCount} active accounts`,
+    },
+    {
+      label: "Total Debt",
+      value: formatMoney(accountSummary.totalDebtsMinor),
+      detail: "Active debt accounts",
+      tone: "critical" as const,
+    },
+    {
+      label: "Net Worth",
+      value: formatMoney(accountSummary.netWorthMinor),
+      detail: "Assets minus debts",
+      featured: true,
+    },
+    {
+      label: "Goals Saved",
+      value: formatMoney(goalSummary.totalSavedMinor),
+      detail: `${goalSummary.progressPercent}% of target`,
+    },
+    {
+      label: "Needs Review",
+      value: String(quality.unreviewed),
+      detail: `${quality.uncategorized} uncategorized`,
+    },
+  ];
   return (
     <AppShell>
       <PageHeader title={meta.title} subtitle={meta.subtitle} />
