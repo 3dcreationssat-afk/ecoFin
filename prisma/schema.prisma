@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Household {
+  id                    String   @id @default(cuid())
+  name                  String
+  currency              String   @default("USD")
+  financialMonthStart   Int      @default(1)
+  incomeSchedule        String   @default("BI_WEEKLY")
+  checkingBufferMinor   Int
+  emergencyFundTargetMinor Int
+  debtStrategy          String   @default("AVALANCHE")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  accounts              Account[]
+  categories            Category[]
+}
+
+model Account {
+  id                  String   @id @default(cuid())
+  householdId          String
+  name                String
+  institution          String
+  type                String
+  balanceMinor         Int
+  availableMinor       Int?
+  creditLimitMinor     Int?
+  aprBasisPoints       Int?
+  dueDay              Int?
+  lastUpdated          DateTime
+  status              String   @default("ACTIVE")
+  isDemo              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  household           Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id              String   @id @default(cuid())
+  householdId     String
+  name            String
+  group           String
+  type            String
+  budgetMinor     Int
+  sortOrder       Int
+  isDemo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+}
+
