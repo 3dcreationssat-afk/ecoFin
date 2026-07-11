@@ -1,0 +1,63 @@
+# Backup And Restore
+
+Financial Compass Phase 2B implements local backup and restore for the active SQLite database.
+
+## Backup Behavior
+
+- Backups are created only from local SQLite `file:` databases under `prisma/`.
+- Backup packages are written to `backups/local/` and are ignored by Git.
+- Each package is a ZIP file containing:
+  - `database.sqlite`
+  - `manifest.json`
+  - `README.txt`
+- The manifest records app version, schema fingerprint, creation time, table counts, database size, database SHA-256, source environment, and whether demo data is present.
+- Backups are validated before being marked `READY`.
+- Backup metadata is stored in the `BackupRecord` table. Backup files remain local filesystem artifacts.
+- Backup creation writes audit records for requested, completed, failed, downloaded, and deleted backup actions.
+
+## Restore Behavior
+
+- Restore accepts only validated backup ZIP packages with the same application version and schema fingerprint.
+- Restore requires the exact confirmation phrase `RESTORE BACKUP`.
+- Before replacing the active database, restore creates a mandatory pre-restore safety backup.
+- The incoming database is extracted to a temporary directory, checked with SQLite `PRAGMA integrity_check`, and verified for required application tables.
+- The active SQLite file is replaced only after validation passes.
+- If post-replacement validation fails, the service copies the pre-restore recovery file back into place and records an automatic rollback audit entry.
+- Restore source metadata is recorded in `BackupRecord` with status `RESTORED_FROM`.
+
+## Validation Rules
+
+Backup validation rejects:
+
+- corrupt or unreadable ZIP archives
+- archives larger than the configured package size limit
+- archives with too many files or excessive extracted size
+- directories, duplicate entries, unsupported filenames, or unsafe entry paths
+- missing `database.sqlite` or `manifest.json`
+- unsupported backup format, app version, or schema fingerprint
+- mismatched database SHA-256
+- non-SQLite files or SQLite databases failing integrity checks
+- databases missing required Phase 2B tables
+
+## User Interfaces
+
+- Settings contains backup creation, backup history, download, deletion, restore validation, and restore confirmation controls.
+- Backup deletion requires the exact phrase `DELETE BACKUP`.
+- CLI scripts are also available:
+  - `npm run backup`
+  - `npm run backup:list`
+  - `npm run backup:validate -- <backup.zip>`
+  - `RESTORE_CONFIRMATION="RESTORE BACKUP" npm run restore -- <backup.zip>`
+
+## Security Notes
+
+Backup packages are not encrypted by the application. They contain complete local SQLite financial data and must be treated as sensitive personal financial records.
+
+Do not commit, upload, email, or share backup ZIP files. Store them only in a location appropriate for sensitive household financial data.
+
+## Limitations
+
+- Backup/restore is local-only and does not sync to cloud storage.
+- Restore supports only the same application version and same committed migration fingerprint.
+- There is no selective restore, merge UI, encrypted archive format, remote backup provider, or scheduled backup job.
+- Demo reset clears backup metadata in SQLite but does not delete ZIP files already written under `backups/local/`.

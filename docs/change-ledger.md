@@ -16,3 +16,4 @@
 - Added repository-derived overview, account, transaction, goal, settings, and data-quality screen data.
 - Added tests for money parsing, summaries, data-quality rules, repository persistence, audit records, goal contributions, and original transaction preservation.
 - Implemented Phase 2A CSV import with import profiles, durable import batches/rows, file validation, preview, mapping, explicit date and amount parsing, duplicate review, repeated-file blocking, atomic transaction creation, audit logging, safe undo, data-quality integration, synthetic fixtures, and import workflow tests.
+- Implemented Phase 2B local backup and restore with backup metadata, manifest and hash validation, same-schema compatibility checks, mandatory pre-restore safety backups, rollback on failed restore, Settings UI controls, CLI scripts, audit records, and unit/integration/e2e coverage.

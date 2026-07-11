@@ -15,12 +15,17 @@ Financial Compass is local-first.
 - CSV import is local-only. File contents are parsed through the local application server and are not sent to external services.
 - Uploaded CSV file contents are not permanently stored. Import batches store file hash, redacted filename, size, encoding, delimiter, row status, and bounded serialized source fields needed for traceability.
 - CSV validation rejects unsupported extensions, oversized files, empty files, binary content, malformed quoting, duplicate headers, overly long fields, invalid dates, invalid amounts, and formula-like non-amount values.
+- Local backup packages are created under `backups/local/`, are ignored by Git, and contain complete unencrypted SQLite financial data.
+- Restore validation rejects corrupt, oversized, unsupported, unsafe, hash-mismatched, schema-mismatched, and SQLite-integrity-failing packages before replacement.
+- Restore creates a mandatory pre-restore safety backup and attempts automatic rollback if the active database fails post-restore validation.
 
 ## Prohibited Data
 
 Do not store bank usernames, bank passwords, card PINs, MFA secrets, security-question answers, complete payment-card numbers, real account identifiers, real statements, or secret tokens.
 
 Do not commit real bank CSV exports. Use only synthetic fixtures for tests and documentation.
+
+Do not commit backup ZIP files. Treat backup packages as sensitive personal financial records.
 
 ## Dependency Audit
 

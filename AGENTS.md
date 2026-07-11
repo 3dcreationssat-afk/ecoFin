@@ -32,6 +32,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Archive records instead of deleting when history may depend on them. Archiving accounts or categories must not delete transactions.
 - Migrations must be additive unless a destructive migration is explicitly approved and documented. Do not edit already-applied migrations.
 - Destructive operations, including demo reset, must require confirmation, run server-side, and document scope.
+- Backup restore must require explicit confirmation, validate manifest/hash/schema/SQLite integrity before replacement, create a pre-restore safety backup, and preserve an automatic rollback path.
 
 ## Privacy And Security
 
@@ -39,6 +40,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Never request, store, log, or commit bank credentials, card PINs, MFA secrets, security-question answers, complete payment-card numbers, real account identifiers, statements, `.env` files, SQLite databases, backups, imports, exports, tokens, or secrets.
 - Use synthetic demonstration data only. Do not commit real CSV, OFX, QFX, QBO, PDF statement, export, or backup files.
 - Do not permanently store raw uploaded CSV files. Store only bounded row fields and metadata required for traceability.
+- Backup ZIP files contain complete unencrypted SQLite financial data and must stay local, ignored, and out of commits.
 - Logs and audit records must avoid secrets and unnecessary complete object snapshots.
 
 ## Engineering

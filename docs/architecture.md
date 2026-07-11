@@ -21,6 +21,8 @@
 - Import profiles persist reusable column mappings and parsing settings per household.
 - Imported transactions use the same normalized transaction pipeline as manual/demo transactions, preserving source fields separately from editable normalized fields.
 - Batch undo removes only transactions created by the selected batch and is blocked after material transaction edits.
+- Local backup creation snapshots the active SQLite database into `backups/local/` with a manifest, SHA-256 database hash, schema fingerprint, table counts, validation result, and `BackupRecord` metadata.
+- Restore validates an uploaded backup package, creates a mandatory pre-restore safety backup, swaps the SQLite file only after validation, records restore-source metadata, and rolls back from a recovery copy if post-restore validation fails.
 
 ## Future Ingestion Extension Point
 
@@ -29,5 +31,4 @@ Future connected-bank providers should feed parsed source records into the same 
 ## Planned
 
 - Financial calculation services with tests before production use.
-- Backup and restore services for local data.
 - Multi-household support and a safer production user-data/demo-data separation model.

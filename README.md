@@ -6,7 +6,7 @@ It helps a household understand income, spending, debts, recurring expenses, goa
 
 ## Current Status
 
-Phase 2A CSV transaction import is implemented on top of the completed Phase 1.5 persistence foundation.
+Phase 2B local backup and restore is implemented on top of the completed Phase 2A CSV import foundation.
 
 Implemented:
 
@@ -17,12 +17,13 @@ Implemented:
 - Persistent household settings, account management, category management, goal management/contributions, and transaction normalization edits.
 - Immutable original transaction fields for normal drawer edits.
 - Secure CSV transaction import with preview, explicit mapping, validation, duplicate review, reusable profiles, import-batch history, audit records, and safe batch undo.
+- Local SQLite backup and restore with manifest validation, SHA-256 verification, mandatory pre-restore safety backup, rollback on failed restore, audit records, Settings UI, and CLI scripts.
 - Synthetic seed/reset flow for one local demo household.
 - Repository-derived overview, accounts, transactions, goals, settings, and data-quality values.
 
 Still planned:
 
-- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic transfer pairing, recurring detection, automatic merchant rules, AI categorization, advanced debt planning, backup/restore, report export, and validated financial engines.
+- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic transfer pairing, recurring detection, automatic merchant rules, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
 - Production-grade safe-to-save, cash-flow, budget forecast, debt payoff, recurring, and decision scenario engines.
 
 ## Local Setup
@@ -50,6 +51,10 @@ Open `http://localhost:3000`.
 - `npm run test` runs Vitest unit tests.
 - `npm run test:watch` runs Vitest in watch mode.
 - `npm run test:e2e` runs Playwright tests.
+- `npm run backup` creates a local backup package for the active SQLite database.
+- `npm run backup:list` lists recent backup records.
+- `npm run backup:validate -- <backup.zip>` validates a local backup package.
+- `RESTORE_CONFIRMATION="RESTORE BACKUP" npm run restore -- <backup.zip>` restores a validated backup package after creating a safety backup.
 - `npm run format` formats source files with Prettier.
 - `npm run format:check` verifies Prettier formatting.
 - `npm run db:generate` generates Prisma Client.
@@ -65,6 +70,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - The application is local-first and single-household in the current implementation.
 - SQLite is the source of truth for household financial configuration and persisted Phase 1 domain data.
 - CSV import stores durable import batches, row-level validation state, and imported transaction links. The uploaded file contents are not permanently stored.
+- Backup packages contain complete unencrypted SQLite financial data and are stored under `backups/local/`, which is ignored by Git.
 - Browser local storage is limited to non-financial UI preferences such as navigation expanded/collapsed state.
 - No direct bank connectivity, telemetry, analytics, ads, or external AI services are included.
 - `.env`, SQLite database files, imports, exports, statements, backups, and secrets are ignored.
@@ -83,7 +89,8 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 
 - Seed/reset creates one synthetic household with accounts, categories, goals, contribution records, transactions, audit records, and clears import batches/profiles.
 - In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA` and runs through a server-side reset service.
-- Backup/restore is not implemented.
+- In-app backup creation writes an application-controlled local ZIP package with `database.sqlite`, `manifest.json`, and `README.txt`.
+- Restore requires validation, the exact phrase `RESTORE BACKUP`, and a mandatory pre-restore safety backup.
 
 ## Verification
 
@@ -103,6 +110,7 @@ Key implementation records live in:
 - `AGENTS.md`
 - `docs/architecture.md`
 - `docs/assumptions.md`
+- `docs/backup-and-restore.md`
 - `docs/calculations.md`
 - `docs/change-ledger.md`
 - `docs/design-decisions.md`
