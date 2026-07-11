@@ -39,7 +39,98 @@ test("planned controls are disabled instead of silently inert", async ({ page })
   await page.goto("/reports");
   await expect(page.getByRole("button", { name: /CSV/ })).toBeDisabled();
   await page.goto("/transactions");
-  await expect(page.getByRole("button", { name: /Import CSV/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Add Transaction/ })).toBeDisabled();
+});
+
+test("complete signed amount CSV import workflow and undo", async ({ page }, testInfo) => {
+  const marker = `Synthetic Coffee ${testInfo.project.name}`;
+  await page.goto("/transactions");
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: `synthetic-signed-${testInfo.project.name}.csv`,
+    mimeType: "text/csv",
+    buffer: Buffer.from(`Date,Description,Amount\n07/10/2026,${marker},-4.25\n`),
+  });
+  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await expect(page.getByRole("heading", { name: "CSV Preview" })).toBeVisible();
+  await page.getByRole("button", { name: "Validate rows" }).click();
+  await expect(page.getByText("Accepted")).toBeVisible();
+  await page.getByRole("button", { name: "Confirm import" }).click();
+  await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
+  await expect(page.getByText("Imported", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "View imported transactions" }).click();
+  await expect(page.getByRole("button", { name: marker })).toBeVisible();
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/imports/") &&
+        response.url().includes("/undo") &&
+        response.request().method() === "POST" &&
+        response.ok(),
+    ),
+    page.getByRole("button", { name: "Undo import" }).first().click(),
+  ]);
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: marker })).toHaveCount(0);
+});
+
+test("debit credit CSV mapping imports explicit signs", async ({ page }, testInfo) => {
+  const marker = `Synthetic Debit ${testInfo.project.name}`;
+  await page.goto("/transactions");
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: `synthetic-debit-credit-${testInfo.project.name}.csv`,
+    mimeType: "text/csv",
+    buffer: Buffer.from(`Posted,Details,Debit,Credit\n11/07/2026,${marker},45.50,\n`),
+  });
+  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page
+    .locator("label")
+    .filter({ hasText: /^Date column/ })
+    .getByRole("combobox")
+    .selectOption("Posted");
+  await page.getByLabel("Amount mode").selectOption("DEBIT_CREDIT_COLUMNS");
+  await page.getByLabel("Date format").selectOption("DD/MM/YYYY");
+  await page.getByRole("button", { name: "Validate rows" }).click();
+  await expect(page.getByText("Accepted")).toBeVisible();
+  await page.getByRole("button", { name: "Confirm import" }).click();
+  await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
+  await page.getByRole("button", { name: "View imported transactions" }).click();
+  await page.getByRole("button", { name: marker }).click();
+  await expect(page.getByTestId("transaction-drawer").getByText("-$45.50")).toBeVisible();
+});
+
+test("invalid row handling, duplicate review, and repeated-file warning are visible", async ({
+  page,
+}, testInfo) => {
+  const marker = `Synthetic Repeat ${testInfo.project.name}`;
+  const content = `Date,Description,Amount\n07/10/2026,${marker},-4.25\n07/11/2026,,12.345\n`;
+  await page.goto("/transactions");
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: `synthetic-repeat-${testInfo.project.name}.csv`,
+    mimeType: "text/csv",
+    buffer: Buffer.from(content),
+  });
+  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page.getByRole("button", { name: "Validate rows" }).click();
+  await expect(page.getByText("INVALID")).toBeVisible();
+  await page.getByLabel("Decision for row 1").selectOption("IMPORT");
+  await page.getByRole("button", { name: "Confirm import" }).click();
+  await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
+  await page.getByRole("button", { name: "View imported transactions" }).click();
+
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: `synthetic-repeat-again-${testInfo.project.name}.csv`,
+    mimeType: "text/csv",
+    buffer: Buffer.from(content),
+  });
+  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page.getByRole("button", { name: "Validate rows" }).click();
+  await expect(page.getByText(/already imported/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm import" })).toBeDisabled();
 });
 
 test("account creation, archive, and restore persist after reload", async ({ page }, testInfo) => {

@@ -34,8 +34,8 @@ describe("summary calculations", () => {
   it("runs deterministic data-quality rules without pretending advanced detection exists", () => {
     const result = dataQualityRules({
       transactions: [
-        { categoryId: null, reviewStatus: "NEEDS_REVIEW" },
-        { categoryId: "cat", reviewStatus: "REVIEWED" },
+        { categoryId: null, reviewStatus: "NEEDS_REVIEW", type: "DEBIT" },
+        { categoryId: "cat", reviewStatus: "REVIEWED", type: "UNKNOWN" },
       ],
       accounts: [
         {
@@ -46,6 +46,19 @@ describe("summary calculations", () => {
         },
       ],
       goals: [{ linkedAccountId: null, targetMinor: 1000 }],
+      importBatches: [
+        {
+          status: "FAILED",
+          rejectedRowCount: 2,
+          duplicateCandidateCount: 1,
+          repeatedFile: true,
+        },
+        {
+          status: "PARTIALLY_IMPORTED",
+          rejectedRowCount: 1,
+          duplicateCandidateCount: 3,
+        },
+      ],
       asOf: new Date("2026-07-11"),
     });
     expect(result).toEqual({
@@ -54,6 +67,12 @@ describe("summary calculations", () => {
       staleAccounts: 1,
       missingDebtTerms: 1,
       incompleteGoals: 1,
+      failedImportBatches: 1,
+      partialImportBatches: 1,
+      invalidImportRows: 3,
+      duplicateImportCandidates: 4,
+      repeatedFileAttempts: 1,
+      unknownTypeTransactions: 1,
     });
   });
 });
