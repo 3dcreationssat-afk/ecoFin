@@ -6,7 +6,7 @@ It helps a household understand income, spending, debts, recurring expenses, goa
 
 ## Current Status
 
-Phase 1.5 persistence hardening is in progress on top of the completed Phase 1 foundation.
+Phase 2A CSV transaction import is implemented on top of the completed Phase 1.5 persistence foundation.
 
 Implemented:
 
@@ -16,12 +16,13 @@ Implemented:
 - Repository/service-backed API routes with Zod validation and structured errors.
 - Persistent household settings, account management, category management, goal management/contributions, and transaction normalization edits.
 - Immutable original transaction fields for normal drawer edits.
+- Secure CSV transaction import with preview, explicit mapping, validation, duplicate review, reusable profiles, import-batch history, audit records, and safe batch undo.
 - Synthetic seed/reset flow for one local demo household.
 - Repository-derived overview, accounts, transactions, goals, settings, and data-quality values.
 
 Still planned:
 
-- CSV import, CSV mapping, import profiles, transfer matching, duplicate import detection, recurring detection, advanced debt planning, backup/restore, report export, and validated financial engines.
+- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic transfer pairing, recurring detection, automatic merchant rules, AI categorization, advanced debt planning, backup/restore, report export, and validated financial engines.
 - Production-grade safe-to-save, cash-flow, budget forecast, debt payoff, recurring, and decision scenario engines.
 
 ## Local Setup
@@ -63,6 +64,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 
 - The application is local-first and single-household in the current implementation.
 - SQLite is the source of truth for household financial configuration and persisted Phase 1 domain data.
+- CSV import stores durable import batches, row-level validation state, and imported transaction links. The uploaded file contents are not permanently stored.
 - Browser local storage is limited to non-financial UI preferences such as navigation expanded/collapsed state.
 - No direct bank connectivity, telemetry, analytics, ads, or external AI services are included.
 - `.env`, SQLite database files, imports, exports, statements, backups, and secrets are ignored.
@@ -73,12 +75,13 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 
 - Monetary domain values use integer minor units.
 - User-entered decimal strings are parsed centrally before persistence.
+- CSV amounts support signed amount columns and separate debit/credit columns with explicit sign convention, decimal separator, and thousands separator.
 - APR values use basis points, for example `2149` means `21.49%`.
 - Demonstration-only financial screens remain labeled until validated engines exist.
 
 ## Demo Data And Backup Status
 
-- Seed/reset creates one synthetic household with accounts, categories, goals, contribution records, transactions, and audit records.
+- Seed/reset creates one synthetic household with accounts, categories, goals, contribution records, transactions, audit records, and clears import batches/profiles.
 - In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA` and runs through a server-side reset service.
 - Backup/restore is not implemented.
 

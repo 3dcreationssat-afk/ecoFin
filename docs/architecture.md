@@ -16,10 +16,18 @@
 - `npm run db:reset` refuses non-`file:` URLs, refuses SQLite files outside `prisma/`, recreates schema, and seeds synthetic data.
 - Original transaction import fields are stored separately from editable normalized fields.
 - Material manual changes create field-level audit records without storing complete object snapshots.
+- CSV import uses source-neutral transaction metadata with `sourceType` values such as `MANUAL`, `CSV_IMPORT`, and reserved future `BANK_CONNECTION`.
+- Import batches and import rows stage CSV previews, validation results, duplicate review state, decisions, and transaction links before confirmation.
+- Import profiles persist reusable column mappings and parsing settings per household.
+- Imported transactions use the same normalized transaction pipeline as manual/demo transactions, preserving source fields separately from editable normalized fields.
+- Batch undo removes only transactions created by the selected batch and is blocked after material transaction edits.
+
+## Future Ingestion Extension Point
+
+Future connected-bank providers should feed parsed source records into the same staging and normalization boundary used by CSV imports. `BANK_CONNECTION` is reserved as a source type, but no provider API, Plaid connection, webhook, or background synchronization is implemented.
 
 ## Planned
 
-- Transaction import and normalization services.
 - Financial calculation services with tests before production use.
 - Backup and restore services for local data.
 - Multi-household support and a safer production user-data/demo-data separation model.

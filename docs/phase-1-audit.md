@@ -15,6 +15,11 @@ The repository is safe to build on for local-first Phase 1.5 persistence work. C
 - Original transaction imported values are persisted separately and are not writable through the normal drawer update API.
 - Material manual changes create SQLite-backed audit records.
 
+## Phase 2A Follow-Up
+
+- CSV import is no longer blocked at the Phase 1.5 persistence boundary. Phase 2A adds local CSV preview, mapping, validation, duplicate-candidate review, reusable profiles, import batches, row staging, imported transaction links, audit records, data-quality signals, and safe batch undo.
+- Bank connectivity, OFX/QFX/QBO/PDF import, OCR, automatic transfer matching, recurring detection, merchant rules, and AI categorization remain out of scope.
+
 ## Repository Inspection
 
 - Branch: `main`.

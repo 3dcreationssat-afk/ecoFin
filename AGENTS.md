@@ -19,6 +19,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - Store money as integer minor units with currency stored separately. Never use JavaScript floating-point arithmetic for persisted money calculations.
 - Preserve original transaction import fields. Normalization, categorization, notes, review status, and exclusion are editable; original description, original amount text, original date text, parsed amount, account, and posted/transaction dates require separate reviewed contracts.
+- CSV imports must stage rows, validate mappings, preserve source fields, detect duplicate candidates, require explicit confirmation, and link created transactions to import batches and rows. Do not silently discard duplicate candidates or overwrite original imported values.
+- Import undo must only affect transactions created by the selected batch, record audit history, and block when imported transactions were materially edited.
 - Transfers, credit-card payments, refunds, reversals, and split transactions must not be inferred silently. Preserve source records and add explicit modeled relationships only with tests.
 - Safe-to-save, cash-flow forecasting, debt payoff, recurring detection, and decision scenarios must remain labeled demonstration-only until validated engines and tests exist.
 - Debt calculations must use APR basis points, minimum payments, due dates, and explicit assumptions. Do not present estimates as advice.
@@ -36,6 +38,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Keep the app local-first. Normal local development must not require Docker, remote services, telemetry, analytics, or bank connectivity.
 - Never request, store, log, or commit bank credentials, card PINs, MFA secrets, security-question answers, complete payment-card numbers, real account identifiers, statements, `.env` files, SQLite databases, backups, imports, exports, tokens, or secrets.
 - Use synthetic demonstration data only. Do not commit real CSV, OFX, QFX, QBO, PDF statement, export, or backup files.
+- Do not permanently store raw uploaded CSV files. Store only bounded row fields and metadata required for traceability.
 - Logs and audit records must avoid secrets and unnecessary complete object snapshots.
 
 ## Engineering

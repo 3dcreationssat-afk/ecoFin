@@ -2,7 +2,9 @@
 
 - Financial engines are not implemented; UI values are synthetic demonstration data.
 - Safe-to-save, cash-flow, budget forecast, recurring detection, debt payoff, and decision scenario outputs remain demonstration-only.
-- Transaction import is not implemented.
+- CSV transaction import is implemented for Phase 2A. OFX, QFX, QBO, PDF parsing, OCR, bank connectivity, provider APIs, automatic transfer matching, recurring detection, merchant rules, and AI categorization are not implemented.
+- Import duplicate detection is conservative candidate review, not an automatic deduplication engine.
+- Import undo is blocked after material edits and does not provide a merge/review UI for edited imported transactions yet.
 - Base44 screenshots were used as static references; exact pixel values are estimated.
 - Report Print, CSV, and HTML export controls are disabled because export is not implemented.
 - Demo reset is single-household and intended for the synthetic local dataset only; production backup/restore is not implemented.
