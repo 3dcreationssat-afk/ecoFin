@@ -23,22 +23,16 @@ function sqlitePathFromUrl(databaseUrl: string) {
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL ?? "file:./dev.db";
+  process.env.DATABASE_URL = databaseUrl;
   const databasePath = sqlitePathFromUrl(databaseUrl);
 
   if (existsSync(databasePath)) {
     rmSync(databasePath, { force: true });
   }
 
-  const prismaCommand =
-    process.platform === "win32"
-      ? '".\\node_modules\\.bin\\prisma.cmd"'
-      : "./node_modules/.bin/prisma";
-  execSync(
-    `${prismaCommand} db execute --schema prisma/schema.prisma --file prisma/migrations/20260711170000_init/migration.sql`,
-    { stdio: "inherit", env: process.env },
-  );
-
   const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+  execSync(`${npmCommand} run db:migrate`, { stdio: "inherit", env: process.env });
+
   execSync(`${npmCommand} run db:seed`, { stdio: "inherit", env: process.env });
 
   console.log(`Reset local SQLite database at ${databasePath}`);

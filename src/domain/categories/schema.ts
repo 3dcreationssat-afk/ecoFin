@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const categorySchema = z.object({
   householdId: z.string().min(1),
+  parentId: z.string().min(1).nullable().optional(),
   name: z.string().min(1).max(80),
   group: z.string().min(1).max(80),
   type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),

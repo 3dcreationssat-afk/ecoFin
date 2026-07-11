@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260711170000_init/migration.sql",
+    "db:migrate": "tsx prisma/migrate.ts",
     "db:push": "prisma db push --accept-data-loss",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "tsx prisma/reset.ts",

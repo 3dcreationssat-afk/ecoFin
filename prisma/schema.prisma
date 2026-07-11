@@ -20,6 +20,9 @@ model Household {
   updatedAt             DateTime @updatedAt
   accounts              Account[]
   categories            Category[]
+  goals                 Goal[]
+  transactions          Transaction[]
+  auditLogs             AuditLog[]
 }
 
 model Account {
@@ -32,26 +35,109 @@ model Account {
   availableMinor       Int?
   creditLimitMinor     Int?
   aprBasisPoints       Int?
+  minimumPaymentMinor  Int?
   dueDay              Int?
+  statementDay        Int?
+  notes               String?
+  archivedAt          DateTime?
   lastUpdated          DateTime
   status              String   @default("ACTIVE")
   isDemo              Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   household           Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  goals               Goal[]
+  transactions        Transaction[]
 }
 
 model Category {
   id              String   @id @default(cuid())
   householdId     String
+  parentId        String?
   name            String
   group           String
   type            String
   budgetMinor     Int
   sortOrder       Int
+  archivedAt      DateTime?
   isDemo          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  parent          Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Category[] @relation("CategoryHierarchy")
+  transactions    Transaction[]
 }
 
+model Goal {
+  id                    String   @id @default(cuid())
+  householdId           String
+  linkedAccountId       String?
+  name                  String
+  targetMinor           Int
+  currentMinor          Int      @default(0)
+  plannedMonthlyMinor   Int      @default(0)
+  requiredMonthlyMinor  Int      @default(0)
+  priority              Int      @default(100)
+  status                String   @default("ACTIVE")
+  targetDate            DateTime?
+  notes                 String?
+  archivedAt            DateTime?
+  isDemo                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  linkedAccount         Account? @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
+  contributions         GoalContribution[]
+}
+
+model GoalContribution {
+  id                String   @id @default(cuid())
+  goalId            String
+  amountMinor       Int
+  contributionDate  DateTime
+  note              String?
+  source            String   @default("user")
+  createdAt         DateTime @default(now())
+  goal              Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id                    String   @id @default(cuid())
+  householdId           String
+  accountId             String
+  categoryId            String?
+  originalDescription   String
+  originalAmountText    String
+  originalDateText      String
+  normalizedMerchant    String
+  amountMinor           Int
+  transactionDate       DateTime
+  postedDate            DateTime?
+  type                  String
+  reviewStatus          String   @default("NEEDS_REVIEW")
+  excluded              Boolean  @default(false)
+  notes                 String?
+  possibleDuplicate     Boolean  @default(false)
+  isDemo                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account               Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category              Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  householdId     String?
+  entityType      String
+  entityId        String
+  action          String
+  field           String?
+  previousValue   String?
+  newValue        String?
+  reason          String?
+  source          String   @default("user")
+  createdAt       DateTime @default(now())
+  household       Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+}

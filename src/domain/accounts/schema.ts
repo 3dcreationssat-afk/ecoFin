@@ -9,6 +9,9 @@ export const accountSchema = z.object({
   availableMinor: z.number().int().nullable().optional(),
   creditLimitMinor: z.number().int().nullable().optional(),
   aprBasisPoints: z.number().int().min(0).nullable().optional(),
+  minimumPaymentMinor: z.number().int().min(0).nullable().optional(),
   dueDay: z.number().int().min(1).max(31).nullable().optional(),
+  statementDay: z.number().int().min(1).max(31).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
   lastUpdated: z.coerce.date(),
 });

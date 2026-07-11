@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
-import { householdSettingsSchema } from "@/domain/household/schema";
-import { prisma } from "@/server/db/prisma";
+import { getHousehold, updateHousehold } from "@/server/data/repositories";
+import { jsonError } from "@/server/data/errors";
 
 export async function GET() {
-  const household = await prisma.household.findFirst({
-    include: { accounts: true, categories: true },
-  });
-  return NextResponse.json({ household });
+  try {
+    const household = await getHousehold();
+    return NextResponse.json({ household });
+  } catch (error) {
+    return jsonError(error);
+  }
 }
 
 export async function PUT(request: Request) {
-  const body = householdSettingsSchema.parse(await request.json());
-  const existing = await prisma.household.findFirst();
-  const household = existing
-    ? await prisma.household.update({ where: { id: existing.id }, data: body })
-    : await prisma.household.create({ data: body });
-  return NextResponse.json({ household });
+  try {
+    const household = await updateHousehold(await request.json());
+    return NextResponse.json({ household });
+  } catch (error) {
+    return jsonError(error);
+  }
 }
