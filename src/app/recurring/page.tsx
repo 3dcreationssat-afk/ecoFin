@@ -15,13 +15,58 @@ export default function RecurringPage() {
         <MetricCard label="Price increases" value="+$9.00/mo" tone="warning" />
       </div>
       <Card className="overflow-hidden">
-        <div className="border-b border-[var(--border)] p-6"><h2 className="text-xl font-semibold">All Recurring Expenses</h2><p className="text-sm text-[var(--muted)]">Select items to calculate potential savings</p></div>
+        <div className="border-b border-[var(--border)] p-6">
+          <h2 className="text-xl font-semibold">All Recurring Expenses</h2>
+          <p className="text-sm text-[var(--muted)]">Select items to calculate potential savings</p>
+        </div>
         <table className="w-full min-w-[1100px] text-left text-sm">
-          <thead className="text-[var(--muted)]"><tr>{["Merchant", "Service", "Amount", "Frequency", "Monthly", "Annual", "Next charge", "Price change", "Classification", "Recommendation"].map((h) => <th key={h} className="px-5 py-4">{h}</th>)}</tr></thead>
-          <tbody>{recurringRows.map((row) => <tr key={row[0]} className="border-t border-[var(--border)]">{row.map((cell, i) => <td key={`${row[0]}-${i}`} className="px-5 py-4">{i > 7 ? <Pill tone={cell === "Essential" || cell === "Keep" ? "good" : cell === "Useful" ? "info" : "warn"}>{cell}</Pill> : cell}</td>)}</tr>)}</tbody>
+          <thead className="text-[var(--muted)]">
+            <tr>
+              {[
+                "Merchant",
+                "Service",
+                "Amount",
+                "Frequency",
+                "Monthly",
+                "Annual",
+                "Next charge",
+                "Price change",
+                "Classification",
+                "Recommendation",
+              ].map((h) => (
+                <th key={h} className="px-5 py-4">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {recurringRows.map((row) => (
+              <tr key={row[0]} className="border-t border-[var(--border)]">
+                {row.map((cell, i) => (
+                  <td key={`${row[0]}-${i}`} className="px-5 py-4">
+                    {i > 7 ? (
+                      <Pill
+                        tone={
+                          cell === "Essential" || cell === "Keep"
+                            ? "good"
+                            : cell === "Useful"
+                              ? "info"
+                              : "warn"
+                        }
+                      >
+                        {cell}
+                      </Pill>
+                    ) : (
+                      cell
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
         </table>
       </Card>
     </AppShell>
   );
 }
-

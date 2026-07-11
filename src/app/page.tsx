@@ -26,7 +26,10 @@ export default function Home() {
           </div>
           <div className="space-y-5 p-6">
             {cashBars.map(([label, value, width]) => (
-              <div key={label} className="grid gap-3 md:grid-cols-[190px_1fr_130px] md:items-center">
+              <div
+                key={label}
+                className="grid gap-3 md:grid-cols-[190px_1fr_130px] md:items-center"
+              >
                 <div className="text-sm text-[var(--muted)]">{label}</div>
                 <div className="h-9 rounded-md bg-[var(--surface-muted)]">
                   <div className={`${width} h-9 rounded-md`} />
@@ -44,7 +47,11 @@ export default function Home() {
               <div key={label} className="flex items-center justify-between gap-6">
                 <span className="text-[var(--muted)]">{label}</span>
                 <span className="ml-auto font-medium">{value}</span>
-                <span className={delta.includes("+") ? "text-[var(--green)]" : "text-[var(--muted)]"}>{delta}</span>
+                <span
+                  className={delta.includes("+") ? "text-[var(--green)]" : "text-[var(--muted)]"}
+                >
+                  {delta}
+                </span>
               </div>
             ))}
           </div>
@@ -56,4 +63,3 @@ export default function Home() {
     </AppShell>
   );
 }
-

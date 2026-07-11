@@ -3,7 +3,9 @@ import { householdSettingsSchema } from "@/domain/household/schema";
 import { prisma } from "@/server/db/prisma";
 
 export async function GET() {
-  const household = await prisma.household.findFirst({ include: { accounts: true, categories: true } });
+  const household = await prisma.household.findFirst({
+    include: { accounts: true, categories: true },
+  });
   return NextResponse.json({ household });
 }
 
@@ -15,4 +17,3 @@ export async function PUT(request: Request) {
     : await prisma.household.create({ data: body });
   return NextResponse.json({ household });
 }
-

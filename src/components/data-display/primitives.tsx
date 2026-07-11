@@ -30,7 +30,12 @@ export function Card({
   className,
 }: Readonly<{ children: React.ReactNode; className?: string }>) {
   return (
-    <section className={cn("rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow)]", className)}>
+    <section
+      className={cn(
+        "rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow)]",
+        className,
+      )}
+    >
       {children}
     </section>
   );
@@ -73,7 +78,13 @@ export function MetricCard({
   );
 }
 
-export function Pill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "good" | "warn" | "bad" | "info" }) {
+export function Pill({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "good" | "warn" | "bad" | "info";
+}) {
   return (
     <span
       className={cn(
@@ -90,13 +101,26 @@ export function Pill({ children, tone = "neutral" }: { children: React.ReactNode
   );
 }
 
-export function Button({ children, variant = "primary" }: { children: React.ReactNode; variant?: "primary" | "secondary" }) {
+export function Button({
+  children,
+  variant = "primary",
+  disabled = false,
+  title,
+}: {
+  children: React.ReactNode;
+  variant?: "primary" | "secondary";
+  disabled?: boolean;
+  title?: string;
+}) {
   return (
     <button
+      disabled={disabled}
+      title={title}
       className={cn(
         "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold",
         variant === "primary" && "bg-[var(--teal)] text-white",
         variant === "secondary" && "border border-[var(--border)] bg-white text-[var(--text)]",
+        disabled && "cursor-not-allowed opacity-55",
       )}
     >
       {children}
@@ -104,3 +128,26 @@ export function Button({ children, variant = "primary" }: { children: React.Reac
   );
 }
 
+export function PlannedControl({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      disabled
+      title="Planned for a later phase"
+      className={cn(
+        "inline-flex h-10 cursor-not-allowed items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted)] opacity-70",
+        className,
+      )}
+    >
+      {children}
+      <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] uppercase tracking-[0.08em]">
+        Planned
+      </span>
+    </button>
+  );
+}
