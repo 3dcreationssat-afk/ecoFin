@@ -200,11 +200,21 @@ export async function confirmTransferMatch(id: string, input: unknown) {
     });
     await tx.transaction.update({
       where: { id: match.outgoingTransactionId },
-      data: { type: "TRANSFER_OUT", reviewStatus: "REVIEWED" },
+      data: {
+        type: "TRANSFER_OUT",
+        reviewStatus: "REVIEWED",
+        typeSource: "TRANSFER",
+        reviewSource: "TRANSFER",
+      },
     });
     await tx.transaction.update({
       where: { id: match.incomingTransactionId },
-      data: { type: "TRANSFER_IN", reviewStatus: "REVIEWED" },
+      data: {
+        type: "TRANSFER_IN",
+        reviewStatus: "REVIEWED",
+        typeSource: "TRANSFER",
+        reviewSource: "TRANSFER",
+      },
     });
     await auditTransferConfirmed(
       tx,
@@ -284,11 +294,21 @@ export async function createManualTransfer(input: unknown) {
     });
     await tx.transaction.update({
       where: { id: outgoing.id },
-      data: { type: "TRANSFER_OUT", reviewStatus: "REVIEWED" },
+      data: {
+        type: "TRANSFER_OUT",
+        reviewStatus: "REVIEWED",
+        typeSource: "TRANSFER",
+        reviewSource: "TRANSFER",
+      },
     });
     await tx.transaction.update({
       where: { id: incoming.id },
-      data: { type: "TRANSFER_IN", reviewStatus: "REVIEWED" },
+      data: {
+        type: "TRANSFER_IN",
+        reviewStatus: "REVIEWED",
+        typeSource: "TRANSFER",
+        reviewSource: "TRANSFER",
+      },
     });
     await auditTransferConfirmed(
       tx,
@@ -315,14 +335,18 @@ export async function unmatchTransfer(id: string, input: unknown) {
       where: { id: match.outgoingTransactionId },
       data: {
         type: match.previousOutgoingType ?? "DEBIT",
+        typeSource: "USER",
         reviewStatus: match.previousOutgoingReviewStatus ?? "NEEDS_REVIEW",
+        reviewSource: "USER",
       },
     });
     await tx.transaction.update({
       where: { id: match.incomingTransactionId },
       data: {
         type: match.previousIncomingType ?? "CREDIT",
+        typeSource: "USER",
         reviewStatus: match.previousIncomingReviewStatus ?? "NEEDS_REVIEW",
+        reviewSource: "USER",
       },
     });
     await auditChange(tx, {

@@ -303,7 +303,16 @@ export async function updateTransactionEditable(id: string, input: unknown) {
       throw new AppError("Category is invalid for this transaction.", 422);
     }
   }
-  const transaction = await prisma.transaction.update({ where: { id }, data });
+  const transaction = await prisma.transaction.update({
+    where: { id },
+    data: {
+      ...data,
+      merchantSource: "USER",
+      categorySource: "USER",
+      typeSource: "USER",
+      reviewSource: "USER",
+    },
+  });
   await auditFields(prisma, {
     householdId: existing.householdId,
     entityType: "Transaction",
@@ -379,6 +388,7 @@ export async function startFreshWorkspace(input: unknown) {
     const before = await demoResetCounts(tx);
     await tx.auditLog.deleteMany();
     await tx.transactionSavedView.deleteMany();
+    await tx.merchantRule.deleteMany();
     await tx.recurringExpenseTransaction.deleteMany();
     await tx.recurringExpense.deleteMany();
     await tx.transferMatch.deleteMany();

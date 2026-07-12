@@ -240,6 +240,7 @@ export function TransactionsClient({
   const [announcement, setAnnouncement] = useState("");
   const [transferError, setTransferError] = useState("");
   const [pendingTransferActionId, setPendingTransferActionId] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [transferStatusOverrides, setTransferStatusOverrides] = useState<Record<string, string>>(
     {},
   );
@@ -263,6 +264,10 @@ export function TransactionsClient({
 
   const currentPage = Math.min(query.page, totalPages);
   function navigate(next: TransactionQuery, push = true) {
+    if (selectedIds.length) {
+      setSelectedIds([]);
+      setAnnouncement("Selection cleared because the transaction view changed.");
+    }
     const params = serializeTransactionQuery(next);
     const href = `/transactions${params.size ? `?${params}` : "?period=ALL"}`;
     startTransition(() =>
@@ -440,6 +445,19 @@ export function TransactionsClient({
         categories={categories}
         onChange={updateFilter}
       />
+      {selectedIds.length ? (
+        <BulkActionBar
+          selectedIds={selectedIds}
+          transactions={transactions}
+          categories={categories}
+          onClear={() => setSelectedIds([])}
+          onComplete={(message) => {
+            setAnnouncement(message);
+            setSelectedIds([]);
+            startTransition(() => router.refresh());
+          }}
+        />
+      ) : null}
       <TransactionTable
         transactions={transactions}
         transferMatches={displayedTransferMatches}
@@ -451,6 +469,8 @@ export function TransactionsClient({
         pageSize={String(filters.pageSize)}
         onPage={updatePage}
         onPageSize={(next) => updateFilter("pageSize", next)}
+        selectedIds={selectedIds}
+        onSelection={setSelectedIds}
       />
       {importOpen ? (
         <ImportDialog
@@ -1252,6 +1272,26 @@ function ImportDialog({
                 />
                 <SummaryLine label="Account" value={batch.account.name} />
                 <SummaryLine label="Batch" value={batch.originalFilename} />
+                <SummaryLine
+                  label="Matched by merchant rules"
+                  value={String(summary.ruleMatchedCount ?? 0)}
+                />
+                <SummaryLine
+                  label="Rule conflicts"
+                  value={String(summary.ruleConflictCount ?? 0)}
+                />
+                <SummaryLine
+                  label="Merchants normalized by rules"
+                  value={String(summary.ruleMerchantNormalizedCount ?? 0)}
+                />
+                <SummaryLine
+                  label="Categories assigned by rules"
+                  value={String(summary.ruleCategoryAssignedCount ?? 0)}
+                />
+                <SummaryLine
+                  label="Still needs review"
+                  value={String(summary.stillNeedsReview ?? batch.importedTransactionCount)}
+                />
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button onClick={onComplete}>View imported transactions</Button>
@@ -1273,6 +1313,174 @@ function ImportDialog({
         </div>
       </section>
     </div>
+  );
+}
+
+function BulkActionBar({
+  selectedIds,
+  transactions,
+  categories,
+  onClear,
+  onComplete,
+}: {
+  selectedIds: string[];
+  transactions: TransactionDto[];
+  categories: CategoryDto[];
+  onClear: () => void;
+  onComplete: (message: string) => void;
+}) {
+  const [action, setAction] = useState("MARK_REVIEWED");
+  const [value, setValue] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const needsValue =
+    action === "ASSIGN_CATEGORY" || action === "SET_TYPE" || action === "NORMALIZE_MERCHANT";
+  async function apply() {
+    const reportingImpact = ["EXCLUDE", "RESTORE", "SET_TYPE"].includes(action);
+    if (
+      reportingImpact &&
+      !window.confirm(
+        `${action.replaceAll("_", " ")} ${selectedIds.length} explicitly selected transaction(s) on this page?`,
+      )
+    )
+      return;
+    setPending(true);
+    setError("");
+    const response = await fetch("/api/transactions/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transactionIds: selectedIds,
+        action,
+        value: needsValue ? value : undefined,
+        confirmation: reportingImpact ? "CONFIRM BULK CHANGE" : undefined,
+      }),
+    });
+    const body = await response.json();
+    setPending(false);
+    if (!response.ok) {
+      setError(body.error ?? "Bulk action failed; nothing was changed.");
+      return;
+    }
+    onComplete(
+      `Bulk action complete: ${body.changed ?? body.applied ?? 0} changed, ${body.skipped ?? 0} skipped.`,
+    );
+  }
+  async function createRule() {
+    const first = transactions.find((transaction) => selectedIds.includes(transaction.id));
+    if (!first) return;
+    const name = window.prompt("Rule name", `${first.normalizedMerchant} rule`);
+    if (!name) return;
+    const response = await fetch("/api/merchant-rules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rule: {
+          name,
+          priority: 100,
+          active: true,
+          matchField: "ORIGINAL_DESCRIPTION",
+          matchType: "CONTAINS",
+          pattern: first.originalDescription,
+          normalizedMerchant: first.normalizedMerchant,
+          categoryId: first.categoryId ?? null,
+          transactionType: null,
+          markReviewed: false,
+          notes: "Created from explicitly selected transactions.",
+        },
+        applyExisting: false,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) setError(body.error ?? "Rule could not be created.");
+    else onComplete("Merchant rule saved for future eligible transactions.");
+  }
+  return (
+    <Card className="mb-4 border-[var(--teal)] p-4" aria-label="Bulk actions">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <strong>{selectedIds.length} selected</strong>
+          <p className="text-xs text-[var(--muted)]">Explicit rows on the current page only.</p>
+        </div>
+        <Select
+          label="Bulk action"
+          value={action}
+          values={[
+            "ASSIGN_CATEGORY",
+            "MARK_REVIEWED",
+            "MARK_NEEDS_REVIEW",
+            "EXCLUDE",
+            "RESTORE",
+            "SET_TYPE",
+            "NORMALIZE_MERCHANT",
+            "REAPPLY_RULES",
+          ]}
+          labels={{
+            ASSIGN_CATEGORY: "Assign category",
+            MARK_REVIEWED: "Mark reviewed",
+            MARK_NEEDS_REVIEW: "Mark needs review",
+            EXCLUDE: "Exclude from reports",
+            RESTORE: "Restore to reports",
+            SET_TYPE: "Set safe transaction type",
+            NORMALIZE_MERCHANT: "Normalize merchant",
+            REAPPLY_RULES: "Reapply merchant rules",
+          }}
+          onChange={(next) => {
+            setAction(next);
+            setValue("");
+          }}
+        />
+        {action === "ASSIGN_CATEGORY" ? (
+          <Select
+            label="Resulting category"
+            value={value}
+            values={["", ...categories.map((category) => category.id)]}
+            labels={{
+              "": "Choose category",
+              ...Object.fromEntries(categories.map((category) => [category.id, category.name])),
+            }}
+            onChange={setValue}
+          />
+        ) : null}
+        {action === "SET_TYPE" ? (
+          <Select
+            label="Resulting type"
+            value={value}
+            values={[
+              "",
+              "DEBIT",
+              "CREDIT",
+              "INCOME",
+              "EXPENSE",
+              "REFUND",
+              "FEE",
+              "INTEREST",
+              "UNKNOWN",
+              "OTHER",
+            ]}
+            labels={{ "": "Choose type", ...transactionTypeLabels }}
+            onChange={setValue}
+          />
+        ) : null}
+        {action === "NORMALIZE_MERCHANT" ? (
+          <TextFilter label="Resulting merchant" type="text" value={value} onChange={setValue} />
+        ) : null}
+        <Button onClick={apply} disabled={pending || (needsValue && !value)}>
+          {pending ? "Applying…" : "Apply to selected"}
+        </Button>
+        <Button variant="secondary" onClick={createRule} disabled={pending}>
+          Create merchant rule
+        </Button>
+        <Button variant="secondary" onClick={onClear}>
+          Clear selection
+        </Button>
+      </div>
+      {error ? (
+        <p role="alert" className="mt-3 text-sm text-[var(--red)]">
+          {error}
+        </p>
+      ) : null}
+    </Card>
   );
 }
 
@@ -1666,6 +1874,8 @@ function TransactionTable({
   pageSize,
   onPage,
   onPageSize,
+  selectedIds,
+  onSelection,
 }: {
   transactions: TransactionDto[];
   transferMatches: TransferMatchDto[];
@@ -1677,6 +1887,8 @@ function TransactionTable({
   pageSize: string;
   onPage: (page: number) => void;
   onPageSize: (pageSize: string) => void;
+  selectedIds: string[];
+  onSelection: (ids: string[]) => void;
 }) {
   const transferByTransaction = new Map<string, TransferMatchDto[]>();
   transferMatches.forEach((match) => {
@@ -1732,6 +1944,21 @@ function TransactionTable({
         <table className="w-full min-w-[980px] text-left text-sm">
           <thead className="sticky top-0 border-b border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">
             <tr>
+              <th className="px-4 py-4">
+                <input
+                  type="checkbox"
+                  aria-label="Select current page"
+                  checked={
+                    transactions.length > 0 &&
+                    transactions.every((transaction) => selectedIds.includes(transaction.id))
+                  }
+                  onChange={(event) =>
+                    onSelection(
+                      event.target.checked ? transactions.map((transaction) => transaction.id) : [],
+                    )
+                  }
+                />
+              </th>
               {[
                 "Date",
                 "Merchant / Original",
@@ -1753,6 +1980,20 @@ function TransactionTable({
                 key={transaction.id}
                 className="border-b border-[var(--border)] hover:bg-[var(--surface-muted)]"
               >
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${transaction.normalizedMerchant}`}
+                    checked={selectedIds.includes(transaction.id)}
+                    onChange={(event) =>
+                      onSelection(
+                        event.target.checked
+                          ? [...selectedIds, transaction.id]
+                          : selectedIds.filter((id) => id !== transaction.id),
+                      )
+                    }
+                  />
+                </td>
                 <td className="px-4 py-3 text-[var(--muted)]">
                   {new Date(transaction.transactionDate).toLocaleDateString()}
                 </td>
@@ -2401,7 +2642,15 @@ async function postJson(url: string, body: unknown) {
     : { ok: false, error: json.error ?? "Request failed." };
 }
 
-function parseSummary(batch: BatchDto | null): { headers?: string[]; sampleRows?: string[][] } {
+function parseSummary(batch: BatchDto | null): {
+  headers?: string[];
+  sampleRows?: string[][];
+  ruleMatchedCount?: number;
+  ruleConflictCount?: number;
+  ruleMerchantNormalizedCount?: number;
+  ruleCategoryAssignedCount?: number;
+  stillNeedsReview?: number;
+} {
   if (!batch?.summaryJson) return {};
   try {
     return JSON.parse(batch.summaryJson);

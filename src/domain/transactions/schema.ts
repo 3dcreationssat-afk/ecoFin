@@ -14,6 +14,8 @@ export const transactionUpdateSchema = z.object({
     "FEE",
     "INTEREST",
     "UNKNOWN",
+    "CREDIT_CARD_PAYMENT",
+    "OTHER",
   ]),
   reviewStatus: z.enum(["NEEDS_REVIEW", "REVIEWED", "FLAGGED"]),
   excluded: z.boolean(),
