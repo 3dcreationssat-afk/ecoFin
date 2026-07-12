@@ -6,6 +6,7 @@ import { formatMoney } from "@/domain/money/money";
 import { buildOverviewDashboard, type OverviewSeverity } from "@/domain/overview/dashboard";
 import { accountSummaries, currentPeriodSummary } from "@/domain/summaries/calculations";
 import { getHousehold, workspaceState } from "@/server/data/repositories";
+import { getCashFlowProjection } from "@/server/data/cash-flow";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function Home() {
   const accountSummary = accountSummaries(household.accounts);
   const period = currentPeriodSummary(household.transactions);
   const dashboard = buildOverviewDashboard({ household });
+  const cashFlow = isEmpty ? null : await getCashFlowProjection();
   const summaryCards = [
     {
       label: "Available Cash",
@@ -25,23 +27,19 @@ export default async function Home() {
     },
     {
       label: "Projected Month-End",
-      value: formatMoney(
-        accountSummary.availableCashMinor + period.currentSummary.netCashFlowMinor,
-      ),
-      detail: "Preliminary: current cash plus recorded net flow",
+      value: formatMoney(cashFlow?.projectedMonthEndMinor ?? 0),
+      detail: `${cashFlow?.confidence ?? "LIMITED"} confidence · validated projection`,
       featured: true,
     },
     {
       label: "Safe to Save",
-      value: "Preliminary",
-      detail: "Detailed engine planned before recommendations",
-      tone: "warning" as const,
+      value: formatMoney(cashFlow?.recommendedSafeToSaveMinor ?? 0),
+      detail: "After obligations, buffers, and protections",
     },
     {
       label: "Safe to Spend",
-      value: "Preliminary",
-      detail: "Depends on upcoming obligations and buffers",
-      tone: "warning" as const,
+      value: formatMoney(cashFlow?.safeToSpendMinor ?? 0),
+      detail: "After recommended saving allocation",
     },
     {
       label: "Total Debt",
@@ -101,7 +99,7 @@ export default async function Home() {
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold"
                   href="/cash-flow"
                 >
-                  Details <ArrowRight className="h-4 w-4" />
+                  View calculation <ArrowRight className="h-4 w-4" />
                 </a>
               </div>
               <div className="space-y-5 p-6">
@@ -196,7 +194,9 @@ export default async function Home() {
                 ))}
               </div>
               <div className="mt-8">
-                <Pill tone="warn">Moderate confidence</Pill>
+                <Pill tone={cashFlow?.confidence === "HIGH" ? "good" : "warn"}>
+                  {cashFlow?.confidence ?? "LIMITED"} confidence
+                </Pill>
               </div>
             </Card>
           </div>
