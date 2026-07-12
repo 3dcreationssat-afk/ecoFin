@@ -1,7 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   isAmbiguousSlashDate,
-  isFormulaLike,
   parseCsv,
   parseDateOnly,
   parseDebitCreditAmount,
@@ -672,16 +671,6 @@ function validateRow(input: {
   let postedDate: Date | null = null;
   let amountMinor: number | null = null;
 
-  const amountColumns = new Set([
-    input.mapping.amountColumn,
-    input.mapping.debitColumn,
-    input.mapping.creditColumn,
-  ]);
-  for (const [key, value] of Object.entries(sourceFields)) {
-    if (key.startsWith("__")) continue;
-    if (amountColumns.has(key)) continue;
-    if (isFormulaLike(value)) errors.push(`Formula-like value blocked in ${key}.`);
-  }
   if (!description.trim()) errors.push("Description is required.");
   if (!dateText.trim()) errors.push("Transaction date is required.");
   if (dateText && isAmbiguousSlashDate(dateText)) {

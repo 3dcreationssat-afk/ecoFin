@@ -283,6 +283,109 @@ describe("csv import repositories", () => {
     expect(imported.rows.find((row) => row.id === candidate?.id)?.createdTransactionId).toBeNull();
   });
 
+  it("accepts Amex-shaped rows with masked account identifiers and preserves unused metadata", async () => {
+    const dashboard = await imports.importDashboard();
+    const account = dashboard.accounts[0];
+    const headers = [
+      "Date",
+      "Description",
+      "Card Member",
+      "Account #",
+      "Amount",
+      "Extended Details",
+      "Appears On Your Statement As",
+      "Address",
+      "City/State",
+      "Zip Code",
+      "Country",
+      "Reference",
+      "Category",
+    ];
+    const examples = [
+      ["AplPay ALIMENTACION MADRID ES", "6.88", "'320261740038905040"],
+      ["AplPay FARMACIA HERNMADRID ES", "22.29", "'320261740038905041"],
+      ["FOREIGN TRANSACTION FEE", "0.03", "'820261740019432634"],
+    ];
+    const rows = Array.from({ length: 28 }, (_, index) => {
+      const example = examples[index] ?? [
+        `Synthetic Amex purchase ${index}`,
+        `${index + 1}.15`,
+        `'9${index}`,
+      ];
+      const ignoredValue = ["-92002", "+12345", "=1+1", "@SUM(1;2)"][index % 4];
+      return [
+        "06/23/2026",
+        example[0],
+        "SYNTHETIC CARD MEMBER",
+        "-92002",
+        example[1],
+        ignoredValue,
+        example[0],
+        "",
+        "",
+        "",
+        "SPAIN",
+        example[2],
+        "Synthetic category",
+      ].join(",");
+    });
+    const content = `${headers.join(",")}\n${rows.join("\n")}`;
+    const preview = await imports.previewImport({
+      accountId: account.id,
+      filename: "synthetic-amex.csv",
+      fileSize: content.length,
+      content,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+    });
+    const validated = await imports.validateImport({
+      batchId: preview.id,
+      accountId: account.id,
+      filename: "synthetic-amex.csv",
+      fileSize: content.length,
+      content,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+      mapping: {
+        delimiter: ",",
+        encoding: "UTF-8",
+        hasHeader: true,
+        dateColumn: "Date",
+        descriptionColumn: "Description",
+        amountMode: "SIGNED_AMOUNT",
+        amountColumn: "Amount",
+        dateFormat: "MM/DD/YYYY",
+        decimalSeparator: ".",
+        thousandsSeparator: ",",
+        signConvention: "DEBITS_NEGATIVE",
+        currency: "USD",
+        saveProfile: false,
+      },
+    });
+
+    expect(validated).toMatchObject({
+      acceptedRowCount: 28,
+      rejectedRowCount: 0,
+      duplicateCandidateCount: 0,
+    });
+    expect(validated.rows.map((row) => row.parsedAmountMinor).slice(0, 3)).toEqual([688, 2229, 3]);
+    const firstSource = JSON.parse(validated.rows[0].sourceFieldsJson) as Record<string, string>;
+    expect(firstSource["Account #"]).toBe("-92002");
+    expect(firstSource.Reference).toBe("'320261740038905040");
+
+    const imported = await imports.confirmImport({
+      batchId: validated.id,
+      decisions: validated.rows.map((row) => ({ rowId: row.id, decision: "IMPORT" })),
+      confirm: "IMPORT CSV",
+    });
+    expect(imported.importedTransactionCount).toBe(28);
+    expect(imported.transactions.every((transaction) => transaction.accountId === account.id)).toBe(
+      true,
+    );
+  });
+
   it("imports debit and credit column CSV with explicit sign convention", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[1];

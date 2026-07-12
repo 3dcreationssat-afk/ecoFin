@@ -157,10 +157,6 @@ export function splitCsvLine(line: string, delimiter: "," | ";" | "\t") {
   }
 }
 
-export function isFormulaLike(value: string) {
-  return /^[=+\-@]/.test(value.trim());
-}
-
 export function parseDateOnly(value: string, format: (typeof dateFormats)[number] | "AUTO") {
   const raw = value.trim();
   if (!raw) throw new Error("Date is required.");

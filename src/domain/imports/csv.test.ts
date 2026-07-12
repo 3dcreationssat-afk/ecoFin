@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   detectDelimiter,
   isAmbiguousSlashDate,
-  isFormulaLike,
   parseCsv,
   parseDateOnly,
   parseDebitCreditAmount,
@@ -69,6 +68,12 @@ describe("csv import domain", () => {
     expect(parseSignedAmount("(125.50)", { decimalSeparator: ".", thousandsSeparator: "," })).toBe(
       -12550,
     );
+    expect(parseSignedAmount("-25.50", { decimalSeparator: ".", thousandsSeparator: "," })).toBe(
+      -2550,
+    );
+    expect(parseSignedAmount("+12.75", { decimalSeparator: ".", thousandsSeparator: "," })).toBe(
+      1275,
+    );
     expect(parseSignedAmount("1.250,75", { decimalSeparator: ",", thousandsSeparator: "." })).toBe(
       125075,
     );
@@ -91,9 +96,8 @@ describe("csv import domain", () => {
     ).toBe(250000);
   });
 
-  it("hashes files, flags formulas, and scores duplicates explainably", () => {
+  it("hashes files and scores duplicates explainably", () => {
     expect(sha256Text("same")).toBe(sha256Text("same"));
-    expect(isFormulaLike("=HYPERLINK('x')")).toBe(true);
     const date = new Date("2026-07-11T00:00:00.000Z");
     expect(
       scoreDuplicate(
