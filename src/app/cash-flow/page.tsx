@@ -1,28 +1,16 @@
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Card, PageHeader } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
-import { accountSummaries, currentPeriodSummary } from "@/domain/summaries/calculations";
 import { getHousehold, workspaceState } from "@/server/data/repositories";
+import { getCashFlowProjection } from "@/server/data/cash-flow";
 import { CashFlowClient } from "./cash-flow-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function CashFlowPage() {
-  const household = await getHousehold();
+  await getHousehold();
   const state = await workspaceState();
-  const accountSummary = accountSummaries(household.accounts);
-  const period = currentPeriodSummary(household.transactions);
-  const timeline = [
-    {
-      day: "Month start",
-      balance: accountSummary.availableCashMinor - period.currentSummary.netCashFlowMinor,
-    },
-    { day: "Current", balance: accountSummary.availableCashMinor },
-    {
-      day: "Preliminary month-end",
-      balance: accountSummary.availableCashMinor + period.currentSummary.netCashFlowMinor,
-    },
-  ];
+  const projection = state === "EMPTY" ? null : await getCashFlowProjection();
   return (
     <AppShell>
       <PageHeader
@@ -40,15 +28,7 @@ export default async function CashFlowPage() {
           </p>
         </Card>
       ) : (
-        <CashFlowClient
-          currentCashMinor={accountSummary.availableCashMinor}
-          recordedIncomeMinor={period.currentSummary.householdIncomeMinor}
-          recordedSpendingMinor={period.currentSummary.householdSpendingMinor}
-          projectedMonthEndMinor={
-            accountSummary.availableCashMinor + period.currentSummary.netCashFlowMinor
-          }
-          timeline={timeline}
-        />
+        <CashFlowClient projection={projection!} />
       )}
     </AppShell>
   );
