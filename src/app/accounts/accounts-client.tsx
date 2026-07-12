@@ -97,8 +97,11 @@ export function AccountsClient({
       body: JSON.stringify(body),
     });
     if (!response.ok) {
-      const payload = await response.json();
-      setError(payload.error ?? "Unable to save account.");
+      const payload = (await response.json()) as {
+        error?: string;
+        issues?: { path: string; message: string }[];
+      };
+      setError(formatAccountError(payload));
       setStatus("error");
       return;
     }
@@ -227,36 +230,65 @@ export function AccountsClient({
                 value={form.creditLimit}
                 onChange={(creditLimit) => setForm({ ...form, creditLimit })}
               />
-              <Field label="APR %" value={form.apr} onChange={(apr) => setForm({ ...form, apr })} />
+              <Field
+                label="APR %"
+                value={form.apr}
+                onChange={(apr) => setForm({ ...form, apr })}
+                type="number"
+                min="0"
+                step="0.01"
+              />
               <Field
                 label="Minimum payment"
                 value={form.minimumPayment}
                 onChange={(minimumPayment) => setForm({ ...form, minimumPayment })}
+                type="number"
+                min="0"
+                step="0.01"
               />
               <Field
                 label="Payment due day"
                 value={form.dueDay}
                 onChange={(dueDay) => setForm({ ...form, dueDay })}
+                type="number"
+                min="1"
+                max="31"
               />
               <Field
                 label="Statement closing day"
                 value={form.statementDay}
                 onChange={(statementDay) => setForm({ ...form, statementDay })}
+                type="number"
+                min="1"
+                max="31"
               />
             </>
           ) : null}
           {["LOAN", "MORTGAGE"].includes(form.type) ? (
             <>
-              <Field label="APR %" value={form.apr} onChange={(apr) => setForm({ ...form, apr })} />
+              <Field
+                label="APR %"
+                value={form.apr}
+                onChange={(apr) => setForm({ ...form, apr })}
+                type="number"
+                min="0"
+                step="0.01"
+              />
               <Field
                 label="Minimum payment"
                 value={form.minimumPayment}
                 onChange={(minimumPayment) => setForm({ ...form, minimumPayment })}
+                type="number"
+                min="0"
+                step="0.01"
               />
               <Field
                 label="Payment due day"
                 value={form.dueDay}
                 onChange={(dueDay) => setForm({ ...form, dueDay })}
+                type="number"
+                min="1"
+                max="31"
               />
             </>
           ) : null}
@@ -499,18 +531,32 @@ function parseOptionalMoney(value: string) {
   return value ? parseMoneyToMinor(value) : null;
 }
 
+function formatAccountError(payload: {
+  error?: string;
+  issues?: { path: string; message: string }[];
+}) {
+  if (payload.issues?.length) return payload.issues.map((issue) => issue.message).join(" ");
+  return payload.error ?? "Unable to save account.";
+}
+
 function Field({
   label,
   help,
   value,
   onChange,
   type = "text",
+  min,
+  max,
+  step,
 }: {
   label: string;
   help?: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  min?: string;
+  max?: string;
+  step?: string;
 }) {
   return (
     <label>
@@ -521,6 +567,9 @@ function Field({
         className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
         value={value}
         type={type}
+        min={min}
+        max={max}
+        step={step}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>

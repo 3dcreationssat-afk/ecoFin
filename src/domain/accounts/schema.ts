@@ -17,8 +17,20 @@ export const accountSchema = z.object({
   creditLimitMinor: z.number().int().nullable().optional(),
   aprBasisPoints: z.number().int().min(0).nullable().optional(),
   minimumPaymentMinor: z.number().int().min(0).nullable().optional(),
-  dueDay: z.number().int().min(1).max(31).nullable().optional(),
-  statementDay: z.number().int().min(1).max(31).nullable().optional(),
+  dueDay: z
+    .number()
+    .int()
+    .min(1, "Payment due day must be between 1 and 31.")
+    .max(31, "Payment due day must be between 1 and 31.")
+    .nullable()
+    .optional(),
+  statementDay: z
+    .number()
+    .int()
+    .min(1, "Statement closing day must be between 1 and 31.")
+    .max(31, "Statement closing day must be between 1 and 31.")
+    .nullable()
+    .optional(),
   notes: z.string().max(500).nullable().optional(),
   lastUpdated: z.coerce.date(),
 });
