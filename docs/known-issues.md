@@ -1,7 +1,8 @@
 # Known Issues
 
-- Financial engines are not implemented; UI values are synthetic demonstration data.
-- Safe-to-save, cash-flow, budget forecast, debt payoff, and decision scenario outputs remain demonstration-only.
+- Validated financial recommendation engines are not implemented.
+- Safe-to-save, safe-to-spend, scheduled cash-flow projection, debt payoff, and decision scenario outputs remain preliminary or unavailable.
+- Overview, Cash Flow, Budget, Debt, and Reports now use repository-derived values where deterministic local inputs exist, but cash-flow month-end and budget forecast values are still planning signals rather than validated recommendations.
 - CSV transaction import is implemented for Phase 2A. OFX, QFX, QBO, PDF parsing, OCR, bank connectivity, provider APIs, automatic transfer confirmation, merchant rules, and AI categorization are not implemented.
 - Import duplicate detection is conservative candidate review, not an automatic deduplication engine.
 - Import undo is blocked after material edits and does not provide a merge/review UI for edited imported transactions yet.

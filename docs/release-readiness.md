@@ -17,11 +17,12 @@ Date: 2026-07-12
 - Local backup creation, validation, restore preview, mandatory pre-restore safety backup, restore confirmation, and backup deletion.
 - Demonstration data reset with exact confirmation, visible pending/success/error feedback, active-database diagnostics, canonical seed counts, and browser preference preservation.
 - Start fresh with exact confirmation, before/after counts, backup ZIP preservation, browser preference preservation, empty workspace creation, workspace-state badges, and empty states for core screens.
+- Repository-derived preliminary Overview, Cash Flow, Budget, Debt, and Reports values where deterministic local account, category, goal, and transaction inputs exist.
 
 ## Demonstration-only Capabilities
 
 - Seed data is synthetic demonstration data.
-- Budget, cash-flow, debt, reports, and decisions pages remain demonstration-oriented unless their controls are explicitly implemented.
+- Safe-to-save, safe-to-spend, scheduled cash-flow projection, debt payoff, report export, and decision scenario engines remain unavailable or preliminary unless their controls are explicitly implemented.
 - Planned controls are visible but disabled for later phases.
 - Transfer and recurring detection are deterministic and local; they are not AI, bank-connected, or automated account-management services.
 

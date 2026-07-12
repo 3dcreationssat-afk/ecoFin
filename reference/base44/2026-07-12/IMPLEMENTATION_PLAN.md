@@ -1,189 +1,123 @@
 # Base44 Product-Parity Implementation Plan
 
-This plan preserves the local-first architecture, workspace lifecycle, backup behavior, demo provenance, and completed Phase 2A-2D functionality. It intentionally avoids a single uncontrolled implementation pass.
+Date: 2026-07-12
 
-## Delivery Rules
+This plan follows the parity matrix in this directory. The Base44 screenshots define product direction, but implementation must preserve Financial Compass's local-first architecture, SQLite source of truth, workspace lifecycle, auditability, and existing CSV import, transfer, recurring, backup, restore, and start-fresh workflows.
 
-- No static mockup numbers may replace repository-derived values.
-- New visible controls must work, be clearly unavailable, or be omitted.
-- Every destructive workflow must use explicit confirmation and server-side execution.
-- EMPTY workspace must avoid misleading zero-value analytical cards.
-- DEMONSTRATION, USER_DATA, and MIXED workspaces must keep provenance semantics intact.
-- Calculation outputs that are not fully validated must be labeled preliminary with confidence and assumptions.
+## Delivery Boundary
 
-## Phase 0: Audit Baseline
+Do not implement every parity gap in one pass. Large capabilities that require new schema, new financial engines, or broad workflow contracts must be delivered in separate focused increments with tests and documentation.
 
-Status: complete in this directory.
+Every visible control must either work, be explicitly disabled/unavailable, or be omitted.
 
-Deliverables:
+## Increment 1: Stabilize Misleading Static Analytics
 
-- `README.md`
-- `FEATURE_PARITY_MATRIX.md`
-- `IMPLEMENTATION_PLAN.md`
+Status: complete for the first recovery increment
 
-## Phase 1: P0 Truthfulness And Core Calculation Foundations
+Scope:
 
-Goal: remove or replace production-looking static values on pages where local docs currently say calculations are demonstration-only.
+- Replace static Overview summary cards with repository-derived available cash, projected month-end, and total debt where deterministic inputs exist.
+- Keep Safe to Save and Safe to Spend marked preliminary until buffer, obligation, and confidence engines are implemented.
+- Replace static Overview cash-flow bars and prior-period comparison with transfer-aware transaction summaries.
+- Add Overview spending by category, goals snapshot, and debt snapshot using persisted records.
+- Replace static Budget actuals and forecasts with category and transaction-derived values.
+- Replace static Cash Flow summary values with current cash plus recorded current-month net flow, clearly labeled preliminary.
+- Replace static Debt summary values and payoff order with persisted debt account data; keep payoff-date, interest, and strategy impact unavailable until a validated payoff engine exists.
+- Replace static Reports KPIs and spending bars with current-period transaction/category values; keep exports disabled until implemented.
+- Update calculations documentation and product-capability notes.
 
-Recommended commits:
+Validation:
 
-1. `feat(calculations): add period cash and budget summaries`
-   - Add deterministic current/prior-period transaction summaries.
-   - Exclude confirmed transfers from household income/spending.
-   - Exclude user-excluded transactions from analytical totals.
-   - Add tests for income, spending, savings, prior-period comparison, and favorable/unfavorable deltas.
+- Unit tests for account, period, and category budget calculations.
+- Existing e2e shell, workspace, import, transfer, recurring, backup, and reset workflows must keep passing.
+- Desktop and mobile route smoke checks must show no console errors, failed requests, or document-level horizontal overflow.
 
-2. `feat(cash-flow): add preliminary projection engine`
-   - Derive current cash from cash-like accounts only.
-   - Derive remaining income/expenses from current-period known records and confirmed recurring next charges.
-   - Include household checking buffer and emergency-fund protection.
-   - Return confidence and reasons.
-   - Clearly label safe-to-save as preliminary until more scheduling data exists.
+## Increment 2: Actionable Overview
 
-3. `feat(overview): replace static dashboard sections`
-   - Add Overview financial summary cards: Available Cash, Projected Month-End, Safe to Save, Safe to Spend, Total Debt.
-   - Add repository-derived Monthly Cash Flow and prior-period comparison.
-   - Add calculation links to implemented sections.
-   - Preserve Empty workspace card.
+Status: deferred
 
-4. `feat(budget): connect budget actuals to categories`
-   - Replace static budget summary and fixed table with category-group calculations.
-   - Derive actuals from transfer-aware current-period transactions.
-   - Add a documented conservative forecast formula.
-   - Keep export unavailable unless implemented.
+Scope:
 
-5. `feat(debt): derive debt planner inputs`
-   - Replace static debt summary values with debt account calculations.
-   - Add payoff engine using integer minor units and APR basis points.
-   - Enable Avalanche/Snowball only after tests pass.
-   - Keep Custom disabled until ordering UI exists.
+- Repository-derived Needs Your Attention queue.
+- Upcoming obligations from debt due dates, recurring records, and household settings.
+- Direct remediation links with URL-backed filters.
+- Confidence indicators by calculation area.
 
-P0 exits when:
+Dependencies:
 
-- No page shows static demo financial analysis as if it is repository-derived.
-- Existing demo reset and Start fresh E2E tests still pass.
-- Calculation docs describe every new formula.
+- Structured data-quality issue metadata.
+- Obligation model that avoids double counting scheduled and recorded activity.
 
-## Phase 2: P0/P1 Transaction Productivity
+## Increment 3: Transaction Management Parity
 
-Goal: align Transactions with the mockup while preserving import, duplicate, transfer, and audit safety.
+Status: deferred
 
-Recommended commits:
+Scope:
 
-1. `feat(transactions): add durable saved views`
-   - Add `TransactionSavedView` schema and migration.
-   - Persist name, filters, search, sort, page size, and default flag.
-   - Add CRUD API and Settings-safe validation.
+- Notes and amount search.
+- Date, amount, excluded, transfer-state, and recurring-link filters.
+- URL-backed sorting and page size.
+- SQLite-backed saved views.
+- Row selection and confirmed bulk actions.
+- Drawer parity for implemented actions only.
 
-2. `feat(transactions): expand filters and sorting`
-   - Add date range, amount range, excluded state, transfer state, and recurring-link state.
-   - Preserve URL state.
-   - Add sort field/direction.
+Dependencies:
 
-3. `feat(transactions): add bulk review actions`
-   - Multi-select rows.
-   - Bulk categorize, mark reviewed, exclude, restore.
-   - Audit every changed transaction.
-   - Confirm destructive bulk exclusion.
+- Saved-view schema and migration.
+- Bulk edit service with audit records and validation.
 
-P1 exits when:
+## Increment 4: Validated Financial Engines
 
-- Saved views survive reload and database reset/seed behavior remains deterministic.
-- Bulk operations preserve original imported fields and audit records.
+Status: deferred
 
-## Phase 3: P1 Planning And Guidance
+Scope:
 
-Goal: implement high-value product surfaces after calculation foundations exist.
+- Explainable Safe to Save and Safe to Spend.
+- Scheduled cash-flow projection with recurring obligations and buffers.
+- Debt payoff simulator with avalanche, snowball, custom order, extra payments, interest, payoff date, and six-month schedule.
+- Isolated decision scenario engine.
 
-Recommended commits:
+Dependencies:
 
-1. `feat(overview): add attention and obligation queues`
-   - Build action queue from data quality, transfer, recurring, imports, stale accounts, and buffer signals.
-   - Add direct links to remediation destinations.
-   - Add upcoming obligations from account due days and recurring next dates.
+- Documented formulas using integer minor units or precise decimal arithmetic.
+- Calculation confidence and data-quality impacts.
+- Focused unit and e2e coverage before presenting recommendations as actionable.
 
-2. `feat(goals): add prioritization and savings warning`
-   - Add monthly required summary and shortfall.
-   - Add limited-savings warning using preliminary safe-to-save or planned savings.
-   - Add priority adjustment workflow.
+## Increment 5: Reports, Settings, Accounts, and Goal Parity
 
-3. `feat(data-quality): add area confidence and remediation links`
-   - Normalize issue metadata.
-   - Add critical/warning/info severity counts.
-   - Add confidence by area.
-   - Add actionable links.
+Status: deferred
 
-4. `feat(accounts): align manual account management`
-   - Add available, credit limit, last updated, and manual update affordance.
-   - Add no-bank-sync/manual-balance notice.
+Scope:
 
-## Phase 4: Settings Extensions
+- Configurable reports and CSV/HTML/print export.
+- Merchant rules.
+- Import profile management in Settings.
+- Account list parity for available balance, credit limit, last-updated, and manual-update messaging.
+- Goal target-date/status display, contribution shortcuts, prioritization, and limited-savings warnings.
 
-Goal: implement settings tabs shown in the mockup without weakening import or transaction integrity.
+Dependencies:
 
-Recommended commits:
+- Merchant-rule schema and normalization implications.
+- Export serialization helpers.
+- Goal prioritization service and validation.
 
-1. `feat(settings): add import profiles management`
-   - Reuse existing `ImportProfile` model and APIs.
-   - Add list/edit/archive/use metadata in Settings.
+## Documentation Requirements
 
-2. `feat(settings): add merchant rules`
-   - Add `MerchantRule` model only after rule semantics are documented.
-   - Support pattern, match type, category, normalization, priority, active state, and test-rule preview.
-   - Do not auto-apply rules to historical transactions without explicit review.
+Each increment must update:
 
-## Phase 5: Reports And Scenario Simulation
+- `docs/calculations.md` for calculation behavior and limits.
+- `docs/known-issues.md` for deferred or unavailable capabilities.
+- `docs/change-ledger.md` for meaningful product, architecture, persistence, calculation, or design changes.
+- `docs/product-capabilities.md` for implemented and preliminary capabilities.
+- `docs/release-readiness.md` when validation status or release-facing limits change.
 
-Goal: add higher-order outputs only after the underlying engines exist.
+## Commit Strategy
 
-Recommended commits:
+Use focused conventional commits and do not rewrite history:
 
-1. `feat(reports): add repository-derived report views`
-   - Monthly summary, cash flow, spending by category, budget performance, recurring expenses, debt progress, goals progress, data quality.
-   - Add CSV/HTML export where deterministic.
-   - Print can use browser print when the report page is print-styled.
+- `docs(parity): audit base44 product gaps`
+- `feat(overview): add repository-derived dashboard signals`
+- `feat(budget): connect forecasts to persisted data`
+- `test(parity): cover base44-aligned workflows`
 
-2. `feat(decisions): add isolated scenario engine`
-   - Add scenario and component persistence.
-   - Changes never mutate real financial records.
-   - Inputs feed cash-flow, goal, recurring, and debt engines.
-   - Add robust decimal/month formatting tests.
-
-## Deferred P2 Polish
-
-- Pixel-level spacing differences.
-- Optional mobile card mode for every dense table.
-- Report chart variety beyond the first deterministic chart.
-- Custom debt payoff ordering.
-- Split transactions.
-- Selective backup restore and scheduled/encrypted backups.
-
-## Validation Required Per Implementation Phase
-
-Run after each phase:
-
-```bash
-npm run format:check
-npm run lint
-npm run typecheck
-npm run test
-npm run db:reset
-npm run test:e2e
-npm run build
-```
-
-For release candidates also run:
-
-```bash
-npm audit
-npm audit --omit=dev
-```
-
-Manual sweeps required:
-
-- Demonstration workspace.
-- Empty workspace after Start fresh.
-- User-data workspace after creating an account/import.
-- Mixed workspace after modifying demo data.
-- Responsive widths: 1440, 1280, 1024, 768, 390.
-- Browser console and server logs for route errors.
+Do not push from this recovery pass.

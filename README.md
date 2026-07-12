@@ -6,7 +6,7 @@ It helps a household understand income, spending, debts, recurring expenses, goa
 
 ## Current Status
 
-Phase 2D explainable recurring-expense detection is implemented on top of the completed Phase 2C transfer matching foundation.
+Phase 2D explainable recurring-expense detection is implemented on top of the completed Phase 2C transfer matching foundation. A first Base44 parity increment has also replaced several static analytical page values with repository-derived or explicitly preliminary values.
 
 Implemented:
 
@@ -22,12 +22,12 @@ Implemented:
 - Explainable recurring-expense and subscription detection with review, confirmation, rejection, manual creation, cancellation tracking, savings selection, audit records, import/edit refresh, and data-quality signals.
 - Synthetic seed/reset flow for one local demo household plus a separate Start fresh workflow for an empty workspace.
 - Workspace state badges for Demonstration data, Empty workspace, Your data, and Mixed data.
-- Repository-derived overview, accounts, transactions, goals, settings, and data-quality values.
+- Repository-derived overview, cash-flow, budget, debt, reports, accounts, transactions, goals, settings, and data-quality values where deterministic local inputs exist.
 
 Still planned:
 
 - OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic merchant rules, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
-- Production-grade safe-to-save, cash-flow, budget forecast, debt payoff, and decision scenario engines.
+- Production-grade safe-to-save, scheduled cash-flow, budget forecasting, debt payoff, report export, and decision scenario engines.
 
 ## Local Setup
 
@@ -89,7 +89,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - Household income and spending exclude confirmed transfers; account activity still shows both transaction records.
 - Recurring detection excludes confirmed transfers, income, refunds, fees, card payments, and user-excluded transactions.
 - APR values use basis points, for example `2149` means `21.49%`.
-- Demonstration-only financial screens remain labeled until validated engines exist.
+- Preliminary financial signals remain labeled until validated engines exist.
 
 ## Demo Data And Backup Status
 
