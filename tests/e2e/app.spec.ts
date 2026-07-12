@@ -50,6 +50,27 @@ test("validated cash flow explains projection, protection, timeline, and confide
   );
 });
 
+test("planning workflows add income and obligations, satisfy bills, and edit policy", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/cash-flow");
+  await page.getByLabel("Income name").fill("Playwright income " + testInfo.project.name);
+  await page.getByLabel("Income amount").fill("125.00");
+  await page.getByLabel("Next expected date").fill("2026-07-27");
+  await page.getByRole("button", { name: "Add expected income" }).click();
+  await expect(page.getByText("Playwright income " + testInfo.project.name).first()).toBeVisible();
+  await page.getByLabel("Obligation name").fill("Playwright bill " + testInfo.project.name);
+  await page.getByLabel("Obligation amount").fill("40.00");
+  await page.getByLabel("Next due date").fill("2026-07-28");
+  await page.getByRole("button", { name: "Add obligation" }).click();
+  await expect(page.getByText("Playwright bill " + testInfo.project.name).first()).toBeVisible();
+  await page.getByRole("button", { name: "Mark paid" }).first().click();
+  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  await page.getByLabel("Savings target basis points").fill("4000");
+  await page.getByRole("button", { name: "Save savings policy" }).click();
+  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+});
+
 test("transactions drawer opens from a transaction row", async ({ page }) => {
   await page.goto("/transactions");
   await page.getByRole("button", { name: "Whole Foods Market" }).click();
@@ -489,14 +510,21 @@ test("data quality exposes transfer review issues", async ({ page }) => {
 test("recurring scan, review, confirm, reject, manual create, and savings work", async ({
   page,
 }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop project owns the destructive recurring workflow.");
   await page.goto("/recurring");
   await page.getByRole("button", { name: "Run scan" }).click();
   await expect(page.getByText(/Scan complete/)).toBeVisible();
   await expect(page.getByText("Netflix").first()).toBeVisible();
   await expect(page.getByText("Spotify").first()).toBeVisible();
-  await page.getByRole("button", { name: "Edit" }).first().click();
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Netflix" })
+    .getByRole("button", { name: "Edit" })
+    .click();
   await expect(
-    page.getByRole("heading", { name: /Netflix|Spotify|City Water Utility/ }),
+    page.getByRole("heading", {
+      name: /Netflix/,
+    }),
   ).toBeVisible();
   await expect(page.getByText("Why it was detected")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supporting transactions" })).toBeVisible();

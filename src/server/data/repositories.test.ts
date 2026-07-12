@@ -183,7 +183,7 @@ describe("persistent repositories", () => {
       transactions: 20,
       importBatches: 0,
       transferMatches: 0,
-      recurringExpenses: 0,
+      recurringExpenses: 2,
       recurringLinks: 0,
       auditEvents: 2,
     });
