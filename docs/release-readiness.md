@@ -4,6 +4,8 @@
 - Cash allocation identities reconcile exactly in integer cents across all policy modes and are shared by Cash Flow and Overview.
 
 - Cash Flow and Safe to Save are repository-derived and explainable. Expected-income and general scheduled-obligation CRUD remain documented limitations rather than fabricated projections.
+- Emergency runway is repository-derived, integer-normalized, source-explainable, and shared by Cash
+  Flow and Decision scenarios; incomplete inputs lower runway confidence.
 
 Date: 2026-07-12
 

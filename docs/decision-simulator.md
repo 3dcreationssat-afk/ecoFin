@@ -25,10 +25,10 @@ UI.
 
 | Scenario              |    Upfront |    Monthly | Current period | First 12 months | Recommended Safe to Save change | Safe to Spend change |           Runway |
 | --------------------- | ---------: | ---------: | -------------: | --------------: | ------------------------------: | -------------------: | ---------------: |
-| Add childcare         |      $0.00 | -$1,200.00 |     -$1,200.00 |     -$14,400.00 |                        -$600.00 |             -$600.00 | 0.9 → 0.8 months |
-| Increase debt payment |      $0.00 |   -$250.00 |       -$250.00 |      -$3,000.00 |                        -$125.00 |             -$125.00 | 0.9 → 0.9 months |
-| Cancel subscription   |      $0.00 |    +$15.99 |        +$15.99 |        +$191.88 |                          +$7.99 |               +$8.00 | 0.9 → 0.9 months |
-| Add vehicle           | -$2,000.00 |   -$640.00 |     -$2,640.00 |      -$9,680.00 |                      -$1,320.00 |           -$1,320.00 | 0.9 → 0.6 months |
+| Add childcare         |      $0.00 | -$1,200.00 |     -$1,200.00 |     -$14,400.00 |                        -$600.00 |             -$600.00 | 3.3 → 2.2 months |
+| Increase debt payment |      $0.00 |   -$250.00 |       -$250.00 |      -$3,000.00 |                        -$125.00 |             -$125.00 | 3.3 → 3.3 months |
+| Cancel subscription   |      $0.00 |    +$15.99 |        +$15.99 |        +$191.88 |                          +$7.99 |               +$8.00 | 3.3 → 3.3 months |
+| Add vehicle           | -$2,000.00 |   -$640.00 |     -$2,640.00 |      -$9,680.00 |                      -$1,320.00 |           -$1,320.00 | 3.3 → 2.0 months |
 
 The vehicle's 60-month bounded total is -$40,400.00. The debt-payment scenario moves the modeled
 debt-free date from February 2038 to October 2036 (16 months), saves $7,979.81 of modeled interest,

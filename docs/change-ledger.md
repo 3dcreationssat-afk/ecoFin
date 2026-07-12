@@ -21,6 +21,10 @@
 
 ## 2026-07-12
 
+- Centralized emergency runway, corrected recurring-income and linked-mortgage double counting,
+  added component explanations and deterministic Data Quality signals, and reconciled canonical
+  Cash Flow and Decision values.
+
 - Audited Decision Simulator semantics: separated upfront, recurring monthly, current-period,
   first-12-month, and bounded impacts; added exact component reconciliation, effective-date-aware
   cancellations, explicit fixed-goal affordability, and numerator/denominator emergency runway.

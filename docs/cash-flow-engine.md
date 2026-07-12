@@ -10,6 +10,10 @@ Future income and expenses come only from confirmed persisted recurring records 
 
 Precedence prevents double counting: recorded contributions satisfy goal plans first; actual transfers never create planned-saving deductions; debt minimums are separate from ordinary recurring obligations; unconfirmed recurring rows appear only in conservative uncertainty; duplicate candidates are reserved rather than projected.
 
+Emergency runway uses the shared numerator, essential monthly denominator, normalization,
+deduplication, and confidence rules in `emergency-fund-runway.md`. It is distinct from the
+current-period Cash Flow obligation total.
+
 Timeline events are Recorded, Scheduled, Forecast, or User assumption and retain their persisted source. The engine never fabricates paycheck dates from `incomeSchedule` or isolated history.
 
 Allocation uses two exact integer identities:

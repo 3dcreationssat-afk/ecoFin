@@ -58,6 +58,8 @@ The denominator includes essential scheduled/confirmed recurring obligations, de
 essential scenario recurring costs. It excludes optional costs, one-time costs, and goal
 contributions. A negative one-time impact reduces the numerator only when its funding account is the
 explicit emergency account. No unrelated savings account is treated as an emergency fund.
+The simulator consumes the centralized calculation documented in `emergency-fund-runway.md`; it
+does not maintain a scenario-only baseline formula.
 
 ## Confidence And Risks
 

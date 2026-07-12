@@ -4,6 +4,8 @@
 - Cash Flow displays a cent-reconciling allocation waterfall with policy reserve, allocatable surplus, recommendation, Safe to Spend, and unallocated remainder.
 
 - Deterministic financial-month projection, explainable Safe to Save/Safe to Spend, protection reserves, running timeline, and confidence remediation are implemented from SQLite records.
+- Explainable emergency runway uses one shared, deduplicated monthly-essential calculation across
+  Cash Flow, Decisions, and Data Quality.
 
 ## Implemented Local Capabilities
 
