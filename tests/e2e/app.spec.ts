@@ -28,6 +28,28 @@ test("overview action dashboard sections and links are functional", async ({ pag
   await expect(page).toHaveURL(/\/debt/);
 });
 
+test("validated cash flow explains projection, protection, timeline, and confidence", async ({
+  page,
+}) => {
+  await page.goto("/cash-flow");
+  await expect(page.getByRole("heading", { name: "Cash-Flow Timeline" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Safe to Save — Full Calculation" }),
+  ).toBeVisible();
+  await expect(page.getByText("Starting usable liquid cash")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Buffer and Protection" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Confidence" })).toBeVisible();
+  const eventList = page.locator('[tabindex="0"]').filter({ hasText: "Current usable cash" });
+  await eventList.focus();
+  await expect(eventList).toBeFocused();
+  await page.goto("/");
+  await expect(page.getByText("validated projection")).toBeVisible();
+  await expect(page.getByRole("link", { name: /View calculation/ })).toHaveAttribute(
+    "href",
+    "/cash-flow",
+  );
+});
+
 test("transactions drawer opens from a transaction row", async ({ page }) => {
   await page.goto("/transactions");
   await page.getByRole("button", { name: "Whole Foods Market" }).click();
