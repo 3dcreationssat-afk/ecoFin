@@ -12,6 +12,8 @@ Financial Compass is local-first.
 - `npm run db:reset` is restricted to SQLite `file:` URLs under the repository `prisma/` directory.
 - The in-app demonstration reset requires explicit confirmation and runs server-side against the synthetic single-household dataset.
 - Demonstration reset uses the active application database connection, replaces local synthetic database records with canonical seed records, preserves browser UI preferences, does not delete backup ZIP files, and returns only safe database diagnostics such as provider, filename, and a short URL hash.
+- Start fresh uses the active application database connection, requires `START FRESH`, clears local financial/import/transfer/recurring/audit records, creates an empty household workspace, preserves browser UI preferences, preserves backup ZIP files, and returns structured before/after counts.
+- Remove demo records only and Delete all local financial data are intentionally not implemented. They must not be treated as synonyms for Start fresh, Restore demonstration data, or Restore backup.
 - Audit records store field-level values for material manual changes and must not be used for secrets or complete object snapshots.
 - CSV import is local-only. File contents are parsed through the local application server and are not sent to external services.
 - Uploaded CSV file contents are not permanently stored. Import batches store file hash, redacted filename, size, encoding, delimiter, row status, and bounded serialized source fields needed for traceability.

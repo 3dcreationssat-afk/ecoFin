@@ -23,3 +23,4 @@
 
 - Implemented Phase 2D recurring-expense detection with deterministic merchant normalization, cadence and amount scoring, confidence reasons, price-change flags, review/confirm/reject/edit/cancel/reactivate workflows, manual records, savings selection, import/edit refresh, data-quality signals, backup compatibility, and tests.
 - Fixed demo data reset to run through the active Prisma database connection, return structured counts and safe database diagnostics, show pending/success/error UI feedback, clear confirmation state, preserve browser preferences, and cover reset success/failure paths with tests.
+- Added workspace lifecycle states, a Start fresh workflow for empty local workspaces, empty-state screens, and clarified Restore demonstration data semantics while preserving backup ZIP files and browser preferences.

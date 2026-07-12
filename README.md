@@ -20,7 +20,8 @@ Implemented:
 - Local SQLite backup and restore with manifest validation, SHA-256 verification, mandatory pre-restore safety backup, rollback on failed restore, audit records, Settings UI, and CLI scripts.
 - Explainable transfer detection, manual confirmation/rejection, manual matching, unmatching, credit-card payment handling, audit records, data-quality signals, and household reporting exclusion for confirmed transfers.
 - Explainable recurring-expense and subscription detection with review, confirmation, rejection, manual creation, cancellation tracking, savings selection, audit records, import/edit refresh, and data-quality signals.
-- Synthetic seed/reset flow for one local demo household.
+- Synthetic seed/reset flow for one local demo household plus a separate Start fresh workflow for an empty workspace.
+- Workspace state badges for Demonstration data, Empty workspace, Your data, and Mixed data.
 - Repository-derived overview, accounts, transactions, goals, settings, and data-quality values.
 
 Still planned:
@@ -93,7 +94,9 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 ## Demo Data And Backup Status
 
 - Seed/reset creates one synthetic household with accounts, categories, goals, contribution records, transactions, audit records, and clears import batches/profiles.
-- In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA`, runs through the active application database connection, replaces the single-household synthetic dataset with canonical seed data, returns resulting record counts, and preserves browser UI preferences.
+- Restore demonstration data requires the exact confirmation phrase `RESET DEMO DATA`, runs through the active application database connection, replaces the current local workspace with the canonical sample accounts, transactions, goals, and settings, returns resulting record counts, and preserves browser UI preferences.
+- Start fresh requires the exact confirmation phrase `START FRESH`, removes sample accounts, transactions, goals, categories, imports, transfer matches, recurring records, and demonstration audit history, then creates one empty household configuration. No starter categories are retained because the current app can create accounts and goals without categories.
+- Start fresh preserves browser UI preferences and local backup ZIP files. It is not the same as Restore demonstration data, Remove demo records only, Delete all local data, Restore backup, or any future selective cleanup workflow.
 - In-app backup creation writes an application-controlled local ZIP package with `database.sqlite`, `manifest.json`, and `README.txt`.
 - Restore requires validation, the exact phrase `RESTORE BACKUP`, and a mandatory pre-restore safety backup.
 - Backup/restore includes transfer and recurring relationships and requires the current schema fingerprint.

@@ -11,6 +11,7 @@
 - Transfer matching supports exact same-currency one-to-one matches only. Fees, partial transfers, aggregated transfers, currency conversion, investment transfers, and recurring-transfer auto-confirmation are not implemented.
 - Transfer suggestions are conservative and must be manually confirmed; no transfer is auto-confirmed.
 - Recurring detection is deterministic and local, but it does not cancel services, contact merchants, use bank-provider metadata, or run advanced forecasts.
-- Demo reset is single-household and intended for the synthetic local dataset only. It replaces database records but does not delete local backup ZIP files or browser UI preferences.
+- Restore demonstration data is single-household and intended for the synthetic local dataset only. It replaces database records with canonical sample data but does not delete local backup ZIP files or browser UI preferences.
+- Start fresh creates an empty single-household workspace and preserves backups/preferences, but it is not a selective Remove demo records only workflow and not a general Delete all local financial data workflow.
 - Date and duration formatting are not fully centralized.
 - `npm audit` and `npm audit --omit=dev` report a moderate Next.js/PostCSS advisory. The reported fix is a semver-major downgrade to `next@9.3.3`, so it was not applied.

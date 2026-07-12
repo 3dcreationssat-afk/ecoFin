@@ -16,6 +16,7 @@ Date: 2026-07-12
 - Explainable recurring-expense review with scan, confirm, reject, edit, manual creation, cancellation tracking, reactivation, supporting transactions, price-change flags, and savings selection.
 - Local backup creation, validation, restore preview, mandatory pre-restore safety backup, restore confirmation, and backup deletion.
 - Demonstration data reset with exact confirmation, visible pending/success/error feedback, active-database diagnostics, canonical seed counts, and browser preference preservation.
+- Start fresh with exact confirmation, before/after counts, backup ZIP preservation, browser preference preservation, empty workspace creation, workspace-state badges, and empty states for core screens.
 
 ## Demonstration-only Capabilities
 
@@ -30,7 +31,8 @@ Date: 2026-07-12
 - Curated institutions are stored as account institution text; there is no separate institution table or normalized identifier yet.
 - Goal contribution source account is stored as contribution source text, not a foreign key.
 - Delete-all-data and general export workflows are not implemented.
-- Demo reset is intentionally limited to the synthetic single-household environment and is not a general delete-all-data workflow.
+- Restore demonstration data is intentionally limited to the synthetic single-household environment and is not a general delete-all-data workflow.
+- Start fresh deletes local financial/import/transfer/recurring records after typed confirmation. Remove demo records only and Delete all local financial data remain unimplemented separate workflows.
 - CSV import still requires manual mapping choices for many files.
 - Advanced forecasting, bank connectivity, external AI, automated categorization, and automated service cancellation are out of scope.
 
@@ -46,7 +48,7 @@ Date: 2026-07-12
 
 Backups should be stored only in a secure local or encrypted location. Do not email, commit, or upload backup ZIP files unless the destination is explicitly trusted and protected.
 
-Create a backup before using Demo Reset if the current local synthetic dataset contains changes worth preserving. Demo Reset replaces database records with canonical seed data but does not delete backup ZIP files.
+Create a backup before using Restore demonstration data or Start fresh if the current local workspace contains changes worth preserving. Both workflows replace or remove database records but do not delete backup ZIP files.
 
 ## Browser Support
 
