@@ -21,6 +21,10 @@
 
 ## 2026-07-12
 
+- Standardized adaptive metric grids, non-wrapping tabular financial values, card and control
+  geometry, table states, keyboard skip navigation, route skeletons, and responsive shell spacing;
+  refined Debt placeholders and verified core pages from 390px through 2560px.
+
 - Reconciled cash-allocation semantics so retained safety reserves are subtracted once before allocatable surplus, added mode-specific targets, transparent confidence reductions, a UI waterfall, and cent-exact invariants.
 
 - Added expected-income and obligation schedules, satisfaction occurrences, deterministic matching, precedence, policy-based recommendations, demo inputs, lifecycle/backup support, and workflows.
