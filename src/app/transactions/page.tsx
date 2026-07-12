@@ -5,18 +5,40 @@ import { importDashboard } from "@/server/data/imports";
 import { workspaceState } from "@/server/data/repositories";
 import { transferReviewQueue } from "@/server/data/transfers";
 import { TransactionsClient } from "./transactions-client";
+import {
+  hasExplicitTransactionState,
+  parseTransactionQuery,
+  serializeTransactionQuery,
+} from "@/domain/transactions/query";
+import {
+  defaultSavedView,
+  listSavedViews,
+  parseSavedViewQuery,
+  transactionPage,
+} from "@/server/data/transaction-views";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function TransactionsPage() {
-  const { household, accounts, categories, profiles, batches } = await importDashboard();
+export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
+  const raw = await searchParams;
+  if (!hasExplicitTransactionState(raw)) {
+    const savedDefault = await defaultSavedView();
+    if (savedDefault) {
+      const params = serializeTransactionQuery(parseSavedViewQuery(savedDefault.queryJson));
+      redirect(`/transactions?${params.size ? params : "period=ALL"}`);
+    }
+  }
+  const query = parseTransactionQuery(raw);
+  const { accounts, categories, profiles, batches } = await importDashboard();
+  const [result, savedViews] = await Promise.all([transactionPage(query), listSavedViews()]);
   const state = await workspaceState();
   const transferQueue = await transferReviewQueue();
   return (
     <AppShell>
       <PageHeader
         title={pageMeta["/transactions"].title}
-        subtitle={`${household.transactions.length} transactions tracked locally`}
+        subtitle={`${result.all} transactions tracked locally`}
         workspaceState={state}
       />
       {state === "EMPTY" ? (
@@ -28,7 +50,12 @@ export default async function TransactionsPage() {
         </Card>
       ) : null}
       <TransactionsClient
-        transactions={JSON.parse(JSON.stringify(household.transactions))}
+        transactions={JSON.parse(JSON.stringify(result.items))}
+        totalCount={result.all}
+        filteredCount={result.total}
+        totalPages={result.totalPages}
+        query={query}
+        savedViews={JSON.parse(JSON.stringify(savedViews))}
         categories={JSON.parse(JSON.stringify(categories))}
         accounts={JSON.parse(JSON.stringify(accounts))}
         profiles={JSON.parse(JSON.stringify(profiles))}

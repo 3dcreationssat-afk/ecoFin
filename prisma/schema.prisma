@@ -28,7 +28,24 @@ model Household {
   backupRecords         BackupRecord[]
   transferMatches       TransferMatch[]
   recurringExpenses     RecurringExpense[]
+  transactionSavedViews TransactionSavedView[]
   auditLogs             AuditLog[]
+}
+
+model TransactionSavedView {
+  id            String   @id @default(cuid())
+  householdId   String
+  name          String
+  normalizedName String
+  queryJson     String
+  isDefault     Boolean  @default(false)
+  isArchived    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, normalizedName])
+  @@index([householdId, isArchived, isDefault])
 }
 
 model Account {
@@ -143,6 +160,10 @@ model Transaction {
   outgoingTransferMatches TransferMatch[] @relation("TransferOutgoing")
   incomingTransferMatches TransferMatch[] @relation("TransferIncoming")
   recurringLinks          RecurringExpenseTransaction[]
+
+  @@index([householdId, transactionDate])
+  @@index([householdId, reviewStatus, sourceType])
+  @@index([householdId, accountId, categoryId])
 }
 
 model TransferMatch {

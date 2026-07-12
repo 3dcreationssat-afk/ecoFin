@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   FileText,
@@ -11,8 +11,13 @@ import {
   SlidersHorizontal,
   Upload,
 } from "lucide-react";
-import { Button, Card, Pill, PlannedControl } from "@/components/data-display/primitives";
+import { Button, Card, Pill } from "@/components/data-display/primitives";
 import { formatMoney } from "@/domain/money/money";
+import {
+  serializeTransactionQuery,
+  withTransactionQueryChange,
+  type TransactionQuery,
+} from "@/domain/transactions/query";
 
 type CategoryDto = { id: string; name: string };
 type AccountDto = { id: string; name: string; type: string };
@@ -204,6 +209,11 @@ export function TransactionsClient({
   profiles,
   batches,
   transferMatches,
+  totalCount,
+  filteredCount,
+  totalPages,
+  query,
+  savedViews,
 }: {
   transactions: TransactionDto[];
   categories: CategoryDto[];
@@ -211,9 +221,13 @@ export function TransactionsClient({
   profiles: ProfileDto[];
   batches: BatchDto[];
   transferMatches: TransferMatchDto[];
+  totalCount: number;
+  filteredCount: number;
+  totalPages: number;
+  query: TransactionQuery;
+  savedViews: { id: string; name: string; queryJson: string; isDefault: boolean }[];
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<TransactionDto | null>(null);
   const [audit, setAudit] = useState<AuditDto[]>([]);
@@ -227,16 +241,7 @@ export function TransactionsClient({
   const [transferStatusOverrides, setTransferStatusOverrides] = useState<Record<string, string>>(
     {},
   );
-  const [filters, setFilters] = useState({
-    q: searchParams.get("q") ?? "",
-    accountId: searchParams.get("account") ?? "",
-    categoryId: searchParams.get("category") ?? "",
-    type: searchParams.get("type") ?? "",
-    reviewStatus: searchParams.get("status") ?? "",
-    sourceType: searchParams.get("source") ?? "",
-    pageSize: searchParams.get("pageSize") ?? "25",
-  });
-  const [page, setPage] = useState(Math.max(1, Number(searchParams.get("page") ?? "1")));
+  const filters = query;
   const [form, setForm] = useState({
     normalizedMerchant: "",
     categoryId: "",
@@ -254,66 +259,24 @@ export function TransactionsClient({
     [transferMatches, transferStatusOverrides],
   );
 
-  const filteredTransactions = useMemo(() => {
-    const query = filters.q.trim().toLowerCase();
-    return transactions.filter((transaction) => {
-      const matchesQuery =
-        !query ||
-        [
-          transaction.normalizedMerchant,
-          transaction.originalDescription,
-          transaction.account.name,
-          transaction.category?.name ?? "",
-          transaction.sourceFilename ?? "",
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      return (
-        matchesQuery &&
-        (!filters.accountId || transaction.account.name === filters.accountId) &&
-        (!filters.categoryId || (transaction.categoryId ?? "") === filters.categoryId) &&
-        (!filters.type || transaction.type === filters.type) &&
-        (!filters.reviewStatus || transaction.reviewStatus === filters.reviewStatus) &&
-        (!filters.sourceType || (transaction.sourceType ?? "MANUAL") === filters.sourceType)
-      );
-    });
-  }, [filters, transactions]);
-
-  const pageSize = Number(filters.pageSize);
-  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const visibleTransactions = filteredTransactions.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
-
-  function updateUrl(nextFilters = filters, nextPage = page) {
-    const params = new URLSearchParams();
-    if (nextFilters.q) params.set("q", nextFilters.q);
-    if (nextFilters.accountId) params.set("account", nextFilters.accountId);
-    if (nextFilters.categoryId) params.set("category", nextFilters.categoryId);
-    if (nextFilters.type) params.set("type", nextFilters.type);
-    if (nextFilters.reviewStatus) params.set("status", nextFilters.reviewStatus);
-    if (nextFilters.sourceType) params.set("source", nextFilters.sourceType);
-    if (nextFilters.pageSize !== "25") params.set("pageSize", nextFilters.pageSize);
-    if (nextPage > 1) params.set("page", String(nextPage));
-    router.replace(`/transactions${params.toString() ? `?${params.toString()}` : ""}`, {
-      scroll: false,
-    });
+  const currentPage = Math.min(query.page, totalPages);
+  function navigate(next: TransactionQuery, push = true) {
+    const params = serializeTransactionQuery(next);
+    const href = `/transactions${params.size ? `?${params}` : "?period=ALL"}`;
+    startTransition(() =>
+      push ? router.push(href, { scroll: false }) : router.replace(href, { scroll: false }),
+    );
   }
-
-  function updateFilter(key: keyof typeof filters, value: string) {
-    const next = { ...filters, [key]: value };
-    setFilters(next);
-    setPage(1);
-    updateUrl(next, 1);
+  function updateFilter(key: keyof TransactionQuery, value: string) {
+    navigate(
+      withTransactionQueryChange(query, {
+        [key]: key === "pageSize" ? Number(value) : value,
+      } as Partial<TransactionQuery>),
+    );
   }
-
   function updatePage(nextPage: number) {
     const bounded = Math.min(Math.max(nextPage, 1), totalPages);
-    setPage(bounded);
-    updateUrl(filters, bounded);
+    navigate(withTransactionQueryChange(query, { page: bounded }, true));
   }
 
   useEffect(() => {
@@ -416,9 +379,12 @@ export function TransactionsClient({
         <Button disabled title="Manual transaction creation is planned">
           <Plus className="h-4 w-4" /> Add Transaction
         </Button>
-        <PlannedControl>
-          <SlidersHorizontal className="h-4 w-4" /> Saved Views
-        </PlannedControl>
+        <SavedViews
+          views={savedViews}
+          query={query}
+          navigate={navigate}
+          announce={setAnnouncement}
+        />
         {status === "saving" || isPending ? <Pill tone="info">Saving</Pill> : null}
         {status === "saved" ? <Pill tone="good">Saved</Pill> : null}
         {status === "error" ? <Pill tone="bad">Action failed</Pill> : null}
@@ -473,14 +439,14 @@ export function TransactionsClient({
         onChange={updateFilter}
       />
       <TransactionTable
-        transactions={visibleTransactions}
+        transactions={transactions}
         transferMatches={displayedTransferMatches}
         open={open}
-        totalCount={transactions.length}
-        filteredCount={filteredTransactions.length}
+        totalCount={totalCount}
+        filteredCount={filteredCount}
         currentPage={currentPage}
         totalPages={totalPages}
-        pageSize={filters.pageSize}
+        pageSize={String(filters.pageSize)}
         onPage={updatePage}
         onPageSize={(next) => updateFilter("pageSize", next)}
       />
@@ -1314,22 +1280,27 @@ function TransactionFilters({
   categories,
   onChange,
 }: {
-  filters: {
-    q: string;
-    accountId: string;
-    categoryId: string;
-    type: string;
-    reviewStatus: string;
-    sourceType: string;
-    pageSize: string;
-  };
+  filters: TransactionQuery;
   accounts: AccountDto[];
   categories: CategoryDto[];
-  onChange: (key: keyof typeof filters, value: string) => void;
+  onChange: (key: keyof TransactionQuery, value: string) => void;
 }) {
+  const [more, setMore] = useState(false);
+  const secondary = [
+    "source",
+    "amountMin",
+    "amountMax",
+    "type",
+    "excluded",
+    "transfer",
+    "recurring",
+  ] as const;
+  const active = secondary.filter(
+    (key) => filters[key] !== undefined && filters[key] !== "" && filters[key] !== "all",
+  );
   return (
     <Card className="mb-4 p-5">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_repeat(6,minmax(0,1fr))]">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
         <label className="block text-sm text-[var(--muted)]">
           Search transactions
           <input
@@ -1341,51 +1312,345 @@ function TransactionFilters({
         </label>
         <Select
           label="Account"
-          value={filters.accountId}
-          values={["", ...accounts.map((account) => account.name)]}
+          value={filters.account}
+          values={["", ...accounts.map((account) => account.id)]}
           labels={{ "": "All accounts" }}
-          onChange={(value) => onChange("accountId", value)}
+          onChange={(value) => onChange("account", value)}
         />
         <Select
           label="Category"
-          value={filters.categoryId}
-          values={["", ...categories.map((category) => category.id)]}
+          value={filters.category}
+          values={["", "uncategorized", ...categories.map((category) => category.id)]}
           labels={{
             "": "All categories",
+            uncategorized: "Uncategorized",
             ...Object.fromEntries(categories.map((category) => [category.id, category.name])),
           }}
-          onChange={(value) => onChange("categoryId", value)}
+          onChange={(value) => onChange("category", value)}
+        />
+        <Select
+          label="Status"
+          value={filters.status ?? ""}
+          values={["", ...Object.keys(reviewStatusLabels)]}
+          labels={{ "": "All statuses", ...reviewStatusLabels }}
+          onChange={(value) => onChange("status", value)}
+        />
+        <Select
+          label="Date / period"
+          value={filters.period}
+          values={[
+            "ALL",
+            "CURRENT_MONTH",
+            "PREVIOUS_MONTH",
+            "THIS_QUARTER",
+            "PREVIOUS_QUARTER",
+            "THIS_YEAR",
+            "PREVIOUS_YEAR",
+            "CUSTOM",
+          ]}
+          labels={{
+            ALL: "All dates",
+            CURRENT_MONTH: "Current financial month",
+            PREVIOUS_MONTH: "Previous financial month",
+            THIS_QUARTER: "This quarter",
+            PREVIOUS_QUARTER: "Previous quarter",
+            THIS_YEAR: "This year",
+            PREVIOUS_YEAR: "Previous year",
+            CUSTOM: "Custom range",
+          }}
+          onChange={(value) => onChange("period", value)}
         />
         <Select
           label="Type"
-          value={filters.type}
+          value={filters.type ?? ""}
           values={["", ...Object.keys(transactionTypeLabels)]}
           labels={{ "": "All types", ...transactionTypeLabels }}
           onChange={(value) => onChange("type", value)}
         />
         <Select
-          label="Status"
-          value={filters.reviewStatus}
-          values={["", ...Object.keys(reviewStatusLabels)]}
-          labels={{ "": "All statuses", ...reviewStatusLabels }}
-          onChange={(value) => onChange("reviewStatus", value)}
-        />
-        <Select
           label="Source"
-          value={filters.sourceType}
+          value={filters.source ?? ""}
           values={["", ...Object.keys(sourceTypeLabels)]}
           labels={{ "": "All sources", ...sourceTypeLabels }}
-          onChange={(value) => onChange("sourceType", value)}
+          onChange={(value) => onChange("source", value)}
         />
         <Select
           label="Rows"
-          value={filters.pageSize}
+          value={String(filters.pageSize)}
           values={["25", "50", "100"]}
           onChange={(value) => onChange("pageSize", value)}
         />
       </div>
+      {filters.period === "CUSTOM" ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <TextFilter
+            label="From"
+            type="date"
+            value={filters.from ?? ""}
+            onChange={(v) => onChange("from", v)}
+          />
+          <TextFilter
+            label="To"
+            type="date"
+            value={filters.to ?? ""}
+            onChange={(v) => onChange("to", v)}
+          />
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button variant="secondary" onClick={() => setMore(!more)} aria-expanded={more}>
+          <SlidersHorizontal className="h-4 w-4" /> More filters ({active.length})
+        </Button>
+        {active.map((key) => (
+          <button
+            key={key}
+            className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-semibold"
+            onClick={() =>
+              onChange(
+                key,
+                key === "excluded" || key === "transfer" || key === "recurring" ? "all" : "",
+              )
+            }
+          >
+            {filterLabel(key, filters[key])} ×
+          </button>
+        ))}
+        <a href="/transactions?period=ALL" className="text-sm font-semibold text-[var(--teal)]">
+          Clear all
+        </a>
+      </div>
+      {more ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <TextFilter
+            label="Minimum amount (minor units)"
+            type="number"
+            value={filters.amountMin?.toString() ?? ""}
+            onChange={(v) => onChange("amountMin", v)}
+          />
+          <TextFilter
+            label="Maximum amount (minor units)"
+            type="number"
+            value={filters.amountMax?.toString() ?? ""}
+            onChange={(v) => onChange("amountMax", v)}
+          />
+          <Select
+            label="Excluded"
+            value={filters.excluded}
+            values={["all", "included", "excluded"]}
+            labels={{ all: "All", included: "Included", excluded: "Excluded" }}
+            onChange={(v) => onChange("excluded", v)}
+          />
+          <Select
+            label="Transfer state"
+            value={filters.transfer}
+            values={["all", "confirmed", "suggested", "unmatched", "none"]}
+            labels={{
+              all: "All",
+              confirmed: "Confirmed transfer",
+              suggested: "Suggested transfer",
+              unmatched: "Unmatched candidate",
+              none: "Not a transfer",
+            }}
+            onChange={(v) => onChange("transfer", v)}
+          />
+          <Select
+            label="Recurring link"
+            value={filters.recurring}
+            values={["all", "confirmed", "suggested", "none"]}
+            labels={{
+              all: "All",
+              confirmed: "Confirmed recurring",
+              suggested: "Suggested recurring",
+              none: "Not linked",
+            }}
+            onChange={(v) => onChange("recurring", v)}
+          />
+          <Select
+            label="Sort"
+            value={`${filters.sort}:${filters.direction}`}
+            values={["date:desc", "date:asc", "amount:desc", "amount:asc", "merchant:asc"]}
+            labels={{
+              "date:desc": "Newest first",
+              "date:asc": "Oldest first",
+              "amount:desc": "Amount high to low",
+              "amount:asc": "Amount low to high",
+              "merchant:asc": "Merchant A–Z",
+            }}
+            onChange={(v) => {
+              const [sort, direction] = v.split(":");
+              onChange("sort", sort);
+              setTimeout(() => onChange("direction", direction), 0);
+            }}
+          />
+        </div>
+      ) : null}
     </Card>
   );
+}
+
+function SavedViews({
+  views,
+  query,
+  navigate,
+  announce,
+}: {
+  views: { id: string; name: string; queryJson: string; isDefault: boolean }[];
+  query: TransactionQuery;
+  navigate: (query: TransactionQuery) => void;
+  announce: (message: string) => void;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState("");
+  async function create() {
+    const name = window.prompt("Name this saved view");
+    if (!name) return;
+    setPending("create");
+    const response = await fetch("/api/transaction-saved-views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, query }),
+    });
+    const body = await response.json();
+    announce(
+      response.ok ? "Saved view created." : (body.error ?? "Saved view could not be created."),
+    );
+    setPending("");
+    if (response.ok) router.refresh();
+  }
+  async function patch(id: string, data: Record<string, unknown>, message: string) {
+    setPending(id);
+    const response = await fetch(`/api/transaction-saved-views/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const body = await response.json();
+    announce(response.ok ? message : (body.error ?? "Saved view action failed."));
+    setPending("");
+    if (response.ok) router.refresh();
+  }
+  return (
+    <div className="relative">
+      <Button variant="secondary" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <SlidersHorizontal className="h-4 w-4" /> Saved Views
+      </Button>
+      {open ? (
+        <div className="absolute left-0 z-30 mt-2 w-[min(92vw,420px)] rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-xl">
+          <Button onClick={create} disabled={!!pending}>
+            Save current view
+          </Button>
+          <div className="mt-3 max-h-72 space-y-2 overflow-auto">
+            {views.length ? (
+              views.map((view) => (
+                <div key={view.id} className="rounded-md border border-[var(--border)] p-3 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <strong>{view.name}</strong>
+                    {view.isDefault ? <Pill tone="info">Default</Pill> : null}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      className="font-semibold text-[var(--teal)]"
+                      onClick={() => navigate(parseSavedQueryClient(view.queryJson))}
+                    >
+                      Apply
+                    </button>
+                    <button
+                      disabled={pending === view.id}
+                      onClick={() => {
+                        const name = window.prompt("Rename saved view", view.name);
+                        if (name) patch(view.id, { name }, "Saved view renamed.");
+                      }}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      disabled={pending === view.id}
+                      onClick={() => patch(view.id, { query }, "Saved view updated.")}
+                    >
+                      Update
+                    </button>
+                    <button
+                      disabled={pending === view.id}
+                      onClick={() =>
+                        patch(
+                          view.id,
+                          { isDefault: !view.isDefault },
+                          view.isDefault ? "Default removed." : "Default view set.",
+                        )
+                      }
+                    >
+                      {view.isDefault ? "Remove default" : "Set default"}
+                    </button>
+                    <button
+                      disabled={pending === view.id}
+                      className="text-[var(--red)]"
+                      onClick={() => {
+                        if (window.confirm(`Delete saved view “${view.name}”?`))
+                          patch(view.id, { isArchived: true }, "Saved view deleted.");
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-[var(--muted)]">No saved views yet.</p>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function parseSavedQueryClient(json: string): TransactionQuery {
+  try {
+    return { ...queryDefaultsClient, ...JSON.parse(json), page: 1 };
+  } catch {
+    return queryDefaultsClient;
+  }
+}
+const queryDefaultsClient: TransactionQuery = {
+  q: "",
+  account: "",
+  category: "",
+  period: "ALL",
+  excluded: "all",
+  transfer: "all",
+  recurring: "all",
+  sort: "date",
+  direction: "desc",
+  page: 1,
+  pageSize: 25,
+};
+
+function TextFilter({
+  label,
+  value,
+  type,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  type: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-sm text-[var(--muted)]">
+      {label}
+      <input
+        className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+function filterLabel(key: string, value: unknown) {
+  return `${key.replace(/([A-Z])/g, " $1")}: ${String(value)}`;
 }
 
 function TransactionTable({

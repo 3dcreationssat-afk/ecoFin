@@ -8,6 +8,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
   try {
     await client.auditLog.deleteMany();
     await client.backupRecord.deleteMany();
+    await client.transactionSavedView.deleteMany();
     await client.recurringExpenseTransaction.deleteMany();
     await client.recurringExpense.deleteMany();
     await client.transferMatch.deleteMany();
