@@ -34,12 +34,12 @@ export default async function Home() {
     {
       label: "Safe to Save",
       value: formatMoney(cashFlow?.recommendedSafeToSaveMinor ?? 0),
-      detail: "After obligations, buffers, and protections",
+      detail: `Policy recommendation from ${formatMoney(cashFlow?.maximumAvailableSurplusMinor ?? 0)} maximum surplus`,
     },
     {
       label: "Safe to Spend",
       value: formatMoney(cashFlow?.safeToSpendMinor ?? 0),
-      detail: "After recommended saving allocation",
+      detail: "Discretionary cash retained after the recommended transfer",
     },
     {
       label: "Total Debt",

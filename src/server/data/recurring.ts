@@ -173,6 +173,58 @@ export async function confirmRecurringExpense(id: string, input: unknown) {
     reason: data.notes ?? undefined,
     source: "recurring",
   });
+  if (updated.nextExpectedDate) {
+    const frequency =
+      updated.frequency === "EVERY_TWO_WEEKS"
+        ? "BIWEEKLY"
+        : updated.frequency === "WEEKLY"
+          ? "WEEKLY"
+          : updated.frequency === "QUARTERLY"
+            ? "QUARTERLY"
+            : updated.frequency === "ANNUAL" || updated.frequency === "TWICE_YEARLY"
+              ? "ANNUAL"
+              : "MONTHLY";
+    if (updated.recurringType === "INCOME") {
+      const existingSchedule = await prisma.expectedIncomeSchedule.findFirst({
+        where: { recurringExpenseId: id, archivedAt: null },
+      });
+      if (!existingSchedule)
+        await prisma.expectedIncomeSchedule.create({
+          data: {
+            householdId: updated.householdId,
+            name: updated.displayName,
+            amountMinor: Math.abs(updated.typicalAmountMinor),
+            frequency,
+            nextExpectedDate: updated.nextExpectedDate,
+            recurringExpenseId: id,
+            sourceType: "CONFIRMED_RECURRING",
+            confidence: updated.confidence,
+            isDemo: false,
+          },
+        });
+    } else {
+      const existingSchedule = await prisma.scheduledObligation.findFirst({
+        where: { recurringExpenseId: id, archivedAt: null },
+      });
+      if (!existingSchedule)
+        await prisma.scheduledObligation.create({
+          data: {
+            householdId: updated.householdId,
+            name: updated.displayName,
+            amountMinor: Math.abs(updated.typicalAmountMinor),
+            dueDate: updated.nextExpectedDate,
+            frequency,
+            categoryId: updated.categoryId,
+            recurringExpenseId: id,
+            obligationType: "SUBSCRIPTION",
+            sourceType: "CONFIRMED_RECURRING",
+            essentiality: updated.classification === "ESSENTIAL" ? "ESSENTIAL" : "IMPORTANT",
+            confidence: updated.confidence,
+            isDemo: false,
+          },
+        });
+    }
+  }
   return updated;
 }
 

@@ -230,7 +230,12 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
               </div>
             ))}
           </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Maximum Available Surplus"
+              value={formatMoney(projection.maximumAvailableSurplusMinor)}
+              detail="Before recommendation policy"
+            />
             <MetricCard
               label="Recommended Safe to Save"
               value={formatMoney(projection.recommendedSafeToSaveMinor)}
@@ -252,6 +257,11 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
               }
             />
           </div>
+          <p className="mt-4 text-sm text-[var(--muted)]">
+            Policy: {projection.savingsPolicyMode} · Retained discretionary cash:{" "}
+            {formatMoney(projection.retainedDiscretionaryMinor)} · Recommendation cap:{" "}
+            {formatMoney(projection.savingsPolicyCapMinor)}
+          </p>
         </Card>
       </div>
     </>
