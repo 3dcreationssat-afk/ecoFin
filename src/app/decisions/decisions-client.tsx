@@ -242,6 +242,10 @@ export function DecisionsClient({
       linkedRecurringId: type === "CANCEL_RECURRING" ? linkedId : null,
       linkedDebtAccountId: type === "DEBT_EXTRA_PAYMENT" ? linkedId : null,
       linkedGoalId: type === "SAVINGS_CHANGE" && linkedId ? linkedId : null,
+      linkedAccountId:
+        ["ONE_TIME_EXPENSE", "ONE_TIME_INCOME", "VEHICLE_PAYMENT"].includes(type) && linkedId
+          ? linkedId
+          : null,
       policyMode: type === "SAVINGS_POLICY_OVERRIDE" ? policyMode : null,
       targetBasisPoints:
         type === "SAVINGS_POLICY_OVERRIDE" ? Math.round(Number(targetPercent) * 100) : null,
@@ -283,7 +287,9 @@ export function DecisionsClient({
         ? dashboard.options.debts
         : type === "SAVINGS_CHANGE"
           ? dashboard.options.goals
-          : [];
+          : ["ONE_TIME_EXPENSE", "ONE_TIME_INCOME", "VEHICLE_PAYMENT"].includes(type)
+            ? dashboard.options.accounts
+            : [];
 
   return (
     <div className="space-y-6">
@@ -617,6 +623,28 @@ export function DecisionsClient({
             </div>
 
             <div className="min-w-0 space-y-6">
+              <div className="metric-grid" aria-label="Scenario impact horizons">
+                <MetricCard
+                  label="Upfront impact"
+                  value={formatSigned(evaluation.impacts.oneTimeMinor)}
+                  detail="Net one-time cash events; never included in the monthly amount"
+                />
+                <MetricCard
+                  label="Ongoing monthly impact"
+                  value={formatSigned(evaluation.impacts.ongoingMonthlyMinor)}
+                  detail="Recurring change for one modeled monthly occurrence"
+                />
+                <MetricCard
+                  label="Current-period impact"
+                  value={formatSigned(evaluation.impacts.currentPeriodMinor)}
+                  detail="Only events and occurrences in the selected financial period"
+                />
+                <MetricCard
+                  label="First 12-month impact"
+                  value={formatSigned(evaluation.impacts.firstYearMinor)}
+                  detail="Upfront events plus applicable recurring occurrences"
+                />
+              </div>
               <div className="metric-grid">
                 <MetricCard
                   label="Scenario confidence"
@@ -689,11 +717,90 @@ export function DecisionsClient({
                     </tbody>
                   </table>
                 </div>
+                <details className="border-t border-[var(--border)]">
+                  <summary className="cursor-pointer px-5 py-4 text-sm font-semibold">
+                    Detailed impact-horizon breakdown
+                  </summary>
+                  <div
+                    className="overflow-x-auto"
+                    tabIndex={0}
+                    aria-label="Impact horizon breakdown"
+                  >
+                    <table className="w-full min-w-[820px] text-sm">
+                      <thead>
+                        <tr>
+                          <th className="px-4 py-3 text-left">Assumption</th>
+                          <th className="px-4 py-3 text-right">Upfront</th>
+                          <th className="px-4 py-3 text-right">Monthly</th>
+                          <th className="px-4 py-3 text-right">Current period</th>
+                          <th className="px-4 py-3 text-right">First 12 months</th>
+                          <th className="px-4 py-3 text-right">Bounded total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {evaluation.impacts.components.map((impact) => (
+                          <tr key={impact.componentId} className="border-t border-[var(--border)]">
+                            <td className="px-4 py-3">
+                              <strong>{impact.name}</strong>
+                              <span className="mt-1 block text-xs text-[var(--muted)]">
+                                {impact.explanation}
+                              </span>
+                            </td>
+                            {[
+                              impact.oneTimeMinor,
+                              impact.ongoingMonthlyMinor,
+                              impact.currentPeriodMinor,
+                              impact.firstYearMinor,
+                            ].map((value, index) => (
+                              <td
+                                key={index}
+                                className="whitespace-nowrap px-4 py-3 text-right tabular-nums"
+                              >
+                                {formatSigned(value)}
+                              </td>
+                            ))}
+                            <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                              {impact.boundedLongTermMinor == null
+                                ? "Ongoing"
+                                : formatSigned(impact.boundedLongTermMinor)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="grid gap-2 border-t border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm sm:grid-cols-3">
+                    <span>
+                      Current-period upfront:{" "}
+                      <strong>{formatSigned(evaluation.impacts.currentPeriodOneTimeMinor)}</strong>
+                    </span>
+                    <span>
+                      Current-period recurring:{" "}
+                      <strong>
+                        {formatSigned(evaluation.impacts.currentPeriodRecurringMinor)}
+                      </strong>
+                    </span>
+                    <span>
+                      Interaction/reconciliation:{" "}
+                      <strong>
+                        {formatSigned(evaluation.impacts.currentPeriodInteractionMinor)}
+                      </strong>
+                    </span>
+                  </div>
+                </details>
               </Card>
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card className="p-5">
                   <h2 className="text-xl font-semibold">Interpretation and risks</h2>
                   <div className="mt-4 space-y-3">
+                    {evaluation.interpretations.map((interpretation) => (
+                      <p
+                        key={interpretation}
+                        className="rounded-lg bg-[var(--teal-soft)] p-3 text-sm"
+                      >
+                        {interpretation}
+                      </p>
+                    ))}
                     {evaluation.risks.map((risk) => (
                       <div key={risk.code} className="rounded-lg border border-[var(--border)] p-3">
                         <Pill
@@ -718,8 +825,10 @@ export function DecisionsClient({
                 <Card className="p-5">
                   <h2 className="text-xl font-semibold">Emergency-fund runway</h2>
                   <p className="mt-2 text-sm text-[var(--muted)]">
-                    Linked emergency-fund balance divided by essential obligations and debt minimums
-                    in the active financial period.
+                    Immediate linked emergency-fund balance divided by average monthly essential
+                    scheduled obligations, debt minimums, and essential scenario recurring costs.
+                    Optional costs, goal contributions, and one-time costs are excluded from the
+                    denominator.
                   </p>
                   <div className="mt-5 grid grid-cols-2 gap-4">
                     <div>
@@ -732,6 +841,22 @@ export function DecisionsClient({
                       <span className="text-sm text-[var(--muted)]">Scenario</span>
                       <strong className="mt-1 block text-2xl tabular-nums">
                         {formatRunway(evaluation.scenarioEmergencyRunwayBps)}
+                      </strong>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2 border-t border-[var(--border)] pt-4 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-[var(--muted)]">Immediate emergency balance</span>
+                      <strong className="whitespace-nowrap tabular-nums">
+                        {formatMoney(evaluation.baselineEmergencyBalanceMinor)} →{" "}
+                        {formatMoney(evaluation.scenarioEmergencyBalanceMinor)}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-[var(--muted)]">Essential monthly denominator</span>
+                      <strong className="whitespace-nowrap tabular-nums">
+                        {formatMoney(evaluation.baselineEssentialMonthlyMinor)} →{" "}
+                        {formatMoney(evaluation.scenarioEssentialMonthlyMinor)}
                       </strong>
                     </div>
                   </div>
@@ -755,6 +880,11 @@ export function DecisionsClient({
                             : goal.differenceMonths > 0
                               ? `${goal.differenceMonths} months delayed`
                               : `${Math.abs(goal.differenceMonths)} months improved`}
+                      </p>
+                      <p
+                        className={`mt-2 text-xs ${goal.affordable ? "text-[var(--muted)]" : "font-semibold text-[var(--red)]"}`}
+                      >
+                        {goal.explanation}
                       </p>
                     </div>
                   ))}
@@ -787,7 +917,25 @@ export function DecisionsClient({
                         : `${evaluation.scenarioDebt.timeSavedMonths} months saved`
                     }
                   />
+                  <Impact
+                    label="First-year additional payment"
+                    value={formatMoney(
+                      Math.abs(
+                        evaluation.impacts.components
+                          .filter((impact) => impact.type === "DEBT_EXTRA_PAYMENT")
+                          .reduce((sum, impact) => sum + impact.firstYearMinor, 0),
+                      ),
+                    )}
+                  />
+                  <Impact
+                    label="Bounded additional payment"
+                    value={formatDebtBounded(evaluation)}
+                  />
                 </div>
+                <p className="mt-4 text-sm text-[var(--muted)]">
+                  Interest savings are a long-term payoff estimate and are not counted as current
+                  cash.
+                </p>
               </Card>
               <Card className="p-5">
                 <h2 className="text-xl font-semibold">Scenario timeline</h2>
@@ -857,4 +1005,14 @@ function formatMonth(value: Date | null) {
 }
 function formatRunway(value: number | null) {
   return value == null ? "Unavailable" : `${(value / 10_000).toFixed(1)} months`;
+}
+function formatDebtBounded(evaluation: ScenarioEvaluation) {
+  const impacts = evaluation.impacts.components.filter(
+    (impact) => impact.type === "DEBT_EXTRA_PAYMENT",
+  );
+  if (!impacts.length) return formatMoney(0);
+  if (impacts.some((impact) => impact.boundedLongTermMinor == null)) return "Ongoing";
+  return formatMoney(
+    Math.abs(impacts.reduce((sum, impact) => sum + (impact.boundedLongTermMinor ?? 0), 0)),
+  );
 }
