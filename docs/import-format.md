@@ -2,7 +2,7 @@
 
 Phase 2A supports local CSV transaction import only.
 
-Unsupported formats: OFX, QFX, QBO, PDF statements, OCR, direct bank connections, provider APIs, background sync, webhooks, automatic merchant rules, automatic transfer pairing, recurring detection, and AI categorization.
+Unsupported formats: OFX, QFX, QBO, PDF statements, OCR, direct bank connections, provider APIs, background sync, webhooks, automatic merchant rules, automatic transfer confirmation, and AI categorization.
 
 ## Supported Files
 
@@ -27,7 +27,7 @@ Uploaded CSV file contents are parsed locally and are not stored permanently. Im
 7. Confirm import with the explicit confirmation contract.
 8. Review summary and batch history.
 9. Undo a batch when no imported transactions were materially edited.
-10. Review any transfer candidates found after import.
+10. Review any transfer and recurring candidates found after import.
 
 Transactions are not created until explicit confirmation.
 
@@ -114,6 +114,8 @@ Undo is blocked when imported transactions were materially edited after import, 
 Undo is also blocked when imported transactions participate in confirmed transfer matches. Unmatch the transfer before undoing the batch.
 
 After import confirmation, transfer candidate generation runs for imported transactions. It never confirms automatically and records a recoverable warning in batch metadata if scanning fails.
+
+After import confirmation, recurring candidate generation also runs locally against household transaction history. It never confirms automatically and records a recoverable warning in batch metadata if scanning fails.
 
 ## Security Notes
 

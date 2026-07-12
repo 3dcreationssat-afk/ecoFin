@@ -6,7 +6,7 @@ It helps a household understand income, spending, debts, recurring expenses, goa
 
 ## Current Status
 
-Phase 2C explainable transfer matching is implemented on top of the completed Phase 2B backup and restore foundation.
+Phase 2D explainable recurring-expense detection is implemented on top of the completed Phase 2C transfer matching foundation.
 
 Implemented:
 
@@ -19,13 +19,14 @@ Implemented:
 - Secure CSV transaction import with preview, explicit mapping, validation, duplicate review, reusable profiles, import-batch history, audit records, and safe batch undo.
 - Local SQLite backup and restore with manifest validation, SHA-256 verification, mandatory pre-restore safety backup, rollback on failed restore, audit records, Settings UI, and CLI scripts.
 - Explainable transfer detection, manual confirmation/rejection, manual matching, unmatching, credit-card payment handling, audit records, data-quality signals, and household reporting exclusion for confirmed transfers.
+- Explainable recurring-expense and subscription detection with review, confirmation, rejection, manual creation, cancellation tracking, savings selection, audit records, import/edit refresh, and data-quality signals.
 - Synthetic seed/reset flow for one local demo household.
 - Repository-derived overview, accounts, transactions, goals, settings, and data-quality values.
 
 Still planned:
 
-- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic recurring detection, automatic merchant rules, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
-- Production-grade safe-to-save, cash-flow, budget forecast, debt payoff, recurring, and decision scenario engines.
+- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic merchant rules, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
+- Production-grade safe-to-save, cash-flow, budget forecast, debt payoff, and decision scenario engines.
 
 ## Local Setup
 
@@ -85,6 +86,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - CSV amounts support signed amount columns and separate debit/credit columns with explicit sign convention, decimal separator, and thousands separator.
 - Confirmed transfers are directional transaction classifications: `TRANSFER_OUT` and `TRANSFER_IN`.
 - Household income and spending exclude confirmed transfers; account activity still shows both transaction records.
+- Recurring detection excludes confirmed transfers, income, refunds, fees, card payments, and user-excluded transactions.
 - APR values use basis points, for example `2149` means `21.49%`.
 - Demonstration-only financial screens remain labeled until validated engines exist.
 
@@ -94,7 +96,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA` and runs through a server-side reset service.
 - In-app backup creation writes an application-controlled local ZIP package with `database.sqlite`, `manifest.json`, and `README.txt`.
 - Restore requires validation, the exact phrase `RESTORE BACKUP`, and a mandatory pre-restore safety backup.
-- Backup/restore includes transfer relationships and requires the current transfer schema fingerprint.
+- Backup/restore includes transfer and recurring relationships and requires the current schema fingerprint.
 
 ## Verification
 
@@ -123,4 +125,5 @@ Key implementation records live in:
 - `docs/known-issues.md`
 - `docs/phase-1-audit.md`
 - `docs/privacy-and-security.md`
+- `docs/recurring-expenses.md`
 - `docs/transfer-matching.md`

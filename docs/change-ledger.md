@@ -18,3 +18,7 @@
 - Implemented Phase 2A CSV import with import profiles, durable import batches/rows, file validation, preview, mapping, explicit date and amount parsing, duplicate review, repeated-file blocking, atomic transaction creation, audit logging, safe undo, data-quality integration, synthetic fixtures, and import workflow tests.
 - Implemented Phase 2B local backup and restore with backup metadata, manifest and hash validation, same-schema compatibility checks, mandatory pre-restore safety backups, rollback on failed restore, Settings UI controls, CLI scripts, audit records, and unit/integration/e2e coverage.
 - Implemented Phase 2C transfer matching with explainable candidate scoring, manual confirmation/rejection, manual matching, unmatching, credit-card payment handling, transfer-aware import undo protection, data-quality signals, reporting exclusion for confirmed transfers, backup compatibility, and tests.
+
+## 2026-07-12
+
+- Implemented Phase 2D recurring-expense detection with deterministic merchant normalization, cadence and amount scoring, confidence reasons, price-change flags, review/confirm/reject/edit/cancel/reactivate workflows, manual records, savings selection, import/edit refresh, data-quality signals, backup compatibility, and tests.

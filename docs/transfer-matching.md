@@ -124,6 +124,6 @@ Batch undo is blocked when imported transactions participate in confirmed transf
 - no one-to-many or many-to-one matching
 - no transfer-fee decomposition
 - no automatic confirmation
-- no recurring-transfer detection
+- no recurring-transfer auto-confirmation
 - no external bank metadata or Plaid support
 - no multi-currency conversion

@@ -26,12 +26,16 @@
 - Transfer matching uses a durable `TransferMatch` model linking outgoing and incoming transactions without merging records.
 - Transfer candidate generation is idempotent and explainable. Confirmation and unmatching run in database transactions and audit the reporting impact.
 - Confirmed transfers set directional transaction types `TRANSFER_OUT` and `TRANSFER_IN` so household reporting can neutralize the pair while account activity remains visible.
+- Recurring detection uses durable `RecurringExpense` and `RecurringExpenseTransaction` records, deterministic merchant normalization, cadence scoring, amount statistics, confidence reasons, review status, and user confirmation state.
+- Recurring scans run locally after CSV import confirmation and transaction normalization edits. Failures are recorded as recoverable warnings and never block an already confirmed import.
 
 ## Future Ingestion Extension Point
 
 Future connected-bank providers should feed parsed source records into the same staging and normalization boundary used by CSV imports. `BANK_CONNECTION` is reserved as a source type, but no provider API, Plaid connection, webhook, or background synchronization is implemented.
 
 Future ingestion providers must not auto-confirm transfers. They may add source metadata for the same transfer candidate service.
+
+Future ingestion providers must not auto-confirm recurring expenses. They may feed transactions into the same recurring scan service.
 
 ## Planned
 

@@ -13,14 +13,15 @@ Date: 2026-07-12
 - CSV import preview, mapping, validation, repeated-file blocking, duplicate review, confirmation, and undo.
 - Transaction search, account/category/type/status/source filters, URL state, result counts, pagination, and bounded table scrolling.
 - Explainable transfer review with scan, confirm, reject, unmatch, eligible manual-match filtering, and validation feedback.
+- Explainable recurring-expense review with scan, confirm, reject, edit, manual creation, cancellation tracking, reactivation, supporting transactions, price-change flags, and savings selection.
 - Local backup creation, validation, restore preview, mandatory pre-restore safety backup, restore confirmation, and backup deletion.
 
 ## Demonstration-only Capabilities
 
 - Seed data is synthetic demonstration data.
-- Budget, cash-flow, debt, reports, recurring, and decisions pages remain demonstration-oriented unless their controls are explicitly implemented.
+- Budget, cash-flow, debt, reports, and decisions pages remain demonstration-oriented unless their controls are explicitly implemented.
 - Planned controls are visible but disabled for later phases.
-- Transfer detection is deterministic and local; it is not AI, bank-connected, or recurring-payment detection.
+- Transfer and recurring detection are deterministic and local; they are not AI, bank-connected, or automated account-management services.
 
 ## Known Limitations
 
@@ -29,7 +30,7 @@ Date: 2026-07-12
 - Goal contribution source account is stored as contribution source text, not a foreign key.
 - Delete-all-data and general export workflows are not implemented.
 - CSV import still requires manual mapping choices for many files.
-- Advanced forecasting, recurring detection, bank connectivity, external AI, and automated categorization are out of scope.
+- Advanced forecasting, bank connectivity, external AI, automated categorization, and automated service cancellation are out of scope.
 
 ## Security Limitations
 
@@ -90,6 +91,9 @@ Manual release-readiness checks were rerun with synthetic seed data and the corr
 | Pagination                              | Passed | Result counts, page size, and paging controls work in bounded table.                                               |
 | Manual transfer invalid-pair feedback   | Passed | Invalid manual matches are prevented or return visible validation feedback.                                        |
 | Manual transfer valid-pair confirmation | Passed | Eligible synthetic transfer pair can be confirmed and persists.                                                    |
+| Recurring scan and review               | Passed | Synthetic recurring charges produce reviewable candidates with evidence.                                           |
+| Recurring confirm/reject/edit           | Passed | Recurring suggestions can be confirmed, rejected, edited, and audited.                                             |
+| Recurring manual creation and savings   | Passed | Manual synthetic recurring item can be created and included in savings calculation.                                |
 | Persistence after reload                | Passed | Settings, accounts, goals, contributions, imports, filters, and transaction edits persist after reload.            |
 
 ## Validation Snapshot
@@ -108,4 +112,4 @@ Manual release-readiness checks were rerun with synthetic seed data and the corr
 
 Go for the next feature phase only after preserving this UAT evidence and keeping private screenshots out of git.
 
-Do not start recurring detection, bank connectivity, external AI, or advanced forecasting until the next feature phase has a fresh scope, threat model update, and UAT acceptance criteria.
+Do not start bank connectivity, external AI, automated cancellation, or advanced forecasting until the next feature phase has a fresh scope, threat model update, and UAT acceptance criteria.

@@ -19,10 +19,13 @@
 - Transfer confidence is `HIGH` at 85 or above, `MEDIUM` from 65 to 84, and `LOW` below 65.
 - Confirmed `TRANSFER_OUT` and `TRANSFER_IN` transactions are excluded from household income, household spending, category spending, merchant spending, and budget actuals. They remain included in account activity and cash movement views.
 - Credit-card payments are treated as internal transfers only after confirmation. Interest, fees, refunds, and statement credits remain expenses/refunds and are not automatic payment candidates.
+- Recurring detection derives cadence, confidence, monthly equivalents, annual equivalents, amount variability, and price-change flags from local transactions only.
+- Recurring monthly equivalents use integer minor-unit math: weekly x 52 / 12, every two weeks x 26 / 12, monthly as-is, every two months / 2, quarterly / 3, twice yearly / 6, and annual / 12.
+- Recurring candidates exclude confirmed transfers, income, refunds, fees, card payments, zero-amount rows, and user-excluded transactions.
 
 ## Demonstration Only
 
-- Safe to Save, Safe to Spend, cash-flow projection, budget forecast, debt payoff, recurring detection, and decision simulator values shown in the UI are synthetic demonstration values.
+- Safe to Save, Safe to Spend, cash-flow projection, budget forecast, debt payoff, and decision simulator values shown in the UI are synthetic demonstration values.
 - Cash-flow chart values are static demonstration dollar values, not a validated projection engine.
 
 ## Planned

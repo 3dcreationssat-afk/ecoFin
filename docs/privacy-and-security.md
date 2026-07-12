@@ -20,6 +20,8 @@ Financial Compass is local-first.
 - Restore creates a mandatory pre-restore safety backup and attempts automatic rollback if the active database fails post-restore validation.
 - Transfer matching is local deterministic logic. It does not use external bank APIs, remote AI, telemetry, or cloud services.
 - Transfer audit records store relationship identifiers, status changes, reasons, and bounded notes rather than full transaction snapshots.
+- Recurring detection is local deterministic logic. It does not use external bank APIs, remote AI, email access, merchant APIs, telemetry, cloud services, or cancellation services.
+- Recurring audit records store bounded status/classification changes and notes rather than full transaction snapshots.
 
 ## Prohibited Data
 
@@ -28,6 +30,8 @@ Do not store bank usernames, bank passwords, card PINs, MFA secrets, security-qu
 Do not commit real bank CSV exports. Use only synthetic fixtures for tests and documentation.
 
 Do not commit backup ZIP files. Treat backup packages as sensitive personal financial records.
+
+Do not commit screenshots or UAT artifacts containing personal names, account details, transaction descriptions, or financial amounts that may reflect real data.
 
 ## Dependency Audit
 
