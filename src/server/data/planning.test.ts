@@ -19,6 +19,7 @@ describe("planning persistence", () => {
   it("seeds nonzero validated income and obligations with policy separation", async () => {
     const p = await cash.getCashFlowProjection(new Date("2026-07-12"));
     expect(p.remainingExpectedIncomeMinor).toBeGreaterThan(0);
+    expect(p.remainingExpectedIncomeMinor).toBe(530000);
     expect(p.remainingEssentialObligationsMinor).toBeGreaterThan(0);
     expect(p.recommendedSafeToSaveMinor).toBeLessThan(p.maximumAvailableSurplusMinor);
     expect(p.safeToSpendMinor).toBeGreaterThan(0);

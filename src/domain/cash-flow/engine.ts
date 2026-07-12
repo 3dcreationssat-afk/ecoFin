@@ -90,6 +90,7 @@ export type CashFlowInput = {
     confidence: string;
     active: boolean;
     archivedAt: Date | null;
+    recurringExpenseId?: string | null;
     occurrences: { id: string; expectedDate: Date; expectedAmountMinor: number; status: string }[];
   }[];
   scheduledObligations?: {
@@ -246,9 +247,10 @@ export function calculateCashFlow(input: CashFlowInput) {
       });
     }
   }
-  const linkedRecurringIds = new Set(
-    (input.scheduledObligations ?? []).map((o) => o.recurringExpenseId).filter(Boolean),
-  );
+  const linkedRecurringIds = new Set([
+    ...(input.scheduledObligations ?? []).map((o) => o.recurringExpenseId).filter(Boolean),
+    ...(input.expectedIncomeSchedules ?? []).map((o) => o.recurringExpenseId).filter(Boolean),
+  ]);
   const linkedDebtIds = new Set(
     (input.scheduledObligations ?? []).map((o) => o.debtAccountId).filter(Boolean),
   );
