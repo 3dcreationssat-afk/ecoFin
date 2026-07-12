@@ -8,6 +8,7 @@ import { workspaceState } from "@/server/data/repositories";
 import { recurringDataQuality } from "@/server/data/recurring";
 import { transferDataQuality } from "@/server/data/transfers";
 import { merchantRuleDataQuality } from "@/server/data/merchant-rules";
+import { monthlyInterestMinor } from "@/domain/debt/payoff";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,20 @@ export default async function DataQualityPage() {
     recurring: recurringQuality,
     asOf: new Date("2026-07-11"),
   });
+  const activeDebts = household.accounts.filter(
+    (account) =>
+      !account.archivedAt &&
+      ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type) &&
+      (account.ledgerBalanceMinor ?? 0) > 0,
+  );
+  const missingDebtDueDates = activeDebts.filter((account) => account.dueDay == null).length;
+  const negativeAmortizationDebts = activeDebts.filter(
+    (account) =>
+      account.aprBasisPoints != null &&
+      account.minimumPaymentMinor != null &&
+      account.minimumPaymentMinor <=
+        monthlyInterestMinor(account.ledgerBalanceMinor ?? 0, account.aprBasisPoints),
+  ).length;
   const issues = [
     [
       "Uncategorized transactions",
@@ -50,8 +65,20 @@ export default async function DataQualityPage() {
     [
       "Missing debt APR or minimum",
       quality.missingDebtTerms,
-      "Debt payoff estimates remain demonstration-only.",
+      "A validated payoff estimate cannot include these debts.",
       "Add APR and minimum payment details on Accounts.",
+    ],
+    [
+      "Missing debt due dates",
+      missingDebtDueDates,
+      "Monthly payment timing and payoff completeness are reduced.",
+      "Add a due day on Accounts.",
+    ],
+    [
+      "Negative-amortizing debt minimums",
+      negativeAmortizationDebts,
+      "The minimum does not exceed estimated monthly interest, so no payoff date is shown.",
+      "Review the APR and minimum payment on Accounts.",
     ],
     [
       "Incomplete goals",
