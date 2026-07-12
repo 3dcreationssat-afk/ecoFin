@@ -14,7 +14,7 @@ export default async function TransactionsPage() {
     <AppShell>
       <PageHeader
         title={pageMeta["/transactions"].title}
-        subtitle={`${household.transactions.length} transactions · SQLite`}
+        subtitle={`${household.transactions.length} transactions tracked locally`}
       />
       <TransactionsClient
         transactions={JSON.parse(JSON.stringify(household.transactions))}

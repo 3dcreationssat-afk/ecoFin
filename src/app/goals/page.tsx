@@ -15,7 +15,7 @@ export default async function GoalsPage() {
     <AppShell>
       <PageHeader
         title={pageMeta["/goals"].title}
-        subtitle={`${household.goals.length} goals · SQLite`}
+        subtitle={`${household.goals.length} goals tracked locally`}
       />
       <div className="mb-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total saved" value={formatMoney(summary.totalSavedMinor)} />

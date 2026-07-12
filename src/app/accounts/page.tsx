@@ -15,7 +15,7 @@ export default async function AccountsPage() {
     <AppShell>
       <PageHeader
         title={pageMeta["/accounts"].title}
-        subtitle={`${household.accounts.length} accounts · SQLite`}
+        subtitle={`${household.accounts.length} accounts tracked locally`}
       />
       <div className="mb-7 grid gap-4 md:grid-cols-3">
         <MetricCard

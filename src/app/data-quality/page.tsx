@@ -128,7 +128,7 @@ export default async function DataQualityPage() {
     <AppShell>
       <PageHeader
         title={pageMeta["/data-quality"].title}
-        subtitle="Deterministic checks from SQLite records"
+        subtitle="Deterministic checks from local records"
       />
       <Card className="mb-7 flex flex-wrap items-center justify-between gap-6 p-6">
         <div className="flex items-center gap-5">
