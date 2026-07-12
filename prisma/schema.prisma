@@ -25,6 +25,7 @@ model Household {
   importProfiles        ImportProfile[]
   importBatches         ImportBatch[]
   backupRecords         BackupRecord[]
+  transferMatches       TransferMatch[]
   auditLogs             AuditLog[]
 }
 
@@ -136,6 +137,40 @@ model Transaction {
   account               Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
   category              Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   importBatch           ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  outgoingTransferMatches TransferMatch[] @relation("TransferOutgoing")
+  incomingTransferMatches TransferMatch[] @relation("TransferIncoming")
+}
+
+model TransferMatch {
+  id                    String   @id @default(cuid())
+  householdId           String
+  outgoingTransactionId String
+  incomingTransactionId String
+  status                String
+  source                String
+  confidence            String
+  score                 Int
+  reasonsJson           String
+  createdBySource       String
+  notes                 String?
+  confirmedAt           DateTime?
+  rejectedAt            DateTime?
+  brokenAt              DateTime?
+  previousOutgoingType  String?
+  previousIncomingType  String?
+  previousOutgoingReviewStatus String?
+  previousIncomingReviewStatus String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  outgoingTransaction   Transaction @relation("TransferOutgoing", fields: [outgoingTransactionId], references: [id], onDelete: Restrict)
+  incomingTransaction   Transaction @relation("TransferIncoming", fields: [incomingTransactionId], references: [id], onDelete: Restrict)
+
+  @@unique([outgoingTransactionId, incomingTransactionId])
+  @@index([householdId, status, confidence])
+  @@index([outgoingTransactionId, status])
+  @@index([incomingTransactionId, status])
+  @@index([createdAt])
 }
 
 model ImportProfile {

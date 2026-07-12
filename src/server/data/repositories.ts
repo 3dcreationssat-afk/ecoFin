@@ -7,6 +7,7 @@ import { transactionUpdateSchema } from "@/domain/transactions/schema";
 import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { AppError } from "./errors";
+import { refreshTransferStateForTransactions } from "./transfers";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -277,6 +278,7 @@ export async function updateTransactionEditable(id: string, input: unknown) {
     after: transaction,
     fields: ["normalizedMerchant", "categoryId", "type", "reviewStatus", "excluded", "notes"],
   });
+  await refreshTransferStateForTransactions([id]);
   return transaction;
 }
 

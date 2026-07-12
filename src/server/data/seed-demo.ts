@@ -5,6 +5,7 @@ export async function seedDemoData(source = "seed") {
   try {
     await prisma.auditLog.deleteMany();
     await prisma.backupRecord.deleteMany();
+    await prisma.transferMatch.deleteMany();
     await prisma.importRow.deleteMany();
     await prisma.transaction.deleteMany();
     await prisma.importBatch.deleteMany();
@@ -433,6 +434,62 @@ export async function seedDemoData(source = "seed") {
           postedDate: new Date("2026-07-07"),
           type: "DEBIT",
           reviewStatus: "REVIEWED",
+        },
+        {
+          householdId: household.id,
+          accountId: checking.id,
+          categoryId: null,
+          originalDescription: "ONLINE TRANSFER TO HIGH-YIELD SAVINGS",
+          originalAmountText: "-500.00",
+          originalDateText: "2026-07-06",
+          normalizedMerchant: "Online Transfer",
+          amountMinor: -50000,
+          transactionDate: new Date("2026-07-06"),
+          postedDate: new Date("2026-07-06"),
+          type: "DEBIT",
+          reviewStatus: "NEEDS_REVIEW",
+        },
+        {
+          householdId: household.id,
+          accountId: savings.id,
+          categoryId: null,
+          originalDescription: "TRANSFER FROM EVERYDAY CHECKING",
+          originalAmountText: "500.00",
+          originalDateText: "2026-07-06",
+          normalizedMerchant: "Online Transfer",
+          amountMinor: 50000,
+          transactionDate: new Date("2026-07-06"),
+          postedDate: new Date("2026-07-06"),
+          type: "CREDIT",
+          reviewStatus: "NEEDS_REVIEW",
+        },
+        {
+          householdId: household.id,
+          accountId: checking.id,
+          categoryId: null,
+          originalDescription: "AUTOPAY CHASE SAPPHIRE",
+          originalAmountText: "-28.50",
+          originalDateText: "2026-07-07",
+          normalizedMerchant: "Chase Sapphire Payment",
+          amountMinor: -2850,
+          transactionDate: new Date("2026-07-07"),
+          postedDate: new Date("2026-07-07"),
+          type: "DEBIT",
+          reviewStatus: "NEEDS_REVIEW",
+        },
+        {
+          householdId: household.id,
+          accountId: sapphire.id,
+          categoryId: null,
+          originalDescription: "PAYMENT RECEIVED THANK YOU",
+          originalAmountText: "28.50",
+          originalDateText: "2026-07-08",
+          normalizedMerchant: "Payment Received",
+          amountMinor: 2850,
+          transactionDate: new Date("2026-07-08"),
+          postedDate: new Date("2026-07-08"),
+          type: "CREDIT",
+          reviewStatus: "NEEDS_REVIEW",
         },
       ],
     });

@@ -22,6 +22,7 @@ import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { AppError } from "./errors";
 import { getHousehold } from "./repositories";
+import { scanTransferCandidates } from "./transfers";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -341,7 +342,7 @@ export async function confirmImport(input: unknown) {
   });
   if (rowsToImport.length === 0) throw new AppError("No valid rows selected for import.", 422);
 
-  return prisma.$transaction(async (tx) => {
+  const detail = await prisma.$transaction(async (tx) => {
     const importedIds: string[] = [];
     for (const row of rowsToImport) {
       if (
@@ -424,6 +425,47 @@ export async function confirmImport(input: unknown) {
     });
     return batchDetail(updated.id, tx);
   });
+  try {
+    const scan = await scanTransferCandidates({
+      householdId: batch.householdId,
+      transactionIds: detail.transactions.map((transaction) => transaction.id),
+    });
+    const summary = parseSummary(detail.summaryJson);
+    await prisma.importBatch.update({
+      where: { id: detail.id },
+      data: {
+        summaryJson: JSON.stringify({
+          ...summary,
+          transferCandidatesFound: scan.createdCount + scan.refreshedCount,
+          highConfidenceTransferCandidates: scan.highConfidence,
+          creditCardPaymentCandidates: scan.creditCardPaymentCandidates,
+          transferReviewHref: "/transactions",
+        }),
+      },
+    });
+    await auditChange(prisma, {
+      householdId: batch.householdId,
+      entityType: "ImportBatch",
+      entityId: batch.id,
+      action: "transfer_candidate_scan_completed",
+      field: "transferCandidatesFound",
+      newValue: scan.createdCount + scan.refreshedCount,
+      source: "transfer",
+    });
+  } catch (error) {
+    const summary = parseSummary(detail.summaryJson);
+    await prisma.importBatch.update({
+      where: { id: detail.id },
+      data: {
+        summaryJson: JSON.stringify({
+          ...summary,
+          transferCandidateWarning:
+            error instanceof Error ? error.message : "Transfer candidate scan failed.",
+        }),
+      },
+    });
+  }
+  return batchDetail(detail.id);
 }
 
 export async function undoImportBatch(id: string, input: unknown) {
@@ -435,6 +477,21 @@ export async function undoImportBatch(id: string, input: unknown) {
   if (!batch) throw new AppError("Import batch not found.", 404);
   if (!["IMPORTED", "PARTIALLY_IMPORTED"].includes(batch.status)) {
     throw new AppError("Only imported batches can be undone.", 409);
+  }
+  const confirmedTransfers = await prisma.transferMatch.count({
+    where: {
+      status: "CONFIRMED",
+      OR: [
+        { outgoingTransactionId: { in: batch.transactions.map((transaction) => transaction.id) } },
+        { incomingTransactionId: { in: batch.transactions.map((transaction) => transaction.id) } },
+      ],
+    },
+  });
+  if (confirmedTransfers) {
+    throw new AppError(
+      "Undo is blocked because imported transactions participate in confirmed transfers. Unmatch transfers first.",
+      409,
+    );
   }
   const changed = batch.transactions.filter((transaction) => {
     return (
@@ -657,4 +714,13 @@ function redactFilename(filename: string) {
   const dot = clean.lastIndexOf(".");
   const extension = dot >= 0 ? clean.slice(dot) : "";
   return `${clean.slice(0, 24)}...${extension}`;
+}
+
+function parseSummary(value: string | null | undefined) {
+  if (!value) return {};
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
