@@ -105,6 +105,17 @@ export function dataQualityRules(input: {
     markedWithoutMatch: number;
     excludedCandidates: number;
   };
+  recurring?: {
+    unconfirmed: number;
+    lowConfidence: number;
+    withoutCategory: number;
+    priceIncreases: number;
+    chargesAfterCanceled: number;
+    missingExpected: number;
+    duplicateServices: number;
+    unlinkedRecurringTransactions: number;
+    inactiveStillActive: number;
+  };
   asOf: Date;
 }) {
   const staleBefore = new Date(input.asOf);
@@ -161,6 +172,17 @@ export function dataQualityRules(input: {
     markedWithoutMatch: 0,
     excludedCandidates: 0,
   };
+  const recurring = input.recurring ?? {
+    unconfirmed: 0,
+    lowConfidence: 0,
+    withoutCategory: 0,
+    priceIncreases: 0,
+    chargesAfterCanceled: 0,
+    missingExpected: 0,
+    duplicateServices: 0,
+    unlinkedRecurringTransactions: 0,
+    inactiveStillActive: 0,
+  };
   return {
     uncategorized,
     unreviewed,
@@ -179,5 +201,14 @@ export function dataQualityRules(input: {
     rejectedTransferCandidates: transfers.rejected,
     transferMarkedWithoutCounterpart: transfers.markedWithoutMatch,
     excludedTransferCandidates: transfers.excludedCandidates,
+    unconfirmedRecurringCandidates: recurring.unconfirmed,
+    lowConfidenceRecurringCandidates: recurring.lowConfidence,
+    recurringWithoutCategory: recurring.withoutCategory,
+    recurringPriceIncreases: recurring.priceIncreases,
+    recurringChargesAfterCanceled: recurring.chargesAfterCanceled,
+    recurringMissingExpectedCharge: recurring.missingExpected,
+    duplicateRecurringServices: recurring.duplicateServices,
+    unlinkedRecurringExpenseTransactions: recurring.unlinkedRecurringTransactions,
+    inactiveRecurringStillExpected: recurring.inactiveStillActive,
   };
 }

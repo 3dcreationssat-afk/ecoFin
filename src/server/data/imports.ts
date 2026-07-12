@@ -22,6 +22,7 @@ import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { AppError } from "./errors";
 import { getHousehold } from "./repositories";
+import { scanRecurringExpenses } from "./recurring";
 import { scanTransferCandidates } from "./transfers";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -461,6 +462,48 @@ export async function confirmImport(input: unknown) {
           ...summary,
           transferCandidateWarning:
             error instanceof Error ? error.message : "Transfer candidate scan failed.",
+        }),
+      },
+    });
+  }
+  try {
+    const scan = await scanRecurringExpenses({
+      householdId: batch.householdId,
+      transactionIds: detail.transactions.map((transaction) => transaction.id),
+    });
+    const refreshed = await batchDetail(detail.id);
+    const summary = parseSummary(refreshed.summaryJson);
+    await prisma.importBatch.update({
+      where: { id: detail.id },
+      data: {
+        summaryJson: JSON.stringify({
+          ...summary,
+          recurringCandidatesFound: scan.createdCount + scan.refreshedCount,
+          highConfidenceRecurringCandidates: scan.highConfidence,
+          recurringPriceIncreases: scan.priceIncreases,
+          recurringReviewHref: "/recurring",
+        }),
+      },
+    });
+    await auditChange(prisma, {
+      householdId: batch.householdId,
+      entityType: "ImportBatch",
+      entityId: batch.id,
+      action: "recurring_candidate_scan_completed",
+      field: "recurringCandidatesFound",
+      newValue: scan.createdCount + scan.refreshedCount,
+      source: "recurring",
+    });
+  } catch (error) {
+    const refreshed = await batchDetail(detail.id);
+    const summary = parseSummary(refreshed.summaryJson);
+    await prisma.importBatch.update({
+      where: { id: detail.id },
+      data: {
+        summaryJson: JSON.stringify({
+          ...summary,
+          recurringCandidateWarning:
+            error instanceof Error ? error.message : "Recurring candidate scan failed.",
         }),
       },
     });

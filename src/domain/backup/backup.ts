@@ -23,6 +23,8 @@ export const backupManifestSchema = z.object({
     goals: z.number().int().nonnegative(),
     importBatches: z.number().int().nonnegative(),
     transferMatches: z.number().int().nonnegative(),
+    recurringExpenses: z.number().int().nonnegative(),
+    recurringLinks: z.number().int().nonnegative(),
     auditLogs: z.number().int().nonnegative(),
   }),
   databaseFileSize: z.number().int().positive(),
@@ -136,6 +138,7 @@ export function migrationFingerprint() {
     "20260711203000_phase_2a_csv_import/migration.sql",
     "20260711220000_phase_2b_backup_restore/migration.sql",
     "20260711233000_phase_2c_transfer_matching/migration.sql",
+    "20260712013000_phase_2d_recurring_expenses/migration.sql",
   ];
   const hash = createHash("sha256");
   for (const file of migrationFiles) {

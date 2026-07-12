@@ -279,6 +279,8 @@ export async function updateTransactionEditable(id: string, input: unknown) {
     fields: ["normalizedMerchant", "categoryId", "type", "reviewStatus", "excluded", "notes"],
   });
   await refreshTransferStateForTransactions([id]);
+  const { refreshRecurringForTransactions } = await import("./recurring");
+  await refreshRecurringForTransactions([id]);
   return transaction;
 }
 
