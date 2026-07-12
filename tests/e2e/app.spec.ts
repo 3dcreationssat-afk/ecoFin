@@ -141,6 +141,54 @@ test("planned controls are disabled instead of silently inert", async ({ page })
   await expect(page.getByRole("button", { name: /Add Transaction/ })).toBeDisabled();
 });
 
+test("debt planner recalculates strategies, extra payments, custom order, and schedule", async ({
+  page,
+}) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
+  await page.goto("/debt");
+  await expect(page.getByRole("heading", { name: "Payoff strategy" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Estimated monthly schedule" })).toBeVisible();
+  const initialImpact = await page
+    .getByText("Estimated total interest", { exact: true })
+    .locator("..")
+    .textContent();
+  await page.getByRole("radio", { name: /Snowball/ }).click();
+  await expect(page.getByText("Temporary scenario", { exact: true })).toBeVisible();
+  await page.getByLabel("Extra monthly payment").fill("500.00");
+  await expect
+    .poll(() =>
+      page.getByText("Estimated total interest", { exact: true }).locator("..").textContent(),
+    )
+    .not.toBe(initialImpact);
+  await page.getByRole("button", { name: "Save plan" }).click();
+  await expect(page.getByText("Plan saved. Cash Flow remains unchanged.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("radio", { name: /Snowball/ })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.getByLabel("Extra monthly payment")).toHaveValue("500.00");
+
+  await page.getByRole("radio", { name: /Custom/ }).click();
+  const moveButton = page.getByRole("button", { name: /^Move .* down$/ }).first();
+  await moveButton.focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Save plan" }).click();
+  await expect(page.getByText("Plan saved. Cash Flow remains unchanged.")).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible();
+});
+
+test("debt planner remains usable on mobile without document overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/debt");
+  await expect(page.getByRole("heading", { name: "Payoff strategy" })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+});
+
 test("complete signed amount CSV import workflow and undo", async ({ page }, testInfo) => {
   const marker = `Synthetic Coffee ${testInfo.project.name}`;
   await page.goto("/transactions");
