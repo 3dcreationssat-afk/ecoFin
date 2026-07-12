@@ -26,6 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(subscribeToNavPreference, getNavPreference, () => false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
 
   function closeMobileNav({ restoreFocus = true } = {}) {
@@ -75,7 +76,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
               <input
                 className="h-10 w-full rounded-md border border-transparent bg-[var(--surface-muted)] pl-10 pr-3 text-sm"
-                placeholder="Search transactions, merchants..."
+                placeholder="Search transactions and merchants"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  const query = search.trim();
+                  window.location.href = query
+                    ? `/transactions?q=${encodeURIComponent(query)}`
+                    : "/transactions";
+                }}
+                aria-label="Search transactions"
               />
             </div>
             <button

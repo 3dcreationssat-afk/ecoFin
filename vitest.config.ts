@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     exclude: ["**/node_modules/**", "**/dist/**", "tests/e2e/**"],
+    fileParallelism: false,
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
   },

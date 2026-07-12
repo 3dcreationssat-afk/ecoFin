@@ -56,7 +56,7 @@ export async function createLocalBackup(options: { preRestore?: boolean; notes?:
   const dbStat = ensureReadableDatabase(dbPath);
   const schemaVersion = migrationFingerprint();
   const version = appVersion();
-  const filename = generatedBackupFilename();
+  const filename = uniqueBackupFilename();
   const outputPath = resolveBackupPath(filename);
   const tempRoot = join(
     backupTempRoot(),
@@ -171,6 +171,11 @@ export async function createLocalBackup(options: { preRestore?: boolean; notes?:
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }
+}
+
+function uniqueBackupFilename() {
+  const base = generatedBackupFilename().replace(/\.zip$/, "");
+  return `${base}-${Math.random().toString(36).slice(2, 8)}.zip`;
 }
 
 export async function validateBackupPackage(pathOrBuffer: string | Buffer) {

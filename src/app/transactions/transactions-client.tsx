@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
   FileText,
@@ -142,6 +142,61 @@ const dateFormats: DateFormat[] = [
   "DD/MM/YY",
 ];
 
+const transactionTypeLabels: Record<string, string> = {
+  DEBIT: "Money out",
+  CREDIT: "Money in",
+  INCOME: "Income",
+  EXPENSE: "Expense",
+  TRANSFER_OUT: "Transfer out",
+  TRANSFER_IN: "Transfer in",
+  REFUND: "Refund",
+  FEE: "Fee",
+  INTEREST: "Interest",
+  UNKNOWN: "Needs type",
+};
+
+const reviewStatusLabels: Record<string, string> = {
+  NEEDS_REVIEW: "Needs review",
+  REVIEWED: "Reviewed",
+  FLAGGED: "Flagged",
+};
+
+const sourceTypeLabels: Record<string, string> = {
+  CSV_IMPORT: "CSV import",
+  MANUAL: "Manual",
+};
+
+const amountModeLabels: Record<string, string> = {
+  SIGNED_AMOUNT: "One signed amount column",
+  DEBIT_CREDIT_COLUMNS: "Separate debit and credit columns",
+};
+
+const signConventionLabels: Record<string, string> = {
+  DEBITS_NEGATIVE: "Debits are negative",
+  DEBITS_POSITIVE: "Debits are positive",
+};
+
+const duplicateStatusLabels: Record<string, string> = {
+  NONE: "No duplicate found",
+  FILE_ROW: "Duplicate row in this file",
+  EXISTING_TRANSACTION: "Possible duplicate transaction",
+};
+
+const decisionLabels: Record<string, string> = {
+  IMPORT: "Import",
+  SKIP: "Skip",
+  REVIEW: "Review later",
+};
+
+const batchStatusLabels: Record<string, string> = {
+  STAGED: "Staged",
+  VALIDATED: "Validated",
+  IMPORTED: "Imported",
+  PARTIALLY_IMPORTED: "Partially imported",
+  FAILED: "Failed",
+  UNDONE: "Undone",
+};
+
 export function TransactionsClient({
   transactions,
   categories,
@@ -158,6 +213,7 @@ export function TransactionsClient({
   transferMatches: TransferMatchDto[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<TransactionDto | null>(null);
   const [audit, setAudit] = useState<AuditDto[]>([]);
@@ -166,6 +222,15 @@ export function TransactionsClient({
   const [drawerTransfers, setDrawerTransfers] = useState<TransferMatchDto[]>([]);
   const [transferNote, setTransferNote] = useState("");
   const [announcement, setAnnouncement] = useState("");
+  const [transferError, setTransferError] = useState("");
+  const [filters, setFilters] = useState({
+    q: searchParams.get("q") ?? "",
+    accountId: searchParams.get("account") ?? "",
+    categoryId: searchParams.get("category") ?? "",
+    type: searchParams.get("type") ?? "",
+    pageSize: searchParams.get("pageSize") ?? "25",
+  });
+  const [page, setPage] = useState(Math.max(1, Number(searchParams.get("page") ?? "1")));
   const [form, setForm] = useState({
     normalizedMerchant: "",
     categoryId: "",
@@ -174,6 +239,64 @@ export function TransactionsClient({
     excluded: false,
     notes: "",
   });
+
+  const filteredTransactions = useMemo(() => {
+    const query = filters.q.trim().toLowerCase();
+    return transactions.filter((transaction) => {
+      const matchesQuery =
+        !query ||
+        [
+          transaction.normalizedMerchant,
+          transaction.originalDescription,
+          transaction.account.name,
+          transaction.category?.name ?? "",
+          transaction.sourceFilename ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      return (
+        matchesQuery &&
+        (!filters.accountId || transaction.account.name === filters.accountId) &&
+        (!filters.categoryId || (transaction.categoryId ?? "") === filters.categoryId) &&
+        (!filters.type || transaction.type === filters.type)
+      );
+    });
+  }, [filters, transactions]);
+
+  const pageSize = Number(filters.pageSize);
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleTransactions = filteredTransactions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
+  function updateUrl(nextFilters = filters, nextPage = page) {
+    const params = new URLSearchParams();
+    if (nextFilters.q) params.set("q", nextFilters.q);
+    if (nextFilters.accountId) params.set("account", nextFilters.accountId);
+    if (nextFilters.categoryId) params.set("category", nextFilters.categoryId);
+    if (nextFilters.type) params.set("type", nextFilters.type);
+    if (nextFilters.pageSize !== "25") params.set("pageSize", nextFilters.pageSize);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    router.replace(`/transactions${params.toString() ? `?${params.toString()}` : ""}`, {
+      scroll: false,
+    });
+  }
+
+  function updateFilter(key: keyof typeof filters, value: string) {
+    const next = { ...filters, [key]: value };
+    setFilters(next);
+    setPage(1);
+    updateUrl(next, 1);
+  }
+
+  function updatePage(nextPage: number) {
+    const bounded = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(bounded);
+    updateUrl(filters, bounded);
+  }
 
   useEffect(() => {
     if (!selected) return;
@@ -216,13 +339,19 @@ export function TransactionsClient({
     successMessage: string,
   ) {
     setStatus("saving");
+    setTransferError("");
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    const payload = await response.json().catch(() => ({}));
     setStatus(response.ok ? "saved" : "error");
-    setAnnouncement(response.ok ? successMessage : "Transfer action failed.");
+    const message = response.ok
+      ? successMessage
+      : (payload.error ?? "Transfer action failed. Check the selected transactions and try again.");
+    setAnnouncement(message);
+    setTransferError(response.ok ? "" : message);
     setTransferNote("");
     startTransition(() => router.refresh());
     if (selected) open(selected);
@@ -301,11 +430,29 @@ export function TransactionsClient({
             "Manual transfer created.",
           )
         }
+        error={transferError}
       />
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
-      <TransactionTable transactions={transactions} transferMatches={transferMatches} open={open} />
+      <TransactionFilters
+        filters={filters}
+        accounts={accounts}
+        categories={categories}
+        onChange={updateFilter}
+      />
+      <TransactionTable
+        transactions={visibleTransactions}
+        transferMatches={transferMatches}
+        open={open}
+        totalCount={transactions.length}
+        filteredCount={filteredTransactions.length}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={filters.pageSize}
+        onPage={updatePage}
+        onPageSize={(next) => updateFilter("pageSize", next)}
+      />
       {importOpen ? (
         <ImportDialog
           accounts={accounts}
@@ -392,7 +539,7 @@ function ImportHistory({ batches, onUndo }: { batches: BatchDto[]; onUndo: (id: 
                           : "info"
                     }
                   >
-                    {batch.status}
+                    {batchStatusLabels[batch.status] ?? batch.status}
                   </Pill>
                 </td>
                 <td className="py-3 pr-4">{batch.totalRowCount}</td>
@@ -427,6 +574,7 @@ function TransferReviewPanel({
   onConfirm,
   onReject,
   onManual,
+  error,
 }: {
   matches: TransferMatchDto[];
   transactions: TransactionDto[];
@@ -435,12 +583,27 @@ function TransferReviewPanel({
   onConfirm: (id: string) => void;
   onReject: (id: string) => void;
   onManual: (outgoingTransactionId: string, incomingTransactionId: string) => void;
+  error: string;
 }) {
   const suggestions = matches.filter((match) => match.status === "SUGGESTED");
   const confirmed = matches.filter((match) => match.status === "CONFIRMED");
   const [manualOut, setManualOut] = useState("");
   const [manualIn, setManualIn] = useState("");
   const candidates = transactions.filter((transaction) => transaction.amountMinor !== 0);
+  const selectedOut = candidates.find((transaction) => transaction.id === manualOut);
+  const eligibleIncoming = selectedOut
+    ? candidates.filter(
+        (transaction) =>
+          transaction.amountMinor > 0 &&
+          Math.abs(transaction.amountMinor) === Math.abs(selectedOut.amountMinor) &&
+          transaction.account.name !== selectedOut.account.name &&
+          Math.abs(daysBetween(transaction.transactionDate, selectedOut.transactionDate)) <= 7,
+      )
+    : candidates.filter((transaction) => transaction.amountMinor > 0);
+  const selectedIn = candidates.find((transaction) => transaction.id === manualIn);
+  const manualEligible =
+    Boolean(selectedOut && selectedIn) &&
+    eligibleIncoming.some((transaction) => transaction.id === selectedIn?.id);
   return (
     <Card className="mb-4 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -506,6 +669,10 @@ function TransferReviewPanel({
                   </td>
                   <td className="py-3 pr-4 text-xs text-[var(--muted)]">
                     {match.reasons.slice(0, 3).join("; ")}
+                    <div className="mt-1">
+                      {match.outgoingTransaction.normalizedMerchant} vs.{" "}
+                      {match.incomingTransaction.normalizedMerchant}
+                    </div>
                   </td>
                   <td className="py-3 pr-4">
                     <div className="flex flex-wrap gap-2">
@@ -541,12 +708,24 @@ function TransferReviewPanel({
       )}
       <div className="mt-6 border-t border-[var(--border)] pt-5">
         <h3 className="font-semibold">Manual match</h3>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Choose one money-out transaction and one money-in transaction with the same absolute
+          amount, different accounts, and dates within seven days.
+        </p>
+        {error ? (
+          <div role="alert" className="mt-3 rounded-md bg-[var(--red-soft)] p-3 text-sm">
+            {error}
+          </div>
+        ) : null}
         <div className="mt-3 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <select
             aria-label="Manual outgoing transaction"
             className="h-10 min-w-0 max-w-full rounded-md border border-[var(--border)] px-3"
             value={manualOut}
-            onChange={(event) => setManualOut(event.target.value)}
+            onChange={(event) => {
+              setManualOut(event.target.value);
+              setManualIn("");
+            }}
           >
             <option value="">Outgoing transaction</option>
             {candidates
@@ -565,23 +744,26 @@ function TransferReviewPanel({
             onChange={(event) => setManualIn(event.target.value)}
           >
             <option value="">Incoming transaction</option>
-            {candidates
-              .filter((transaction) => transaction.amountMinor > 0)
-              .map((transaction) => (
-                <option key={transaction.id} value={transaction.id}>
-                  {shortDate(transaction.transactionDate)} {transaction.account.name}{" "}
-                  {formatMoney(transaction.amountMinor)} {transaction.normalizedMerchant}
-                </option>
-              ))}
+            {eligibleIncoming.map((transaction) => (
+              <option key={transaction.id} value={transaction.id}>
+                {shortDate(transaction.transactionDate)} {transaction.account.name}{" "}
+                {formatMoney(transaction.amountMinor)} {transaction.normalizedMerchant}
+              </option>
+            ))}
           </select>
           <button
             className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white disabled:opacity-60"
-            disabled={!manualOut || !manualIn}
+            disabled={!manualEligible}
             onClick={() => onManual(manualOut, manualIn)}
           >
             Create manual match
           </button>
         </div>
+        {selectedOut && !eligibleIncoming.length ? (
+          <p className="mt-3 text-sm text-[var(--muted)]">
+            No eligible incoming transactions match the selected amount, account, and date window.
+          </p>
+        ) : null}
       </div>
     </Card>
   );
@@ -932,6 +1114,7 @@ function ImportDialog({
                     label="Amount mode"
                     value={mapping.amountMode}
                     values={["SIGNED_AMOUNT", "DEBIT_CREDIT_COLUMNS"]}
+                    labels={amountModeLabels}
                     onChange={(amountMode) => setMapping({ ...mapping, amountMode })}
                   />
                   {mapping.amountMode === "SIGNED_AMOUNT" ? (
@@ -981,6 +1164,7 @@ function ImportDialog({
                     label="Sign convention"
                     value={mapping.signConvention}
                     values={["DEBITS_NEGATIVE", "DEBITS_POSITIVE"]}
+                    labels={signConventionLabels}
                     onChange={(signConvention) => setMapping({ ...mapping, signConvention })}
                   />
                   <label className="flex items-center gap-2 text-sm">
@@ -1019,15 +1203,16 @@ function ImportDialog({
                   role="alert"
                   className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
                 >
-                  This file hash was already imported for this account. Import is blocked by
-                  default.
+                  Exact file repeat warning: this same file was already imported for this account.
+                  Confirming can create duplicate transactions. Import is blocked until you
+                  explicitly override it.
                   <label className="mt-2 flex items-center gap-2">
                     <input
                       checked={allowRepeated}
                       onChange={(event) => setAllowRepeated(event.target.checked)}
                       type="checkbox"
                     />
-                    I understand and want to override the repeated-file block.
+                    I understand this is the exact same file and want to import it anyway.
                   </label>
                 </div>
               ) : null}
@@ -1080,14 +1265,92 @@ function ImportDialog({
   );
 }
 
+function TransactionFilters({
+  filters,
+  accounts,
+  categories,
+  onChange,
+}: {
+  filters: {
+    q: string;
+    accountId: string;
+    categoryId: string;
+    type: string;
+    pageSize: string;
+  };
+  accounts: AccountDto[];
+  categories: CategoryDto[];
+  onChange: (key: keyof typeof filters, value: string) => void;
+}) {
+  return (
+    <Card className="mb-4 p-5">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
+        <label className="block text-sm text-[var(--muted)]">
+          Search transactions
+          <input
+            className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+            placeholder="Merchant, original text, account, category, or file"
+            value={filters.q}
+            onChange={(event) => onChange("q", event.target.value)}
+          />
+        </label>
+        <Select
+          label="Account"
+          value={filters.accountId}
+          values={["", ...accounts.map((account) => account.name)]}
+          labels={{ "": "All accounts" }}
+          onChange={(value) => onChange("accountId", value)}
+        />
+        <Select
+          label="Category"
+          value={filters.categoryId}
+          values={["", ...categories.map((category) => category.id)]}
+          labels={{
+            "": "All categories",
+            ...Object.fromEntries(categories.map((category) => [category.id, category.name])),
+          }}
+          onChange={(value) => onChange("categoryId", value)}
+        />
+        <Select
+          label="Type"
+          value={filters.type}
+          values={["", ...Object.keys(transactionTypeLabels)]}
+          labels={{ "": "All types", ...transactionTypeLabels }}
+          onChange={(value) => onChange("type", value)}
+        />
+        <Select
+          label="Rows"
+          value={filters.pageSize}
+          values={["25", "50", "100"]}
+          onChange={(value) => onChange("pageSize", value)}
+        />
+      </div>
+    </Card>
+  );
+}
+
 function TransactionTable({
   transactions,
   transferMatches,
   open,
+  totalCount,
+  filteredCount,
+  currentPage,
+  totalPages,
+  pageSize,
+  onPage,
+  onPageSize,
 }: {
   transactions: TransactionDto[];
   transferMatches: TransferMatchDto[];
   open: (transaction: TransactionDto) => void;
+  totalCount: number;
+  filteredCount: number;
+  currentPage: number;
+  totalPages: number;
+  pageSize: string;
+  onPage: (page: number) => void;
+  onPageSize: (pageSize: string) => void;
 }) {
   const transferByTransaction = new Map<string, TransferMatchDto[]>();
   transferMatches.forEach((match) => {
@@ -1097,9 +1360,51 @@ function TransactionTable({
   });
   return (
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5">
+        <div>
+          <h2 className="text-lg font-semibold">Transactions</h2>
+          <p className="text-sm text-[var(--muted)]">
+            Showing {transactions.length ? (currentPage - 1) * Number(pageSize) + 1 : 0}-
+            {Math.min(currentPage * Number(pageSize), filteredCount)} of {filteredCount} matching
+            transactions ({totalCount} total).
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="h-9 rounded-md border border-[var(--border)] px-3 text-sm disabled:opacity-50"
+            disabled={currentPage <= 1}
+            onClick={() => onPage(currentPage - 1)}
+          >
+            Previous
+          </button>
+          <span className="text-sm text-[var(--muted)]">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            className="h-9 rounded-md border border-[var(--border)] px-3 text-sm disabled:opacity-50"
+            disabled={currentPage >= totalPages}
+            onClick={() => onPage(currentPage + 1)}
+          >
+            Next
+          </button>
+          <label className="sr-only" htmlFor="transaction-page-size">
+            Rows per page
+          </label>
+          <select
+            id="transaction-page-size"
+            className="h-9 rounded-md border border-[var(--border)] px-2 text-sm"
+            value={pageSize}
+            onChange={(event) => onPageSize(event.target.value)}
+          >
+            <option value="25">25 rows</option>
+            <option value="50">50 rows</option>
+            <option value="100">100 rows</option>
+          </select>
+        </div>
+      </div>
+      <div className="max-h-[680px] overflow-auto">
         <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className="border-b border-[var(--border)] text-[var(--muted)]">
+          <thead className="sticky top-0 border-b border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">
             <tr>
               {[
                 "Date",
@@ -1174,15 +1479,24 @@ function TransactionTable({
                     }
                   >
                     {transaction.type === "TRANSFER_IN" || transaction.type === "TRANSFER_OUT"
-                      ? transaction.type
-                      : transaction.reviewStatus}
+                      ? transactionTypeLabels[transaction.type]
+                      : (reviewStatusLabels[transaction.reviewStatus] ?? transaction.reviewStatus)}
                   </Pill>
                 </td>
                 <td className="px-4 py-3 text-[var(--muted)]">
-                  {transaction.sourceType ?? "MANUAL"}
+                  {sourceTypeLabels[transaction.sourceType ?? "MANUAL"] ??
+                    transaction.sourceType ??
+                    "Manual"}
                 </td>
               </tr>
             ))}
+            {!transactions.length ? (
+              <tr>
+                <td className="px-4 py-8 text-center text-[var(--muted)]" colSpan={7}>
+                  No transactions match the current filters.
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -1289,16 +1603,18 @@ function ReviewRows({
                             : "good"
                       }
                     >
-                      {row.validationStatus}
+                      {row.validationStatus === "VALID"
+                        ? "Ready"
+                        : row.validationStatus === "WARNING"
+                          ? "Needs review"
+                          : "Invalid"}
                     </Pill>
                     {errors.length ? (
                       <div className="mt-1 text-xs text-[var(--muted)]">{errors.join("; ")}</div>
                     ) : null}
                   </td>
                   <td className="px-4 py-3">
-                    {row.duplicateStatus === "NONE"
-                      ? "None"
-                      : `${row.duplicateStatus}: ${row.duplicateReason ?? ""}`}
+                    {duplicateLabel(row.duplicateStatus, row.duplicateReason)}
                   </td>
                   <td className="px-4 py-3">
                     <select
@@ -1313,9 +1629,11 @@ function ReviewRows({
                         })
                       }
                     >
-                      <option>IMPORT</option>
-                      <option>SKIP</option>
-                      <option>REVIEW</option>
+                      {(["IMPORT", "SKIP", "REVIEW"] as const).map((decision) => (
+                        <option key={decision} value={decision}>
+                          {decisionLabels[decision]}
+                        </option>
+                      ))}
                     </select>
                   </td>
                 </tr>
@@ -1406,7 +1724,7 @@ function TransactionDrawer({
             ["Original date", selected.originalDateText],
             [
               "Source",
-              `${selected.sourceType ?? "MANUAL"}${selected.sourceRowNumber ? ` row ${selected.sourceRowNumber}` : ""}`,
+              `${sourceTypeLabels[selected.sourceType ?? "MANUAL"] ?? selected.sourceType ?? "Manual"}${selected.sourceRowNumber ? ` row ${selected.sourceRowNumber}` : ""}`,
             ],
           ]}
         />
@@ -1453,7 +1771,9 @@ function TransactionDrawer({
                 "INTEREST",
                 "UNKNOWN",
               ].map((type) => (
-                <option key={type}>{type}</option>
+                <option key={type} value={type}>
+                  {transactionTypeLabels[type] ?? type}
+                </option>
               ))}
             </select>
           </label>
@@ -1465,7 +1785,9 @@ function TransactionDrawer({
               onChange={(event) => setForm({ ...form, reviewStatus: event.target.value })}
             >
               {["NEEDS_REVIEW", "REVIEWED", "FLAGGED"].map((value) => (
-                <option key={value}>{value}</option>
+                <option key={value} value={value}>
+                  {reviewStatusLabels[value] ?? value}
+                </option>
               ))}
             </select>
           </label>
@@ -1625,24 +1947,27 @@ function Select<T extends string>({
   label,
   value,
   values,
+  labels = {},
   onChange,
 }: {
   label: string;
   value: T;
   values: readonly T[];
+  labels?: Record<string, string>;
   onChange: (value: T) => void;
 }) {
   return (
     <label className="block text-sm text-[var(--muted)]">
       {label}
       <select
+        aria-label={label}
         className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
       >
         {values.map((item) => (
           <option key={item || "blank"} value={item}>
-            {item || "None"}
+            {labels[item] ?? (item || "None")}
           </option>
         ))}
       </select>
@@ -1759,12 +2084,23 @@ function parseErrors(row: ImportRowDto) {
   }
 }
 
+function duplicateLabel(status: string, reason?: string | null) {
+  if (status === "NONE") return "No duplicate found";
+  const label = duplicateStatusLabels[status] ?? "Possible duplicate transaction";
+  return reason ? `${label}: ${reason}` : label;
+}
+
 function displayDelimiter(delimiter: string) {
   return delimiter === "\t" ? "tab" : delimiter;
 }
 
 function shortDate(value: string) {
   return new Date(value).toLocaleDateString();
+}
+
+function daysBetween(a: string, b: string) {
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.round((new Date(a).getTime() - new Date(b).getTime()) / dayMs);
 }
 
 function counterpart(transactionId: string, match: TransferMatchDto) {
