@@ -6,7 +6,7 @@ import { formatMoney } from "@/domain/money/money";
 import { buildOverviewDashboard, type OverviewSeverity } from "@/domain/overview/dashboard";
 import { accountSummaries, currentPeriodSummary } from "@/domain/summaries/calculations";
 import { getHousehold, workspaceState } from "@/server/data/repositories";
-import { getCashFlowProjection } from "@/server/data/cash-flow";
+import { cashAllocationSummary, getCashFlowProjection } from "@/server/data/cash-flow";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,7 @@ export default async function Home() {
   const period = currentPeriodSummary(household.transactions);
   const dashboard = buildOverviewDashboard({ household });
   const cashFlow = isEmpty ? null : await getCashFlowProjection();
+  const allocation = cashFlow ? cashAllocationSummary(cashFlow) : null;
   const summaryCards = [
     {
       label: "Available Cash",
@@ -33,13 +34,13 @@ export default async function Home() {
     },
     {
       label: "Safe to Save",
-      value: formatMoney(cashFlow?.recommendedSafeToSaveMinor ?? 0),
-      detail: `Policy recommendation from ${formatMoney(cashFlow?.maximumAvailableSurplusMinor ?? 0)} maximum surplus`,
+      value: formatMoney(allocation?.recommendedSafeToSaveMinor ?? 0),
+      detail: `Policy recommendation from ${formatMoney(allocation?.allocatableSurplusMinor ?? 0)} allocatable surplus`,
     },
     {
       label: "Safe to Spend",
-      value: formatMoney(cashFlow?.safeToSpendMinor ?? 0),
-      detail: "Discretionary cash retained after the recommended transfer",
+      value: formatMoney(allocation?.safeToSpendMinor ?? 0),
+      detail: "Allocatable surplus remaining after the recommended transfer",
     },
     {
       label: "Total Debt",

@@ -230,22 +230,78 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
               </div>
             ))}
           </div>
+          <div
+            className="mt-6 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-4"
+            aria-label="Cash allocation reconciliation"
+          >
+            {[
+              [
+                "Cash after obligations and protections",
+                projection.cashAfterObligationsAndProtectionsMinor,
+                "After income, obligations, buffers, emergency protection, and data-quality reserve.",
+              ],
+              [
+                "Retained safety reserve",
+                -projection.retainedSafetyReserveMinor,
+                "Policy cash excluded from both saving and spending allocations.",
+              ],
+              [
+                "Allocatable surplus",
+                projection.allocatableSurplusMinor,
+                "The exact base divided between recommended saving and Safe to Spend.",
+              ],
+              [
+                "Recommended savings transfer",
+                -projection.recommendedSafeToSaveMinor,
+                "Policy percentage applied to allocatable surplus.",
+              ],
+              [
+                "Safe to Spend",
+                projection.safeToSpendMinor,
+                "Allocatable surplus remaining after the recommendation.",
+              ],
+              [
+                "Unallocated surplus",
+                projection.unallocatedSurplusMinor,
+                "Explicit reconciliation remainder; normally zero.",
+              ],
+            ].map(([label, value, help]) => (
+              <div
+                key={String(label)}
+                title={String(help)}
+                className="flex justify-between gap-4 border-b border-[var(--border)] py-3 last:border-0"
+              >
+                <span>
+                  <strong>{label}</strong>
+                  <span className="block text-xs text-[var(--muted)]">{help}</span>
+                </span>
+                <strong>
+                  {Number(value) >= 0 ? "+" : ""}
+                  {formatMoney(Number(value))}
+                </strong>
+              </div>
+            ))}
+          </div>
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label="Maximum Available Surplus"
-              value={formatMoney(projection.maximumAvailableSurplusMinor)}
-              detail="Before recommendation policy"
+              label="Allocatable Surplus"
+              value={formatMoney(projection.allocatableSurplusMinor)}
+              detail="Cash after protections minus retained safety reserve"
             />
             <MetricCard
               label="Recommended Safe to Save"
               value={formatMoney(projection.recommendedSafeToSaveMinor)}
-              detail="Maximum surplus after known protections"
+              detail="Configured policy share of allocatable surplus"
               featured
             />
             <MetricCard
               label="Conservative Safe to Save"
               value={formatMoney(projection.conservativeSafeToSaveMinor)}
-              detail="Adds known unconfirmed obligations when confidence is lower"
+              detail={
+                projection.confidence === "HIGH"
+                  ? "Equals Recommended at High confidence"
+                  : `Reduced by ${formatMoney(projection.conservativeReductionMinor)} for ${projection.confidence} confidence`
+              }
             />
             <MetricCard
               label="Safe to Spend"
@@ -258,8 +314,9 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
             />
           </div>
           <p className="mt-4 text-sm text-[var(--muted)]">
-            Policy: {projection.savingsPolicyMode} · Retained discretionary cash:{" "}
-            {formatMoney(projection.retainedDiscretionaryMinor)} · Recommendation cap:{" "}
+            Policy: {projection.savingsPolicyMode} · Effective target:{" "}
+            {projection.effectiveSavingsTargetBps / 100}% · Retained safety reserve:{" "}
+            {formatMoney(projection.retainedSafetyReserveMinor)} · Recommendation cap:{" "}
             {formatMoney(projection.savingsPolicyCapMinor)}
           </p>
         </Card>
