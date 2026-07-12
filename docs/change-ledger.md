@@ -37,3 +37,8 @@
 
 - Added explicit page-scoped selection and audited all-or-nothing bulk category, review, reporting, safe-type, merchant, and rule-reapply actions.
 - Added durable merchant rules, deterministic matching/conflicts, preview, field provenance/manual locks, Settings management, import application, lifecycle/backup integration, and data-quality signals.
+
+# 2026-07-12 — Account ledger and reconciliation prerequisite
+
+- Replaced ambiguous snapshot balance fields with explicit opening anchors, derived ledgers, reported snapshots, reconciliation state/confidence, and audited adjustments.
+- Adopted positive liability amounts owed, separated ledger/reporting semantics, and connected CSV import/undo and transfer workflows to recalculation.

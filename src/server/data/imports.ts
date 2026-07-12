@@ -21,6 +21,7 @@ import {
 import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { applyRulesToTransaction } from "./merchant-rules";
+import { recalculateAccountBalances } from "./account-balances";
 import { AppError } from "./errors";
 import { getHousehold, workspaceState } from "./repositories";
 import { scanRecurringExpenses } from "./recurring";
@@ -389,6 +390,7 @@ export async function confirmImport(input: unknown) {
           type: row.parsedAmountMinor < 0 ? "DEBIT" : "CREDIT",
           reviewStatus: row.duplicateStatus === "NONE" ? "NEEDS_REVIEW" : "FLAGGED",
           possibleDuplicate: row.duplicateStatus !== "NONE",
+          affectsLedger: row.duplicateStatus === "NONE",
           isDemo: false,
         },
       });
@@ -414,6 +416,7 @@ export async function confirmImport(input: unknown) {
       });
     }
     const skippedCount = batch.rows.length - rowsToImport.length;
+    await recalculateAccountBalances([batch.accountId], tx);
     const status = skippedCount > 0 ? "PARTIALLY_IMPORTED" : "IMPORTED";
     const currentState = await workspaceState(tx);
     await tx.household.update({
@@ -581,6 +584,10 @@ export async function undoImportBatch(id: string, input: unknown) {
   }
   return prisma.$transaction(async (tx) => {
     await tx.transaction.deleteMany({ where: { importBatchId: id } });
+    await recalculateAccountBalances(
+      [...new Set(batch.transactions.map((transaction) => transaction.accountId))],
+      tx,
+    );
     const updated = await tx.importBatch.update({
       where: { id },
       data: { status: "UNDONE", completedAt: new Date() },

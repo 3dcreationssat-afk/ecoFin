@@ -60,6 +60,7 @@ describe("csv import repositories", () => {
   it("previews, validates, imports, detects repeats, and undoes signed amount CSV", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[0];
+    const ledgerBefore = account.ledgerBalanceMinor;
     await merchantRules.createMerchantRule(
       {
         name: "Synthetic coffee import",
@@ -131,6 +132,18 @@ describe("csv import repositories", () => {
     expect(created[0].type).toBe("EXPENSE");
     expect(created[0].reviewStatus).toBe("REVIEWED");
     expect(created[0].merchantSource).toBe("MERCHANT_RULE");
+    const importedLedgerMovement = created
+      .filter(
+        (transaction) =>
+          transaction.affectsLedger &&
+          transaction.clearingStatus === "CLEARED" &&
+          !transaction.possibleDuplicate,
+      )
+      .reduce((sum, transaction) => sum + transaction.amountMinor, 0);
+    expect(
+      (await prismaModule.prisma.account.findUnique({ where: { id: account.id } }))
+        ?.ledgerBalanceMinor,
+    ).toBe((ledgerBefore ?? 0) + importedLedgerMovement);
     expect(created[0].originalAmountText).toBe("-4.25");
     expect(created[0].sourceType).toBe("CSV_IMPORT");
     const audits = await prismaModule.prisma.auditLog.findMany({
@@ -151,6 +164,10 @@ describe("csv import repositories", () => {
 
     const undone = await imports.undoImportBatch(imported.id, { confirm: "UNDO IMPORT" });
     expect(undone.status).toBe("UNDONE");
+    expect(
+      (await prismaModule.prisma.account.findUnique({ where: { id: account.id } }))
+        ?.ledgerBalanceMinor,
+    ).toBe(ledgerBefore);
     expect(
       await prismaModule.prisma.transaction.count({ where: { importBatchId: imported.id } }),
     ).toBe(0);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { classifyTransferPair, scoreTransferCandidate } from "@/domain/transfers/scoring";
 import { prisma } from "@/server/db/prisma";
 import { auditChange } from "./audit";
+import { recalculateAccountBalances } from "./account-balances";
 import { AppError } from "./errors";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -205,6 +206,7 @@ export async function confirmTransferMatch(id: string, input: unknown) {
         reviewStatus: "REVIEWED",
         typeSource: "TRANSFER",
         reviewSource: "TRANSFER",
+        affectsIncomeSpendingReports: false,
       },
     });
     await tx.transaction.update({
@@ -214,8 +216,13 @@ export async function confirmTransferMatch(id: string, input: unknown) {
         reviewStatus: "REVIEWED",
         typeSource: "TRANSFER",
         reviewSource: "TRANSFER",
+        affectsIncomeSpendingReports: false,
       },
     });
+    await recalculateAccountBalances(
+      [match.outgoingTransaction.accountId, match.incomingTransaction.accountId],
+      tx,
+    );
     await auditTransferConfirmed(
       tx,
       match.householdId,
@@ -299,6 +306,7 @@ export async function createManualTransfer(input: unknown) {
         reviewStatus: "REVIEWED",
         typeSource: "TRANSFER",
         reviewSource: "TRANSFER",
+        affectsIncomeSpendingReports: false,
       },
     });
     await tx.transaction.update({
@@ -308,8 +316,10 @@ export async function createManualTransfer(input: unknown) {
         reviewStatus: "REVIEWED",
         typeSource: "TRANSFER",
         reviewSource: "TRANSFER",
+        affectsIncomeSpendingReports: false,
       },
     });
+    await recalculateAccountBalances([outgoing.accountId, incoming.accountId], tx);
     await auditTransferConfirmed(
       tx,
       outgoing.householdId,
@@ -338,6 +348,7 @@ export async function unmatchTransfer(id: string, input: unknown) {
         typeSource: "USER",
         reviewStatus: match.previousOutgoingReviewStatus ?? "NEEDS_REVIEW",
         reviewSource: "USER",
+        affectsIncomeSpendingReports: true,
       },
     });
     await tx.transaction.update({
@@ -347,8 +358,13 @@ export async function unmatchTransfer(id: string, input: unknown) {
         typeSource: "USER",
         reviewStatus: match.previousIncomingReviewStatus ?? "NEEDS_REVIEW",
         reviewSource: "USER",
+        affectsIncomeSpendingReports: true,
       },
     });
+    await recalculateAccountBalances(
+      [match.outgoingTransaction.accountId, match.incomingTransaction.accountId],
+      tx,
+    );
     await auditChange(tx, {
       householdId: match.householdId,
       entityType: "TransferMatch",

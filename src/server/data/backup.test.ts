@@ -141,6 +141,7 @@ function makeZip(
       recurringLinks: 0,
       transactionSavedViews: 0,
       merchantRules: 0,
+      reconciliationAdjustments: 0,
       auditLogs: 1,
     },
     databaseFileSize: database.length,

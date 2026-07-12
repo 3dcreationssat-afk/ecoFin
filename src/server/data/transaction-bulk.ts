@@ -69,9 +69,9 @@ export async function bulkUpdateTransactions(input: unknown) {
             : data.action === "MARK_NEEDS_REVIEW"
               ? { reviewStatus: "NEEDS_REVIEW", reviewSource: "BULK_USER" }
               : data.action === "EXCLUDE"
-                ? { excluded: true }
+                ? { excluded: true, affectsIncomeSpendingReports: false }
                 : data.action === "RESTORE"
-                  ? { excluded: false }
+                  ? { excluded: false, affectsIncomeSpendingReports: true }
                   : data.action === "SET_TYPE"
                     ? { type: data.value, typeSource: "BULK_USER" }
                     : { normalizedMerchant: data.value, merchantSource: "BULK_USER" };

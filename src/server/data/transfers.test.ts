@@ -51,6 +51,19 @@ describe("transfer matching service", () => {
     const confirmable = await prismaModule.prisma.transferMatch.findFirstOrThrow({
       where: { status: "SUGGESTED", confidence: "HIGH" },
     });
+    const matchedTransactions = await prismaModule.prisma.transaction.findMany({
+      where: {
+        id: {
+          in: [confirmable.outgoingTransactionId, confirmable.incomingTransactionId],
+        },
+      },
+      select: { accountId: true },
+    });
+    const matchedAccountIds = matchedTransactions.map((transaction) => transaction.accountId);
+    const ledgerBefore = await prismaModule.prisma.account.findMany({
+      where: { id: { in: matchedAccountIds } },
+      select: { id: true, ledgerBalanceMinor: true },
+    });
     await transfers.confirmTransferMatch(confirmable.id, { confirmation: "CONFIRM TRANSFER" });
     const confirmed = await prismaModule.prisma.transferMatch.findUniqueOrThrow({
       where: { id: confirmable.id },
@@ -59,6 +72,16 @@ describe("transfer matching service", () => {
     expect(confirmed.status).toBe("CONFIRMED");
     expect(confirmed.outgoingTransaction.type).toBe("TRANSFER_OUT");
     expect(confirmed.incomingTransaction.type).toBe("TRANSFER_IN");
+    expect(confirmed.outgoingTransaction.affectsLedger).toBe(true);
+    expect(confirmed.incomingTransaction.affectsLedger).toBe(true);
+    expect(confirmed.outgoingTransaction.affectsIncomeSpendingReports).toBe(false);
+    expect(confirmed.incomingTransaction.affectsIncomeSpendingReports).toBe(false);
+    expect(
+      await prismaModule.prisma.account.findMany({
+        where: { id: { in: matchedAccountIds } },
+        select: { id: true, ledgerBalanceMinor: true },
+      }),
+    ).toEqual(ledgerBefore);
     await expect(
       transfers.confirmTransferMatch(confirmable.id, { confirmation: "CONFIRM TRANSFER" }),
     ).rejects.toThrow(/Only suggested/);
@@ -71,6 +94,8 @@ describe("transfer matching service", () => {
     expect(unmatched.status).toBe("UNMATCHED");
     expect(unmatched.outgoingTransaction.type).toBe("DEBIT");
     expect(unmatched.incomingTransaction.type).toBe("CREDIT");
+    expect(unmatched.outgoingTransaction.affectsIncomeSpendingReports).toBe(true);
+    expect(unmatched.incomingTransaction.affectsIncomeSpendingReports).toBe(true);
   });
 
   it("creates manual matches and prevents duplicate confirmed relationships", async () => {

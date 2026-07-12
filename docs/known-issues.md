@@ -22,3 +22,5 @@
 - Saved-view management uses a compact popover and native confirmation prompts; richer dialog focus trapping remains a future design-system refinement.
 - Bulk selection is deliberately page-scoped and limited to 100 explicit IDs; there is no “all matching” bulk operation.
 - Merchant rules do not support regular expressions. Rule application is synchronous and bounded for the current local-first dataset; background jobs are not implemented.
+- Pending/cleared status is modeled, but CSV currently imports validated rows as cleared because statement pending-state mapping is not implemented.
+- Amount/date/account corrections and manual transaction creation remain unavailable; when implemented they must use the centralized ledger recalculation service.

@@ -17,6 +17,7 @@ import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { AppError } from "./errors";
 import { refreshTransferStateForTransactions } from "./transfers";
+import { recalculateAccountBalance } from "./account-balances";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -86,7 +87,9 @@ export async function createAccount(input: unknown) {
       action: "create",
       source: "user",
     });
-    return account;
+    return data.openingBalanceMinor !== null && data.openingBalanceMinor !== undefined
+      ? recalculateAccountBalance(account.id, tx)
+      : account;
   });
 }
 
@@ -106,7 +109,7 @@ export async function updateAccount(id: string, input: unknown) {
       after: account,
       fields: Object.keys(data),
     });
-    return account;
+    return recalculateAccountBalance(account.id, tx);
   });
   return updated;
 }
@@ -311,6 +314,7 @@ export async function updateTransactionEditable(id: string, input: unknown) {
       categorySource: "USER",
       typeSource: "USER",
       reviewSource: "USER",
+      affectsIncomeSpendingReports: !data.excluded,
     },
   });
   await auditFields(prisma, {
@@ -389,6 +393,7 @@ export async function startFreshWorkspace(input: unknown) {
     await tx.auditLog.deleteMany();
     await tx.transactionSavedView.deleteMany();
     await tx.merchantRule.deleteMany();
+    await tx.reconciliationAdjustment.deleteMany();
     await tx.recurringExpenseTransaction.deleteMany();
     await tx.recurringExpense.deleteMany();
     await tx.transferMatch.deleteMany();

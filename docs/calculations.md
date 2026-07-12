@@ -2,6 +2,9 @@
 
 ## Implemented
 
+- Account ledger balance equals the explicit opening balance plus cleared, nonduplicate, ledger-affecting transaction effects after the anchor plus explicit reconciliation adjustments. Assets are positive owned amounts; liabilities are positive amounts owed.
+- Institution-reported and available balances are comparison snapshots and never drive ledger calculation. Reconciliation difference is `reported - ledger`.
+
 - Money formatting helper accepts integer minor units and formats USD display values.
 - Money parsing accepts user-entered decimal strings and converts to integer minor units before persistence.
 - Integer minor-unit helpers add and subtract money values.

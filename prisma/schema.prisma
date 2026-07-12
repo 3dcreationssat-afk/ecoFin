@@ -28,6 +28,7 @@ model Household {
   backupRecords         BackupRecord[]
   transferMatches       TransferMatch[]
   recurringExpenses     RecurringExpense[]
+  reconciliationAdjustments ReconciliationAdjustment[]
   transactionSavedViews TransactionSavedView[]
   merchantRules         MerchantRule[]
   auditLogs             AuditLog[]
@@ -83,8 +84,19 @@ model Account {
   name                String
   institution          String
   type                String
-  balanceMinor         Int
-  availableMinor       Int?
+  openingBalanceMinor  Int?
+  openingBalanceDate   DateTime?
+  openingBalanceSource String?
+  reportedBalanceMinor Int?
+  reportedAvailableMinor Int?
+  reportedBalanceAsOf  DateTime?
+  ledgerBalanceMinor   Int?
+  ledgerCalculatedAt   DateTime?
+  ledgerStatus         String @default("NEEDS_ANCHOR")
+  lastReconciledAt     DateTime?
+  reconciliationStatus String @default("NEEDS_SETUP")
+  reconciliationDifferenceMinor Int?
+  balanceConfidence    String @default("LIMITED")
   creditLimitMinor     Int?
   aprBasisPoints       Int?
   minimumPaymentMinor  Int?
@@ -101,6 +113,22 @@ model Account {
   goals               Goal[]
   transactions        Transaction[]
   importBatches       ImportBatch[]
+  reconciliationAdjustments ReconciliationAdjustment[]
+}
+
+model ReconciliationAdjustment {
+  id          String   @id @default(cuid())
+  householdId String
+  accountId   String
+  amountMinor Int
+  effectiveDate DateTime
+  reason      String
+  note        String?
+  createdAt   DateTime @default(now())
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account     Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, effectiveDate])
 }
 
 model Category {
@@ -178,6 +206,9 @@ model Transaction {
   type                  String
   reviewStatus          String   @default("NEEDS_REVIEW")
   excluded              Boolean  @default(false)
+  affectsLedger         Boolean  @default(true)
+  affectsIncomeSpendingReports Boolean @default(true)
+  clearingStatus        String   @default("CLEARED")
   notes                 String?
   possibleDuplicate     Boolean  @default(false)
   merchantSource        String   @default("IMPORT_DEFAULT")

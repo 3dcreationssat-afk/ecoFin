@@ -10,6 +10,7 @@
 - SQLite is the source of truth for household financial configuration and Phase 1.5 domain records.
 - Transaction browsing parses one shared validated URL contract on the server, builds Prisma filters, and applies pagination before records reach the table. `TransactionSavedView` stores only validated query preferences and uses an archived lifecycle.
 - Merchant matching lives in a domain matcher and application service, not React. Per-field transaction provenance protects manual values; explicit-ID bulk services and import-time rule application use Prisma transactions and field-level audits.
+- Account balances use explicit opening anchors, derived/cached ledgers, separate reported institution snapshots, and durable reconciliation adjustments. Account type centralizes asset/liability sign conversion.
 - Browser local storage is limited to non-financial UI preferences.
 - The navigation preference is stored as `financial-compass-nav=expanded|collapsed`; missing or cleared preference defaults to expanded.
 - The app shell reads the navigation preference with `useSyncExternalStore` and a server snapshot of expanded to avoid Next.js hydration mismatches.

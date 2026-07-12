@@ -1,5 +1,5 @@
 export type AccountSummaryInput = {
-  balanceMinor: number;
+  ledgerBalanceMinor: number | null;
   type: string;
   archivedAt?: Date | string | null;
 };
@@ -16,6 +16,7 @@ export type TransactionSummaryInput = {
   type?: string | null;
   categoryId?: string | null;
   excluded?: boolean | null;
+  affectsIncomeSpendingReports?: boolean | null;
   transactionDate?: Date | string;
 };
 
@@ -35,14 +36,14 @@ export function accountSummaries(accounts: AccountSummaryInput[]) {
     ["CHECKING", "SAVINGS", "OTHER"].includes(account.type),
   );
   const totalAssetsMinor = active
-    .filter((account) => account.balanceMinor > 0)
-    .reduce((total, account) => total + account.balanceMinor, 0);
+    .filter((account) => !["CREDIT", "LOAN", "MORTGAGE"].includes(account.type))
+    .reduce((total, account) => total + Math.max(account.ledgerBalanceMinor ?? 0, 0), 0);
   const totalDebtsMinor = active
-    .filter((account) => account.balanceMinor < 0)
-    .reduce((total, account) => total + Math.abs(account.balanceMinor), 0);
+    .filter((account) => ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type))
+    .reduce((total, account) => total + Math.max(account.ledgerBalanceMinor ?? 0, 0), 0);
   return {
     availableCashMinor: cashAccounts.reduce(
-      (total, account) => total + Math.max(account.balanceMinor, 0),
+      (total, account) => total + Math.max(account.ledgerBalanceMinor ?? 0, 0),
       0,
     ),
     cashAccountCount: cashAccounts.length,
@@ -173,7 +174,9 @@ function summarizeTransactions(included: TransactionSummaryInput[]) {
 }
 
 function includedTransactions(transactions: TransactionSummaryInput[]) {
-  return transactions.filter((transaction) => !transaction.excluded);
+  return transactions.filter(
+    (transaction) => !transaction.excluded && transaction.affectsIncomeSpendingReports !== false,
+  );
 }
 
 function monthBounds(asOf: Date) {

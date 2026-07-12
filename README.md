@@ -25,6 +25,7 @@ Implemented:
 - Repository-derived overview action queue, upcoming obligations, category spending, goal statuses, debt recommendation, cash-flow, budget, reports, accounts, transactions, goals, settings, and data-quality values where deterministic local inputs exist.
 - Server-paginated transaction search, advanced URL filters, sorting, durable saved views, and household default-view precedence.
 - Explicit current-page transaction selection, audited bulk review actions, and deterministic merchant rules with preview, manual-override protection, and CSV import application.
+- Explicit account opening anchors, transaction-derived asset/liability ledgers, institution-reported snapshots, reconciliation, adjustments, and balance confidence.
 
 Still planned:
 
@@ -84,7 +85,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 
 ## Money Rules
 
-- Monetary domain values use integer minor units.
+- Monetary domain values use integer minor units. Asset ledgers are positive money owned; liability ledgers are positive amounts owed.
 - User-entered decimal strings are parsed centrally before persistence.
 - CSV amounts support signed amount columns and separate debit/credit columns with explicit sign convention, decimal separator, and thousands separator.
 - Confirmed transfers are directional transaction classifications: `TRANSFER_OUT` and `TRANSFER_IN`.

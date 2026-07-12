@@ -87,7 +87,7 @@ type AccountInput = {
   id: string;
   name: string;
   type: string;
-  balanceMinor: number;
+  ledgerBalanceMinor: number | null;
   aprBasisPoints?: number | null;
   minimumPaymentMinor?: number | null;
   dueDay?: number | null;
@@ -112,6 +112,7 @@ type TransactionInput = {
   type?: string | null;
   categoryId?: string | null;
   excluded?: boolean | null;
+  affectsIncomeSpendingReports?: boolean | null;
   transactionDate?: Date | string;
   reviewStatus?: string | null;
   possibleDuplicate?: boolean | null;
@@ -203,7 +204,9 @@ function buildActionItems(
 ): OverviewActionItem[] {
   const items: OverviewActionItem[] = [];
   const activeAccounts = household.accounts.filter(isActive);
-  const transactions = household.transactions.filter((transaction) => !transaction.excluded);
+  const transactions = household.transactions.filter(
+    (transaction) => !transaction.excluded && transaction.affectsIncomeSpendingReports !== false,
+  );
   const uncategorized = transactions.filter(
     (transaction) => !transaction.categoryId && EXPENSE_TYPES.has(transaction.type ?? ""),
   );
@@ -214,7 +217,7 @@ function buildActionItems(
 
   const checkingBalanceMinor = activeAccounts
     .filter((account) => account.type === "CHECKING")
-    .reduce((total, account) => total + account.balanceMinor, 0);
+    .reduce((total, account) => total + (account.ledgerBalanceMinor ?? 0), 0);
   if (household.checkingBufferMinor > 0 && checkingBalanceMinor < household.checkingBufferMinor) {
     items.push({
       id: "checking-buffer-risk",
@@ -397,7 +400,7 @@ function buildActionItems(
   const missingDebtTerms = activeAccounts.filter(
     (account) =>
       DEBT_TYPES.has(account.type) &&
-      account.balanceMinor < 0 &&
+      (account.ledgerBalanceMinor ?? 0) > 0 &&
       (account.aprBasisPoints == null ||
         account.minimumPaymentMinor == null ||
         account.dueDay == null),
@@ -418,7 +421,7 @@ function buildActionItems(
   const highAprDebt = activeAccounts.filter(
     (account) =>
       DEBT_TYPES.has(account.type) &&
-      account.balanceMinor < 0 &&
+      (account.ledgerBalanceMinor ?? 0) > 0 &&
       (account.aprBasisPoints ?? 0) >= 2000,
   );
   if (highAprDebt.length) {
@@ -484,7 +487,7 @@ function buildDebtMinimumObligations(accounts: AccountInput[], asOf: Date): Upco
     .filter(
       (account) =>
         DEBT_TYPES.has(account.type) &&
-        account.balanceMinor < 0 &&
+        (account.ledgerBalanceMinor ?? 0) > 0 &&
         (account.minimumPaymentMinor ?? 0) > 0 &&
         account.dueDay,
     )
@@ -526,6 +529,7 @@ function buildCategorySpending(
     .filter(
       (transaction) =>
         !transaction.excluded &&
+        transaction.affectsIncomeSpendingReports !== false &&
         !transaction.categoryId &&
         EXPENSE_TYPES.has(transaction.type ?? "") &&
         inRange(transaction.transactionDate, period.start, period.end),
@@ -609,9 +613,10 @@ function buildGoalSnapshots(goals: GoalInput[]): OverviewGoalSnapshot[] {
 function buildDebtSnapshot(household: OverviewDashboardInput["household"]): OverviewDebtSnapshot {
   const debts = household.accounts
     .filter(
-      (account) => isActive(account) && DEBT_TYPES.has(account.type) && account.balanceMinor < 0,
+      (account) =>
+        isActive(account) && DEBT_TYPES.has(account.type) && (account.ledgerBalanceMinor ?? 0) > 0,
     )
-    .map((account) => ({ ...account, positiveBalanceMinor: Math.abs(account.balanceMinor) }));
+    .map((account) => ({ ...account, positiveBalanceMinor: account.ledgerBalanceMinor ?? 0 }));
   const strategy = household.debtStrategy || "AVALANCHE";
   const recommended =
     strategy === "SNOWBALL"

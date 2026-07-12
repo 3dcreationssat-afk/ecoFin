@@ -13,9 +13,9 @@ describe("summary calculations", () => {
   it("calculates assets, debts, and net worth from active accounts", () => {
     expect(
       accountSummaries([
-        { balanceMinor: 10000, type: "CHECKING" },
-        { balanceMinor: -2500, type: "CREDIT" },
-        { balanceMinor: 999999, type: "SAVINGS", archivedAt: new Date() },
+        { ledgerBalanceMinor: 10000, type: "CHECKING" },
+        { ledgerBalanceMinor: 2500, type: "CREDIT" },
+        { ledgerBalanceMinor: 999999, type: "SAVINGS", archivedAt: new Date() },
       ]),
     ).toEqual({
       availableCashMinor: 10000,

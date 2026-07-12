@@ -9,6 +9,7 @@
 - Empty workspace, demonstration workspace, user-data workspace, and mixed-data workspace states.
 - Advanced server-side transaction filters, URL state, sorting, pagination, saved-view CRUD, and one household default saved view.
 - Current-page explicit selection, audited bulk classification/review actions, and deterministic merchant-rule CRUD, preview, historical application, and CSV integration.
+- Transaction-derived account ledgers with explicit opening anchors, positive-liability convention, reported snapshots, reconciliation, adjustments, and confidence.
 
 ## Preliminary Signals
 

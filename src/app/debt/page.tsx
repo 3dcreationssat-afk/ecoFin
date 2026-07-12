@@ -17,7 +17,7 @@ export default async function DebtPage() {
       (account) =>
         !account.archivedAt &&
         ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type) &&
-        account.balanceMinor < 0,
+        (account.ledgerBalanceMinor ?? 0) > 0,
     )
     .sort((a, b) => (b.aprBasisPoints ?? 0) - (a.aprBasisPoints ?? 0));
   const monthlyMinimumsMinor = debtAccounts.reduce(
@@ -30,7 +30,7 @@ export default async function DebtPage() {
       : Math.round(
           debtAccounts.reduce(
             (total, account) =>
-              total + Math.abs(account.balanceMinor) * (account.aprBasisPoints ?? 0),
+              total + (account.ledgerBalanceMinor ?? 0) * (account.aprBasisPoints ?? 0),
             0,
           ) / summary.totalDebtsMinor,
         );
@@ -133,7 +133,7 @@ export default async function DebtPage() {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">
-                        {formatMoney(Math.abs(account.balanceMinor))}
+                        {formatMoney(account.ledgerBalanceMinor ?? 0)}
                       </div>
                       <div className="text-sm text-[var(--muted)]">
                         {formatMoney(account.minimumPaymentMinor ?? 0)} min

@@ -46,7 +46,7 @@ export default async function Home() {
     {
       label: "Total Debt",
       value: formatMoney(accountSummary.totalDebtsMinor),
-      detail: `${household.accounts.filter((account) => !account.archivedAt && account.balanceMinor < 0).length} debt accounts`,
+      detail: `${household.accounts.filter((account) => !account.archivedAt && ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type) && (account.ledgerBalanceMinor ?? 0) > 0).length} debt accounts`,
       tone: "critical" as const,
     },
   ];

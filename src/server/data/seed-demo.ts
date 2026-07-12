@@ -10,6 +10,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
     await client.backupRecord.deleteMany();
     await client.transactionSavedView.deleteMany();
     await client.merchantRule.deleteMany();
+    await client.reconciliationAdjustment.deleteMany();
     await client.recurringExpenseTransaction.deleteMany();
     await client.recurringExpense.deleteMany();
     await client.transferMatch.deleteMany();
@@ -42,8 +43,8 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         name: "Everyday Checking",
         institution: "First National Bank",
         type: "CHECKING",
-        balanceMinor: 842055,
-        availableMinor: 842055,
+        reportedBalanceMinor: 842055,
+        reportedAvailableMinor: 842055,
         notes: "Primary bill-pay account.",
         lastUpdated: new Date("2026-07-09"),
       },
@@ -54,8 +55,8 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         name: "High-Yield Savings",
         institution: "First National Bank",
         type: "SAVINGS",
-        balanceMinor: 1420000,
-        availableMinor: 1420000,
+        reportedBalanceMinor: 1420000,
+        reportedAvailableMinor: 1420000,
         notes: "Emergency fund and goals.",
         lastUpdated: new Date("2026-07-09"),
       },
@@ -66,8 +67,8 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         name: "Chase Sapphire",
         institution: "Chase",
         type: "CREDIT",
-        balanceMinor: -284730,
-        availableMinor: 715270,
+        reportedBalanceMinor: 284730,
+        reportedAvailableMinor: 715270,
         creditLimitMinor: 1000000,
         aprBasisPoints: 2149,
         minimumPaymentMinor: 8500,
@@ -83,8 +84,8 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
           name: "Capital One Venture",
           institution: "Capital One",
           type: "CREDIT",
-          balanceMinor: -120380,
-          availableMinor: 879620,
+          reportedBalanceMinor: 120380,
+          reportedAvailableMinor: 879620,
           creditLimitMinor: 1000000,
           aprBasisPoints: 1899,
           minimumPaymentMinor: 4500,
@@ -97,7 +98,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
           name: "Auto Loan",
           institution: "Toyota Financial",
           type: "LOAN",
-          balanceMinor: -1840000,
+          reportedBalanceMinor: 1840000,
           aprBasisPoints: 490,
           minimumPaymentMinor: 38000,
           dueDay: 5,
@@ -109,7 +110,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
           name: "Mortgage",
           institution: "Quicken Loans",
           type: "MORTGAGE",
-          balanceMinor: -24780000,
+          reportedBalanceMinor: 24780000,
           aprBasisPoints: 375,
           minimumPaymentMinor: 165000,
           dueDay: 1,
@@ -613,6 +614,41 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         },
       ],
     });
+
+    const seededAccounts = await client.account.findMany({
+      where: { householdId: household.id },
+      include: { transactions: true },
+    });
+    const openingDate = new Date("2026-07-01T00:00:00.000Z");
+    for (const account of seededAccounts) {
+      const liability = ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type);
+      const movement = account.transactions.reduce(
+        (sum, transaction) =>
+          transaction.affectsLedger &&
+          transaction.clearingStatus === "CLEARED" &&
+          !transaction.possibleDuplicate &&
+          transaction.transactionDate > openingDate
+            ? sum + (liability ? -transaction.amountMinor : transaction.amountMinor)
+            : sum,
+        0,
+      );
+      await client.account.update({
+        where: { id: account.id },
+        data: {
+          openingBalanceMinor: (account.reportedBalanceMinor ?? 0) - movement,
+          openingBalanceDate: openingDate,
+          openingBalanceSource: "DEMO_SEED",
+          reportedBalanceAsOf: account.lastUpdated,
+          ledgerBalanceMinor: account.reportedBalanceMinor,
+          ledgerCalculatedAt: account.lastUpdated,
+          ledgerStatus: "CURRENT",
+          reconciliationDifferenceMinor: 0,
+          reconciliationStatus: "RECONCILED",
+          balanceConfidence: "HIGH",
+          lastReconciledAt: account.lastUpdated,
+        },
+      });
+    }
 
     await client.auditLog.create({
       data: {

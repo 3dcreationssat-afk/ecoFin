@@ -10,8 +10,6 @@ type AccountDto = {
   name: string;
   institution: string;
   type: string;
-  balanceMinor: number;
-  availableMinor?: number | null;
   creditLimitMinor?: number | null;
   aprBasisPoints?: number | null;
   minimumPaymentMinor?: number | null;
@@ -20,6 +18,16 @@ type AccountDto = {
   notes?: string | null;
   archivedAt?: string | null;
   lastUpdated: string;
+  openingBalanceMinor?: number | null;
+  openingBalanceDate?: string | null;
+  reportedBalanceMinor?: number | null;
+  reportedAvailableMinor?: number | null;
+  reportedBalanceAsOf?: string | null;
+  ledgerBalanceMinor?: number | null;
+  reconciliationDifferenceMinor?: number | null;
+  reconciliationStatus?: string;
+  balanceConfidence?: string;
+  lastReconciledAt?: string | null;
 };
 
 const accountTypes = ["CHECKING", "SAVINGS", "CREDIT", "LOAN", "MORTGAGE", "OTHER"];
@@ -57,6 +65,14 @@ export function AccountsClient({
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
   const [form, setForm] = useState(accountForm(undefined, householdId));
+  const [reconcile, setReconcile] = useState({
+    reported: "",
+    available: "",
+    asOf: new Date().toISOString().slice(0, 10),
+    note: "",
+    createAdjustment: false,
+    adjustmentReason: "",
+  });
 
   function choose(account: AccountDto) {
     setMode("edit");
@@ -97,6 +113,31 @@ export function AccountsClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
+    setStatus("saved");
+    startTransition(() => router.refresh());
+  }
+  async function reconcileAccount() {
+    if (!editingId) return;
+    setStatus("saving");
+    setError("");
+    const response = await fetch(`/api/accounts/${editingId}/reconcile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reportedBalanceMinor: parseMoneyToMinor(reconcile.reported),
+        reportedAvailableMinor: parseOptionalMoney(reconcile.available),
+        reportedBalanceAsOf: `${reconcile.asOf}T00:00:00.000Z`,
+        note: reconcile.note || null,
+        createAdjustment: reconcile.createAdjustment,
+        adjustmentReason: reconcile.adjustmentReason || null,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "Reconciliation failed.");
+      setStatus("error");
+      return;
+    }
     setStatus("saved");
     startTransition(() => router.refresh());
   }
@@ -150,9 +191,21 @@ export function AccountsClient({
                   ? "Outstanding balance"
                   : "Current balance"
             }
-            help="Use negative values for debt balances."
+            help="Institution-reported snapshot. Enter liability balances as positive amounts owed. The ledger is maintained separately once anchored."
             value={form.balance}
             onChange={(balance) => setForm({ ...form, balance })}
+          />
+          <Field
+            label="Opening balance"
+            help="Optional trustworthy ledger anchor. Existing snapshots are not inferred as openings."
+            value={form.openingBalance}
+            onChange={(openingBalance) => setForm({ ...form, openingBalance })}
+          />
+          <Field
+            label="Opening balance date"
+            value={form.openingBalanceDate}
+            onChange={(openingBalanceDate) => setForm({ ...form, openingBalanceDate })}
+            type="date"
           />
           {["CHECKING", "SAVINGS", "OTHER"].includes(form.type) ? (
             <Field
@@ -227,6 +280,58 @@ export function AccountsClient({
           ) : null}
         </div>
       </Card>
+      {mode === "edit" ? (
+        <Card className="mb-7 p-6">
+          <h2 className="text-xl font-semibold">Reconcile account</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Compare the transaction ledger with a bank-reported snapshot. An adjustment is never
+            created unless explicitly selected and explained.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <Field
+              label="Bank-reported balance"
+              value={reconcile.reported}
+              onChange={(reported) => setReconcile({ ...reconcile, reported })}
+            />
+            <Field
+              label="Reported available balance"
+              value={reconcile.available}
+              onChange={(available) => setReconcile({ ...reconcile, available })}
+            />
+            <Field
+              label="Balance date"
+              value={reconcile.asOf}
+              onChange={(asOf) => setReconcile({ ...reconcile, asOf })}
+              type="date"
+            />
+            <Field
+              label="Reconciliation note"
+              value={reconcile.note}
+              onChange={(note) => setReconcile({ ...reconcile, note })}
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={reconcile.createAdjustment}
+                onChange={(event) =>
+                  setReconcile({ ...reconcile, createAdjustment: event.target.checked })
+                }
+              />{" "}
+              Add explicit adjustment for the difference
+            </label>
+            {reconcile.createAdjustment ? (
+              <Field
+                label="Adjustment reason"
+                value={reconcile.adjustmentReason}
+                onChange={(adjustmentReason) => setReconcile({ ...reconcile, adjustmentReason })}
+              />
+            ) : null}
+          </div>
+          <div className="mt-4">
+            <Button onClick={reconcileAccount}>Reconcile</Button>
+          </div>
+        </Card>
+      ) : null}
       <Card className="overflow-hidden">
         <div className="border-b border-[var(--border)] p-6">
           <h2 className="text-xl font-semibold">All Accounts</h2>
@@ -240,7 +345,10 @@ export function AccountsClient({
                   "Account",
                   "Institution",
                   "Type",
-                  "Balance",
+                  "Ledger",
+                  "Reported",
+                  "Difference",
+                  "Confidence",
                   "APR",
                   "Minimum",
                   "Due",
@@ -267,10 +375,39 @@ export function AccountsClient({
                   <td className="px-5 py-4">{accountTypeLabels[account.type] ?? account.type}</td>
                   <td
                     className={
-                      account.balanceMinor < 0 ? "px-5 py-4 text-[var(--red)]" : "px-5 py-4"
+                      account.type === "CREDIT" ||
+                      account.type === "LOAN" ||
+                      account.type === "MORTGAGE"
+                        ? "px-5 py-4 text-[var(--red)]"
+                        : "px-5 py-4"
                     }
                   >
-                    {formatMoney(account.balanceMinor)}
+                    {account.ledgerBalanceMinor == null
+                      ? "Not anchored"
+                      : formatMoney(account.ledgerBalanceMinor)}
+                  </td>
+                  <td className="px-5 py-4">
+                    {account.reportedBalanceMinor == null
+                      ? "-"
+                      : formatMoney(account.reportedBalanceMinor)}
+                  </td>
+                  <td className="px-5 py-4">
+                    {account.reconciliationDifferenceMinor == null
+                      ? "-"
+                      : formatMoney(account.reconciliationDifferenceMinor)}
+                  </td>
+                  <td className="px-5 py-4">
+                    <Pill
+                      tone={
+                        account.balanceConfidence === "HIGH"
+                          ? "good"
+                          : account.balanceConfidence === "MODERATE"
+                            ? "warn"
+                            : "bad"
+                      }
+                    >
+                      {account.balanceConfidence ?? "LIMITED"}
+                    </Pill>
                   </td>
                   <td className="px-5 py-4">
                     {account.aprBasisPoints ? `${(account.aprBasisPoints / 100).toFixed(2)}%` : "-"}
@@ -311,8 +448,17 @@ function accountForm(account: AccountDto | undefined, householdId: string) {
     name: account?.name ?? "",
     institution: account?.institution ?? "",
     type: account?.type ?? "CHECKING",
-    balance: minorToDecimalString(account?.balanceMinor ?? 0),
-    available: account?.availableMinor == null ? "" : minorToDecimalString(account.availableMinor),
+    balance:
+      account?.reportedBalanceMinor == null
+        ? ""
+        : minorToDecimalString(account.reportedBalanceMinor),
+    openingBalance:
+      account?.openingBalanceMinor == null ? "" : minorToDecimalString(account.openingBalanceMinor),
+    openingBalanceDate: account?.openingBalanceDate?.slice(0, 10) ?? "",
+    available:
+      account?.reportedAvailableMinor == null
+        ? ""
+        : minorToDecimalString(account.reportedAvailableMinor),
     creditLimit:
       account?.creditLimitMinor == null ? "" : minorToDecimalString(account.creditLimitMinor),
     apr: account?.aprBasisPoints == null ? "" : String(account.aprBasisPoints / 100),
@@ -333,8 +479,12 @@ function toPayload(form: ReturnType<typeof accountForm>) {
     name: form.name,
     institution: form.institution,
     type: form.type,
-    balanceMinor: parseMoneyToMinor(form.balance),
-    availableMinor: isCashLike || isCredit ? parseOptionalMoney(form.available) : null,
+    openingBalanceMinor: parseOptionalMoney(form.openingBalance),
+    openingBalanceDate: form.openingBalanceDate ? `${form.openingBalanceDate}T00:00:00.000Z` : null,
+    openingBalanceSource: form.openingBalance ? "USER_OPENING_BALANCE" : null,
+    reportedBalanceMinor: parseOptionalMoney(form.balance),
+    reportedAvailableMinor: isCashLike || isCredit ? parseOptionalMoney(form.available) : null,
+    reportedBalanceAsOf: new Date().toISOString(),
     creditLimitMinor: isCredit ? parseOptionalMoney(form.creditLimit) : null,
     aprBasisPoints: isDebt && form.apr ? Math.round(Number(form.apr) * 100) : null,
     minimumPaymentMinor: isDebt ? parseOptionalMoney(form.minimumPayment) : null,
@@ -354,11 +504,13 @@ function Field({
   help,
   value,
   onChange,
+  type = "text",
 }: {
   label: string;
   help?: string;
   value: string;
   onChange: (value: string) => void;
+  type?: string;
 }) {
   return (
     <label>
@@ -368,6 +520,7 @@ function Field({
         aria-label={label}
         className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
         value={value}
+        type={type}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>
