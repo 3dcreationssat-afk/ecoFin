@@ -10,34 +10,62 @@ import {
   YAxis,
 } from "recharts";
 import { Card, MetricCard, Pill } from "@/components/data-display/primitives";
-import { cashTimeline } from "@/data/demo";
+import { formatMoney } from "@/domain/money/money";
 
-export function CashFlowClient() {
+export function CashFlowClient({
+  currentCashMinor,
+  recordedIncomeMinor,
+  recordedSpendingMinor,
+  projectedMonthEndMinor,
+  timeline,
+}: {
+  currentCashMinor: number;
+  recordedIncomeMinor: number;
+  recordedSpendingMinor: number;
+  projectedMonthEndMinor: number;
+  timeline: { day: string; balance: number }[];
+}) {
   return (
     <>
       <div className="mb-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Current Cash Position" value="$8,421.00" detail="Today, Jul 10" />
-        <MetricCard label="Remaining Income" value="$3,250.00" detail="Expected this month" />
-        <MetricCard label="Remaining Expenses" value="$1,840.00" detail="Bills + spending" />
-        <MetricCard label="Projected Month-End" value="$6,380.22" detail="Jul 31" featured />
+        <MetricCard
+          label="Current Cash Position"
+          value={formatMoney(currentCashMinor)}
+          detail="Active cash accounts"
+        />
+        <MetricCard
+          label="Recorded Income"
+          value={formatMoney(recordedIncomeMinor)}
+          detail="Current month"
+        />
+        <MetricCard
+          label="Recorded Spending"
+          value={formatMoney(recordedSpendingMinor)}
+          detail="Transfers excluded"
+        />
+        <MetricCard
+          label="Projected Month-End"
+          value={formatMoney(projectedMonthEndMinor)}
+          detail="Preliminary: cash plus recorded net flow"
+          featured
+        />
       </div>
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-6">
           <div>
             <h2 className="text-xl font-semibold">Cash-Flow Timeline</h2>
             <p className="text-sm text-[var(--muted)]">
-              Recorded, scheduled, and forecasted balance throughout July
+              Recorded cash movement for the current month; scheduled forecasting is not enabled
             </p>
           </div>
           <div className="flex gap-2 text-sm text-[var(--muted)]">
             <Pill tone="good">Recorded</Pill>
-            <Pill tone="warn">Scheduled</Pill>
-            <Pill tone="info">Forecast</Pill>
+            <Pill tone="info">Preliminary</Pill>
           </div>
         </div>
         <div className="h-[440px] p-6">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={cashTimeline}>
+            <AreaChart data={timeline}>
               <defs>
                 <linearGradient id="cash" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="5%" stopColor="#258b7f" stopOpacity={0.18} />
@@ -47,11 +75,11 @@ export function CashFlowClient() {
               <CartesianGrid stroke="#e5e0d8" strokeDasharray="4 4" vertical={false} />
               <XAxis dataKey="day" tickLine={false} axisLine={false} />
               <YAxis
-                tickFormatter={(value) => `$${Number(value) / 1000}k`}
+                tickFormatter={(value) => `$${Number(value) / 100000}k`}
                 tickLine={false}
                 axisLine={false}
               />
-              <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, "Balance"]} />
+              <Tooltip formatter={(value) => [formatMoney(Number(value)), "Balance"]} />
               <Area
                 type="monotone"
                 dataKey="balance"
@@ -65,16 +93,17 @@ export function CashFlowClient() {
       </Card>
       <Card className="mt-7 p-6">
         <h2 className="text-xl font-semibold">Safe to Save - Full Calculation</h2>
-        <p className="mb-6 text-sm text-[var(--muted)]">How this demonstration number is derived</p>
+        <p className="mb-6 text-sm text-[var(--muted)]">
+          Production recommendation engine is not enabled
+        </p>
         {[
-          ["Starting available cash", "$22,620.55"],
-          ["Remaining expected income", "+$3,250.00"],
-          ["Remaining expected expenses", "-$1,840.00"],
-          ["Upcoming bills", "-$1,240.00"],
-          ["Debt minimums", "-$680.00"],
-          ["Sinking funds", "-$320.00"],
-          ["Checking buffer", "-$1,500.00"],
-          ["Emergency fund protection", "-$500.00"],
+          ["Current cash position", formatMoney(currentCashMinor)],
+          ["Recorded income", `+${formatMoney(recordedIncomeMinor)}`],
+          ["Recorded spending", `-${formatMoney(recordedSpendingMinor)}`],
+          ["Scheduled income", "Unavailable"],
+          ["Upcoming bills", "Unavailable"],
+          ["Checking buffer", "Unavailable"],
+          ["Emergency fund protection", "Unavailable"],
         ].map(([label, value]) => (
           <div key={label} className="flex justify-between border-b border-[var(--border)] py-3">
             <span className="text-[var(--muted)]">{label}</span>
@@ -83,7 +112,7 @@ export function CashFlowClient() {
         ))}
         <div className="mt-5 flex justify-between text-xl">
           <strong>Recommended safe amount</strong>
-          <strong className="text-[var(--teal)]">$1,450.00</strong>
+          <strong className="text-[var(--amber)]">Preliminary</strong>
         </div>
       </Card>
     </>

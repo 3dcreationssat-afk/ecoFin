@@ -92,15 +92,15 @@ export function MetricCard({
   return (
     <Card
       className={cn(
-        "min-h-[120px] p-6",
+        "min-h-[120px] min-w-0 p-6",
         featured && "border-2 border-[rgb(37_139_127_/_0.45)]",
         tone === "warning" && "bg-[var(--amber-soft)]",
       )}
     >
-      <div className="text-sm font-medium text-[var(--muted)]">{label}</div>
+      <div className="break-words text-sm font-medium text-[var(--muted)]">{label}</div>
       <div
         className={cn(
-          "mt-3 text-3xl font-semibold text-[var(--text)]",
+          "mt-3 break-words text-3xl font-semibold text-[var(--text)]",
           tone === "positive" && "text-[var(--green)]",
           tone === "critical" && "text-[var(--red)]",
           tone === "warning" && "text-[var(--amber)]",
@@ -108,7 +108,7 @@ export function MetricCard({
       >
         {value}
       </div>
-      {detail ? <div className="mt-2 text-sm text-[var(--muted)]">{detail}</div> : null}
+      {detail ? <div className="mt-2 break-words text-sm text-[var(--muted)]">{detail}</div> : null}
     </Card>
   );
 }

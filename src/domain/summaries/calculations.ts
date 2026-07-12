@@ -16,10 +16,24 @@ export type TransactionSummaryInput = {
   type?: string | null;
   categoryId?: string | null;
   excluded?: boolean | null;
+  transactionDate?: Date | string;
+};
+
+export type CategorySummaryInput = {
+  id: string;
+  name: string;
+  group: string;
+  type: string;
+  budgetMinor: number;
+  sortOrder: number;
+  archivedAt?: Date | string | null;
 };
 
 export function accountSummaries(accounts: AccountSummaryInput[]) {
   const active = accounts.filter((account) => !account.archivedAt);
+  const cashAccounts = active.filter((account) =>
+    ["CHECKING", "SAVINGS", "OTHER"].includes(account.type),
+  );
   const totalAssetsMinor = active
     .filter((account) => account.balanceMinor > 0)
     .reduce((total, account) => total + account.balanceMinor, 0);
@@ -27,6 +41,11 @@ export function accountSummaries(accounts: AccountSummaryInput[]) {
     .filter((account) => account.balanceMinor < 0)
     .reduce((total, account) => total + Math.abs(account.balanceMinor), 0);
   return {
+    availableCashMinor: cashAccounts.reduce(
+      (total, account) => total + Math.max(account.balanceMinor, 0),
+      0,
+    ),
+    cashAccountCount: cashAccounts.length,
     totalAssetsMinor,
     totalDebtsMinor,
     netWorthMinor: totalAssetsMinor - totalDebtsMinor,
@@ -55,7 +74,81 @@ export function goalProgress(goal: GoalSummaryInput) {
 }
 
 export function householdTransactionSummary(transactions: TransactionSummaryInput[]) {
-  const included = transactions.filter((transaction) => !transaction.excluded);
+  const included = includedTransactions(transactions);
+  return summarizeTransactions(included);
+}
+
+export function currentPeriodSummary(
+  transactions: TransactionSummaryInput[],
+  asOf = inferredAsOf(transactions),
+) {
+  const current = monthBounds(asOf);
+  const priorAsOf = new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth() - 1, 1));
+  const prior = monthBounds(priorAsOf);
+  const currentTransactions = includedTransactions(transactions).filter((transaction) =>
+    inRange(transaction.transactionDate, current.start, current.end),
+  );
+  const priorTransactions = includedTransactions(transactions).filter((transaction) =>
+    inRange(transaction.transactionDate, prior.start, prior.end),
+  );
+  return {
+    asOf,
+    currentPeriod: current,
+    priorPeriod: prior,
+    currentSummary: summarizeTransactions(currentTransactions),
+    priorSummary: summarizeTransactions(priorTransactions),
+  };
+}
+
+export function categoryBudgetSummaries(
+  categories: CategorySummaryInput[],
+  transactions: TransactionSummaryInput[],
+  asOf = inferredAsOf(transactions),
+) {
+  const period = monthBounds(asOf);
+  const elapsedDays = Math.max(1, asOf.getUTCDate());
+  const daysInMonth = new Date(
+    Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const included = includedTransactions(transactions).filter((transaction) =>
+    inRange(transaction.transactionDate, period.start, period.end),
+  );
+  return categories
+    .filter((category) => !category.archivedAt && category.type === "EXPENSE")
+    .map((category) => {
+      const actualMinor = included
+        .filter(
+          (transaction) =>
+            transaction.categoryId === category.id &&
+            ["DEBIT", "EXPENSE", "FEE", "INTEREST"].includes(transaction.type ?? ""),
+        )
+        .reduce((total, transaction) => total + Math.abs(Math.min(transaction.amountMinor, 0)), 0);
+      const forecastMinor = Math.round((actualMinor * daysInMonth) / elapsedDays);
+      const remainingMinor = category.budgetMinor - actualMinor;
+      const usedPercent =
+        category.budgetMinor <= 0 ? 0 : Math.round((actualMinor / category.budgetMinor) * 100);
+      return {
+        id: category.id,
+        name: category.name,
+        group: category.group,
+        sortOrder: category.sortOrder,
+        budgetMinor: category.budgetMinor,
+        actualMinor,
+        forecastMinor,
+        remainingMinor,
+        usedPercent,
+        status:
+          forecastMinor > category.budgetMinor
+            ? "Projected over"
+            : usedPercent >= 90
+              ? "Approaching limit"
+              : "On track",
+      };
+    })
+    .sort((a, b) => a.group.localeCompare(b.group) || a.sortOrder - b.sortOrder);
+}
+
+function summarizeTransactions(included: TransactionSummaryInput[]) {
   const householdIncomeMinor = included
     .filter((transaction) => ["CREDIT", "INCOME"].includes(transaction.type ?? ""))
     .reduce((total, transaction) => total + Math.max(transaction.amountMinor, 0), 0);
@@ -70,12 +163,40 @@ export function householdTransactionSummary(transactions: TransactionSummaryInpu
   return {
     householdIncomeMinor,
     householdSpendingMinor,
+    netCashFlowMinor: householdIncomeMinor - householdSpendingMinor,
     transferMovementMinor,
     accountActivityMinor: included.reduce(
       (total, transaction) => total + Math.abs(transaction.amountMinor),
       0,
     ),
   };
+}
+
+function includedTransactions(transactions: TransactionSummaryInput[]) {
+  return transactions.filter((transaction) => !transaction.excluded);
+}
+
+function monthBounds(asOf: Date) {
+  return {
+    start: new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), 1)),
+    end: new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth() + 1, 1)),
+  };
+}
+
+function inRange(value: Date | string | undefined, start: Date, end: Date) {
+  if (!value) return false;
+  const date = new Date(value);
+  return date >= start && date < end;
+}
+
+function inferredAsOf(transactions: TransactionSummaryInput[]) {
+  const latest = transactions
+    .map((transaction) =>
+      transaction.transactionDate ? new Date(transaction.transactionDate).getTime() : Number.NaN,
+    )
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a)[0];
+  return Number.isFinite(latest) ? new Date(latest) : new Date();
 }
 
 export function dataQualityRules(input: {

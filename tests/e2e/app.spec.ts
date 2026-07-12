@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 test("overview renders the local-first shell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.getByText("Net Worth")).toBeVisible();
+  await expect(page.getByText("Available Cash")).toBeVisible();
+  await expect(page.getByText("Spending by Category")).toBeVisible();
 });
 
 test("transactions drawer opens from a transaction row", async ({ page }) => {

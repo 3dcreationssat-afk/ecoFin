@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   accountSummaries,
+  categoryBudgetSummaries,
+  currentPeriodSummary,
   dataQualityRules,
   goalProgress,
   goalSummaries,
@@ -16,6 +18,8 @@ describe("summary calculations", () => {
         { balanceMinor: 999999, type: "SAVINGS", archivedAt: new Date() },
       ]),
     ).toEqual({
+      availableCashMinor: 10000,
+      cashAccountCount: 1,
       totalAssetsMinor: 10000,
       totalDebtsMinor: 2500,
       netWorthMinor: 7500,
@@ -49,8 +53,70 @@ describe("summary calculations", () => {
     ).toEqual({
       householdIncomeMinor: 325000,
       householdSpendingMinor: 9742,
+      netCashFlowMinor: 315258,
       transferMovementMinor: 100000,
       accountActivityMinor: 434742,
+    });
+  });
+
+  it("summarizes current and prior periods from dated transactions", () => {
+    const result = currentPeriodSummary(
+      [
+        { amountMinor: 200000, type: "INCOME", transactionDate: "2026-07-05" },
+        { amountMinor: -50000, type: "EXPENSE", transactionDate: "2026-07-06" },
+        { amountMinor: -10000, type: "TRANSFER_OUT", transactionDate: "2026-07-07" },
+        { amountMinor: 100000, type: "INCOME", transactionDate: "2026-06-05" },
+        { amountMinor: -25000, type: "EXPENSE", transactionDate: "2026-06-06" },
+      ],
+      new Date("2026-07-12T00:00:00.000Z"),
+    );
+    expect(result.currentSummary).toMatchObject({
+      householdIncomeMinor: 200000,
+      householdSpendingMinor: 50000,
+      netCashFlowMinor: 150000,
+      transferMovementMinor: 10000,
+    });
+    expect(result.priorSummary).toMatchObject({
+      householdIncomeMinor: 100000,
+      householdSpendingMinor: 25000,
+      netCashFlowMinor: 75000,
+    });
+  });
+
+  it("derives category budget actuals and current-pace forecasts", () => {
+    const [row] = categoryBudgetSummaries(
+      [
+        {
+          id: "groceries",
+          name: "Groceries",
+          group: "Essential Variable",
+          type: "EXPENSE",
+          budgetMinor: 60000,
+          sortOrder: 1,
+        },
+      ],
+      [
+        {
+          amountMinor: -30000,
+          type: "EXPENSE",
+          categoryId: "groceries",
+          transactionDate: "2026-07-06",
+        },
+        {
+          amountMinor: -9999,
+          type: "TRANSFER_OUT",
+          categoryId: "groceries",
+          transactionDate: "2026-07-06",
+        },
+      ],
+      new Date("2026-07-15T00:00:00.000Z"),
+    );
+    expect(row).toMatchObject({
+      actualMinor: 30000,
+      forecastMinor: 62000,
+      remainingMinor: 30000,
+      usedPercent: 50,
+      status: "Projected over",
     });
   });
 
