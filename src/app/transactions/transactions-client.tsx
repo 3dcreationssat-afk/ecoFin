@@ -228,6 +228,8 @@ export function TransactionsClient({
     accountId: searchParams.get("account") ?? "",
     categoryId: searchParams.get("category") ?? "",
     type: searchParams.get("type") ?? "",
+    reviewStatus: searchParams.get("status") ?? "",
+    sourceType: searchParams.get("source") ?? "",
     pageSize: searchParams.get("pageSize") ?? "25",
   });
   const [page, setPage] = useState(Math.max(1, Number(searchParams.get("page") ?? "1")));
@@ -259,7 +261,9 @@ export function TransactionsClient({
         matchesQuery &&
         (!filters.accountId || transaction.account.name === filters.accountId) &&
         (!filters.categoryId || (transaction.categoryId ?? "") === filters.categoryId) &&
-        (!filters.type || transaction.type === filters.type)
+        (!filters.type || transaction.type === filters.type) &&
+        (!filters.reviewStatus || transaction.reviewStatus === filters.reviewStatus) &&
+        (!filters.sourceType || (transaction.sourceType ?? "MANUAL") === filters.sourceType)
       );
     });
   }, [filters, transactions]);
@@ -278,6 +282,8 @@ export function TransactionsClient({
     if (nextFilters.accountId) params.set("account", nextFilters.accountId);
     if (nextFilters.categoryId) params.set("category", nextFilters.categoryId);
     if (nextFilters.type) params.set("type", nextFilters.type);
+    if (nextFilters.reviewStatus) params.set("status", nextFilters.reviewStatus);
+    if (nextFilters.sourceType) params.set("source", nextFilters.sourceType);
     if (nextFilters.pageSize !== "25") params.set("pageSize", nextFilters.pageSize);
     if (nextPage > 1) params.set("page", String(nextPage));
     router.replace(`/transactions${params.toString() ? `?${params.toString()}` : ""}`, {
@@ -1276,6 +1282,8 @@ function TransactionFilters({
     accountId: string;
     categoryId: string;
     type: string;
+    reviewStatus: string;
+    sourceType: string;
     pageSize: string;
   };
   accounts: AccountDto[];
@@ -1284,7 +1292,7 @@ function TransactionFilters({
 }) {
   return (
     <Card className="mb-4 p-5">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_repeat(6,minmax(0,1fr))]">
         <label className="block text-sm text-[var(--muted)]">
           Search transactions
           <input
@@ -1317,6 +1325,20 @@ function TransactionFilters({
           values={["", ...Object.keys(transactionTypeLabels)]}
           labels={{ "": "All types", ...transactionTypeLabels }}
           onChange={(value) => onChange("type", value)}
+        />
+        <Select
+          label="Status"
+          value={filters.reviewStatus}
+          values={["", ...Object.keys(reviewStatusLabels)]}
+          labels={{ "": "All statuses", ...reviewStatusLabels }}
+          onChange={(value) => onChange("reviewStatus", value)}
+        />
+        <Select
+          label="Source"
+          value={filters.sourceType}
+          values={["", ...Object.keys(sourceTypeLabels)]}
+          labels={{ "": "All sources", ...sourceTypeLabels }}
+          onChange={(value) => onChange("sourceType", value)}
         />
         <Select
           label="Rows"

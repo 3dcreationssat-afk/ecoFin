@@ -286,12 +286,18 @@ test("transaction pagination, filters, search, and URL state work", async ({ pag
   await expect(page).toHaveURL(/pageSize=50/);
   await page.getByLabel("Type").selectOption("DEBIT");
   await expect(page).toHaveURL(/type=DEBIT/);
+  await page.getByLabel("Status").selectOption("NEEDS_REVIEW");
+  await expect(page).toHaveURL(/status=NEEDS_REVIEW/);
+  await page.getByLabel("Source").selectOption("MANUAL");
+  await expect(page).toHaveURL(/source=MANUAL/);
   await page.reload();
   await expect(
     page.getByPlaceholder("Merchant, original text, account, category, or file"),
   ).toHaveValue("Whole Foods");
   await expect(page.getByLabel("Rows", { exact: true })).toHaveValue("50");
   await expect(page.getByLabel("Type")).toHaveValue("DEBIT");
+  await expect(page.getByLabel("Status")).toHaveValue("NEEDS_REVIEW");
+  await expect(page.getByLabel("Source")).toHaveValue("MANUAL");
 });
 
 test("transaction drawer edit persists and original values remain unchanged", async ({ page }) => {
