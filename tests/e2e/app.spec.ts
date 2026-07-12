@@ -202,7 +202,7 @@ test("category creation persists and validation errors are accessible", async ({
 test("settings backup creation, download, deletion, and restore flow", async ({ page }) => {
   await page.goto("/settings");
   await page.getByRole("button", { name: "Backup & Data" }).click();
-  await page.getByRole("button", { name: "Create backup" }).click();
+  await page.getByRole("button", { name: "Create backup", exact: true }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   const latestDownload = page.getByRole("link", { name: "Download" }).first();
   await expect(latestDownload).toBeVisible();
@@ -470,7 +470,7 @@ test("demo reset is observable, resets canonical data, and preserves navigation 
 
   await page.getByRole("button", { name: "Backup & Data" }).click();
   await expect(page.getByText(/Type RESET DEMO DATA/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Reset demo data" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Reset to sample data" })).toBeDisabled();
   await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
   await page.route("**/api/demo-reset", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -482,8 +482,8 @@ test("demo reset is observable, resets canonical data, and preserves navigation 
       response.request().method() === "POST" &&
       response.ok(),
   );
-  await page.getByRole("button", { name: "Reset demo data" }).click();
-  await expect(page.getByRole("button", { name: "Resetting..." })).toBeVisible();
+  await page.getByRole("button", { name: "Reset to sample data" }).click();
+  await expect(page.getByRole("button", { name: "Restoring..." })).toBeVisible();
   await resetResponse;
   await expect(page.getByText("Demonstration data was reset.")).toBeVisible();
   await expect(page.getByText(/1 household, 6 accounts, 14 categories/)).toBeVisible();
@@ -510,8 +510,68 @@ test("demo reset surfaces server failure", async ({ page }) => {
     });
   });
   await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
-  await page.getByRole("button", { name: "Reset demo data" }).click();
+  await page.getByRole("button", { name: "Reset to sample data" }).click();
   await expect(page.getByText("Demonstration data could not be reset.")).toBeVisible();
+});
+
+test("start fresh empties demo data, updates badges, and preserves navigation preference", async ({
+  page,
+}) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await expect(page.getByRole("status", { name: /Demonstration data/ })).toBeVisible();
+    await page.getByRole("button", { name: "Collapse navigation" }).click();
+
+    await page.goto("/settings#backup");
+    await expect(page.getByRole("heading", { name: "Start fresh" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start fresh" })).toBeDisabled();
+    await page.getByLabel("Start fresh confirmation").fill("START FRESH");
+    await page.route("**/api/workspace/start-fresh", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await route.continue();
+    });
+    const startFreshResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/workspace/start-fresh") &&
+        response.request().method() === "POST" &&
+        response.ok(),
+    );
+    await page.getByRole("button", { name: "Start fresh" }).click();
+    await expect(page.getByRole("button", { name: "Starting fresh..." })).toBeVisible();
+    await startFreshResponse;
+    await expect(page.getByText("Fresh workspace is ready.")).toBeVisible();
+    await expect(page.getByLabel("Start fresh confirmation")).toHaveValue("");
+
+    await page.goto("/");
+    await expect(page.getByRole("status", { name: /Empty workspace/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your workspace is ready." })).toBeVisible();
+    await page.goto("/accounts");
+    await expect(page.getByRole("heading", { name: "No accounts yet." })).toBeVisible();
+    await expect(page.getByText("Everyday Checking")).toHaveCount(0);
+    await page.goto("/transactions");
+    await expect(page.getByRole("heading", { name: "No transactions yet." })).toBeVisible();
+    await expect(page.getByText("Whole Foods Market")).toHaveCount(0);
+    await page.goto("/goals");
+    await expect(page.getByRole("heading", { name: "No goals yet." })).toBeVisible();
+    await expect(page.getByText("Emergency Fund")).toHaveCount(0);
+
+    await page.goto("/accounts");
+    await page.getByRole("textbox", { name: "Name", exact: true }).fill("Fresh Checking");
+    await page.getByLabel("Institution", { exact: true }).selectOption("Other institution");
+    await page.getByLabel("Other institution name").fill("Local Test Bank");
+    await page.getByLabel("Current balance", { exact: true }).fill("25.00");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: /Your data/ })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("status", { name: /Your data/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+  } finally {
+    await page.unroute("**/api/workspace/start-fresh").catch(() => undefined);
+    await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
+  }
 });
 
 test("desktop navigation collapse preference persists", async ({ page }) => {

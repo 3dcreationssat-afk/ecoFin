@@ -1,5 +1,8 @@
 import { execSync } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { backupRoot } from "@/domain/backup/backup";
 
 process.env.DATABASE_URL = "file:./vitest-integration.db";
 
@@ -168,5 +171,91 @@ describe("persistent repositories", () => {
       goals: 4,
       transactions: 20,
     });
+    expect(await repositories.workspaceState()).toBe("DEMONSTRATION");
+  });
+
+  it("starts fresh without recreating demo records and preserves backup files", async () => {
+    await repositories.resetDemoDataWithResult({ confirmation: "RESET DEMO DATA" });
+    const backupDir = backupRoot();
+    mkdirSync(backupDir, { recursive: true });
+    const backupPath = join(backupDir, "start-fresh-preservation-test.zip");
+    writeFileSync(backupPath, "synthetic backup placeholder");
+    const household = await repositories.getHousehold();
+    const backup = await prismaModule.prisma.backupRecord.create({
+      data: {
+        householdId: household.id,
+        filename: "start-fresh-preservation-test.zip",
+        sizeBytes: 28,
+        hash: "synthetic",
+        appVersion: "test",
+        schemaVersion: "test",
+        countsJson: "{}",
+        status: "READY",
+        notes: "start fresh preservation test",
+      },
+    });
+    expect(existsSync(backupPath)).toBe(true);
+
+    const result = await repositories.startFreshWorkspace({ confirmation: "START FRESH" });
+
+    expect(result.ok).toBe(true);
+    expect(result.workspaceState).toBe("EMPTY");
+    expect(result.before).toMatchObject({
+      households: 1,
+      accounts: 6,
+      categories: 14,
+      goals: 4,
+      transactions: 20,
+    });
+    expect(result.after).toMatchObject({
+      households: 1,
+      accounts: 0,
+      categories: 0,
+      goals: 0,
+      transactions: 0,
+      importBatches: 0,
+      transferMatches: 0,
+      recurringExpenses: 0,
+    });
+    expect(await repositories.workspaceState()).toBe("EMPTY");
+    expect(await prismaModule.prisma.backupRecord.count({ where: { id: backup.id } })).toBe(1);
+    expect(existsSync(backupPath)).toBe(true);
+    expect(
+      await prismaModule.prisma.auditLog.count({
+        where: { action: "workspace_start_fresh", source: "workspace" },
+      }),
+    ).toBe(1);
+
+    const repeated = await repositories.startFreshWorkspace({ confirmation: "START FRESH" });
+    expect(repeated.after).toMatchObject({ accounts: 0, transactions: 0, goals: 0 });
+    expect(await repositories.workspaceState()).toBe("EMPTY");
+  });
+
+  it("tracks user and mixed workspace states with provenance instead of names", async () => {
+    await repositories.startFreshWorkspace({ confirmation: "START FRESH" });
+    const household = await repositories.getHousehold();
+    await repositories.createAccount({
+      householdId: household.id,
+      name: "Everyday Checking",
+      institution: "Other",
+      type: "CHECKING",
+      balanceMinor: 100,
+      availableMinor: 100,
+      lastUpdated: new Date(),
+    });
+    expect(await repositories.workspaceState()).toBe("USER_DATA");
+
+    await repositories.resetDemoDataWithResult({ confirmation: "RESET DEMO DATA" });
+    const demoHousehold = await repositories.getHousehold();
+    await repositories.createAccount({
+      householdId: demoHousehold.id,
+      name: "User-created account",
+      institution: "Other",
+      type: "CHECKING",
+      balanceMinor: 100,
+      availableMinor: 100,
+      lastUpdated: new Date(),
+    });
+    expect(await repositories.workspaceState()).toBe("MIXED");
   });
 });
