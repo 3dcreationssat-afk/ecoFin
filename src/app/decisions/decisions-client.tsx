@@ -860,6 +860,46 @@ export function DecisionsClient({
                       </strong>
                     </div>
                   </div>
+                  <details className="mt-4 border-t border-[var(--border)] pt-4">
+                    <summary className="cursor-pointer text-sm font-semibold">
+                      Explain scenario runway composition
+                    </summary>
+                    <div className="mt-3 space-y-3 text-sm">
+                      {evaluation.scenarioEmergencyRunway.sources.map((source) => (
+                        <div key={source.goalId} className="flex justify-between gap-3">
+                          <span>
+                            {source.goalName} · {source.accountName}
+                            <span className="block text-xs text-[var(--muted)]">
+                              Ledger {formatMoney(source.ledgerBalanceMinor)} · protected{" "}
+                              {formatMoney(source.protectedMinor)} · scenario withdrawal{" "}
+                              {formatMoney(source.withdrawalMinor)}
+                            </span>
+                          </span>
+                          <strong>{formatMoney(source.resultingEligibleMinor)}</strong>
+                        </div>
+                      ))}
+                      <div className="border-t pt-3">
+                        <strong>Essential monthly obligations</strong>
+                        {evaluation.scenarioEmergencyRunway.obligations.map((obligation) => (
+                          <div
+                            key={obligation.id}
+                            className="mt-2 flex justify-between gap-3 text-xs"
+                          >
+                            <span>
+                              {obligation.label} ·{" "}
+                              {obligation.source.toLowerCase().replace("_", " ")}
+                            </span>
+                            <strong>{formatMoney(obligation.monthlyMinor)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="border-t pt-3 text-xs text-[var(--muted)]">
+                        Excludes optional costs, goal contributions, planned savings, extra debt
+                        payments, buffers, one-time costs from the denominator, and linked duplicate
+                        obligations.
+                      </p>
+                    </div>
+                  </details>
                 </Card>
               </div>
               <Card className="p-5">

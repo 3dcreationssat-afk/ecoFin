@@ -9,17 +9,23 @@ import { recurringDataQuality } from "@/server/data/recurring";
 import { transferDataQuality } from "@/server/data/transfers";
 import { merchantRuleDataQuality } from "@/server/data/merchant-rules";
 import { monthlyInterestMinor } from "@/domain/debt/payoff";
+import { getCashFlowInput } from "@/server/data/cash-flow";
+import { calculateEmergencyRunway } from "@/domain/planning/emergency-runway";
 
 export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
   const { household, batches } = await importDashboard();
   const state = await workspaceState();
-  const [transferQuality, recurringQuality, merchantRuleQuality] = await Promise.all([
-    transferDataQuality(),
-    recurringDataQuality(),
-    merchantRuleDataQuality(),
-  ]);
+  const [transferQuality, recurringQuality, merchantRuleQuality, cashFlowInput] = await Promise.all(
+    [
+      transferDataQuality(),
+      recurringDataQuality(),
+      merchantRuleDataQuality(),
+      getCashFlowInput(new Date("2026-07-11")),
+    ],
+  );
+  const runway = calculateEmergencyRunway(cashFlowInput);
   const quality = dataQualityRules({
     transactions: household.transactions,
     accounts: household.accounts,
@@ -44,6 +50,46 @@ export default async function DataQualityPage() {
         monthlyInterestMinor(account.ledgerBalanceMinor ?? 0, account.aprBasisPoints),
   ).length;
   const issues = [
+    [
+      "No emergency fund configured",
+      runway.sources.length ? 0 : 1,
+      "Emergency runway has no eligible numerator.",
+      "Create an Emergency Fund goal and link it to an active liquid account.",
+    ],
+    [
+      "Invalid emergency-fund mappings",
+      runway.issues.filter((issue) =>
+        /archived account|more than one emergency-fund goal/.test(issue),
+      ).length,
+      "Archived or duplicate mappings make the protected balance ambiguous.",
+      "Review Emergency Fund goal account links.",
+    ],
+    [
+      "Missing essential obligations",
+      runway.essentialMonthlyMinor ? 0 : 1,
+      "A precise emergency runway cannot be calculated without monthly essentials.",
+      "Add essential scheduled obligations and debt minimums in Cash Flow planning.",
+    ],
+    [
+      "Incomplete essential obligations",
+      runway.issues.filter((issue) =>
+        /lacks an amount or frequency|lacks a usable debt minimum/.test(issue),
+      ).length,
+      "Some essential monthly costs cannot enter the denominator.",
+      "Add amounts, frequencies, or debt minimums.",
+    ],
+    [
+      "Possible duplicate obligations",
+      runway.issues.filter((issue) => /duplicate another scheduled obligation/.test(issue)).length,
+      "Duplicate essentials can overstate the denominator.",
+      "Review linked scheduled, recurring, and debt obligations.",
+    ],
+    [
+      "Emergency runway below review threshold",
+      runway.runwayBasisPoints != null && runway.runwayBasisPoints < 30_000 ? 1 : 0,
+      "Eligible emergency funds cover less than the current three-month review threshold.",
+      "Review emergency funding and essential obligation inputs.",
+    ],
     [
       "Uncategorized transactions",
       quality.uncategorized,
@@ -310,7 +356,8 @@ function qualityHref(title: string) {
     return "/transactions?transfer=suggested";
   if (title.includes("recurring")) return "/transactions?recurring=suggested";
   if (title.includes("account") || title.includes("debt")) return "/accounts";
-  if (title.includes("goal")) return "/goals";
+  if (title.includes("goal") || title.includes("emergency")) return "/goals";
+  if (title.includes("obligation")) return "/cash-flow#planning";
   if (title.includes("import")) return "/transactions?source=CSV_IMPORT";
   return "/transactions";
 }

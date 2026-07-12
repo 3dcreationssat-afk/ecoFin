@@ -206,6 +206,60 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
           </div>
         </Card>
       </div>
+      <Card className="mt-7 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Emergency runway</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Emergency funds available ÷ essential monthly obligations.
+            </p>
+          </div>
+          <div className="text-right">
+            <strong className="text-2xl tabular-nums">
+              {formatRunway(projection.emergencyRunway.runwayBasisPoints)}
+            </strong>
+            <Pill tone={projection.emergencyRunway.confidence === "HIGH" ? "good" : "warn"}>
+              {projection.emergencyRunway.confidence}
+            </Pill>
+          </div>
+        </div>
+        <details className="mt-5 border-t border-[var(--border)] pt-4">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Explain emergency runway composition
+          </summary>
+          <div className="mt-4 grid gap-6 lg:grid-cols-2">
+            <RunwayList
+              title="Emergency funds available"
+              total={projection.emergencyRunway.eligibleBalanceMinor}
+              rows={projection.emergencyRunway.sources.map((source) => ({
+                id: source.goalId,
+                label: `${source.goalName} · ${source.accountName}`,
+                detail: `Ledger ${formatMoney(source.ledgerBalanceMinor)} · protected ${formatMoney(source.protectedMinor)}`,
+                amount: source.resultingEligibleMinor,
+              }))}
+            />
+            <RunwayList
+              title="Essential monthly obligations"
+              total={projection.emergencyRunway.essentialMonthlyMinor}
+              rows={projection.emergencyRunway.obligations.map((obligation) => ({
+                id: obligation.id,
+                label: obligation.label,
+                detail: obligation.source.toLowerCase().replace("_", " "),
+                amount: obligation.monthlyMinor,
+              }))}
+            />
+          </div>
+          {projection.emergencyRunway.issues.length ? (
+            <div className="mt-4 rounded-md bg-[var(--amber-soft)] p-3 text-sm">
+              <strong>Limited:</strong> {projection.emergencyRunway.issues.join(" ")}
+            </div>
+          ) : null}
+          <p className="mt-4 text-xs text-[var(--muted)]">
+            Excludes optional spending, goal contributions, planned savings, extra debt payments,
+            buffers, reserves, one-time costs, transfers, and linked duplicates.
+          </p>
+        </details>
+      </Card>
       <div id="calculation">
         <Card className="mt-7 p-6">
           <h2 className="text-xl font-semibold">Safe to Save — Full Calculation</h2>
@@ -323,4 +377,39 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
       </div>
     </>
   );
+}
+
+function RunwayList({
+  title,
+  total,
+  rows,
+}: {
+  title: string;
+  total: number;
+  rows: { id: string; label: string; detail: string; amount: number }[];
+}) {
+  return (
+    <div>
+      <h3 className="font-semibold">{title}</h3>
+      <div className="mt-2 space-y-2 text-sm">
+        {rows.map((row) => (
+          <div key={row.id} className="flex justify-between gap-4 border-b py-2">
+            <span>
+              {row.label}
+              <span className="block text-xs text-[var(--muted)]">{row.detail}</span>
+            </span>
+            <strong className="tabular-nums">{formatMoney(row.amount)}</strong>
+          </div>
+        ))}
+        <div className="flex justify-between gap-4 pt-1 font-semibold">
+          <span>Total</span>
+          <span className="tabular-nums">{formatMoney(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatRunway(value: number | null) {
+  return value == null ? "Unavailable" : `${(value / 10_000).toFixed(1)} months`;
 }
