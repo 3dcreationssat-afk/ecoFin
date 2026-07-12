@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import { Button, Card, Pill } from "@/components/data-display/primitives";
 import { formatMoney, minorToDecimalString, parseMoneyToMinor } from "@/domain/money/money";
 
@@ -23,6 +22,27 @@ type AccountDto = {
   lastUpdated: string;
 };
 
+const accountTypes = ["CHECKING", "SAVINGS", "CREDIT", "LOAN", "MORTGAGE", "OTHER"];
+const accountTypeLabels: Record<string, string> = {
+  CHECKING: "Checking",
+  SAVINGS: "Savings",
+  CREDIT: "Credit card",
+  LOAN: "Loan",
+  MORTGAGE: "Mortgage",
+  OTHER: "Other",
+};
+const institutions = [
+  "First National Bank",
+  "Chase",
+  "Capital One",
+  "Toyota Financial",
+  "Quicken Loans",
+  "Bank of America",
+  "Wells Fargo",
+  "Citi",
+  "Other institution",
+];
+
 export function AccountsClient({
   householdId,
   accounts,
@@ -32,30 +52,34 @@ export function AccountsClient({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const first = accounts[0];
-  const [editingId, setEditingId] = useState(first?.id ?? "");
-  const editing = accounts.find((account) => account.id === editingId) ?? first;
+  const [mode, setMode] = useState<"add" | "edit">("add");
+  const [editingId, setEditingId] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
-  const [form, setForm] = useState(accountForm(editing, householdId));
+  const [form, setForm] = useState(accountForm(undefined, householdId));
 
   function choose(account: AccountDto) {
+    setMode("edit");
     setEditingId(account.id);
     setForm(accountForm(account, householdId));
   }
 
-  async function save(method: "POST" | "PATCH") {
+  function startAdd() {
+    setMode("add");
+    setEditingId("");
+    setError("");
+    setForm(accountForm(undefined, householdId));
+  }
+
+  async function save() {
     setStatus("saving");
     setError("");
     const body = toPayload(form);
-    const response = await fetch(
-      method === "POST" ? "/api/accounts" : `/api/accounts/${editingId}`,
-      {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-    );
+    const response = await fetch(mode === "add" ? "/api/accounts" : `/api/accounts/${editingId}`, {
+      method: mode === "add" ? "POST" : "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     if (!response.ok) {
       const payload = await response.json();
       setError(payload.error ?? "Unable to save account.");
@@ -82,11 +106,21 @@ export function AccountsClient({
       <Card className="mb-7 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Account Editor</h2>
+            <h2 className="text-xl font-semibold">
+              {mode === "add" ? "Add Account" : "Edit Account"}
+            </h2>
             <p className="text-sm text-[var(--muted)]">
-              Create, edit, archive, and restore accounts in SQLite.
+              {mode === "add"
+                ? "Start with a blank account and choose only the fields that apply."
+                : "Update the selected account. Use Cancel to return to Add Account mode."}
             </p>
           </div>
+          <button
+            className="rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+            onClick={startAdd}
+          >
+            Add account
+          </button>
           {status === "saving" || isPending ? <Pill tone="info">Saving</Pill> : null}
           {status === "saved" ? <Pill tone="good">Saved</Pill> : null}
         </div>
@@ -97,8 +131,7 @@ export function AccountsClient({
         ) : null}
         <div className="grid gap-4 md:grid-cols-4">
           <Field label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
-          <Field
-            label="Institution"
+          <InstitutionSelect
             value={form.institution}
             onChange={(institution) => setForm({ ...form, institution })}
           />
@@ -106,39 +139,74 @@ export function AccountsClient({
             label="Type"
             value={form.type}
             onChange={(type) => setForm({ ...form, type })}
-            options={["CHECKING", "SAVINGS", "CREDIT", "LOAN", "MORTGAGE", "OTHER"]}
+            options={accountTypes}
+            labels={accountTypeLabels}
           />
           <Field
-            label="Balance"
+            label={
+              form.type === "CREDIT"
+                ? "Current card balance"
+                : form.type === "LOAN" || form.type === "MORTGAGE"
+                  ? "Outstanding balance"
+                  : "Current balance"
+            }
+            help="Use negative values for debt balances."
             value={form.balance}
             onChange={(balance) => setForm({ ...form, balance })}
           />
-          <Field
-            label="Available"
-            value={form.available}
-            onChange={(available) => setForm({ ...form, available })}
-          />
-          <Field
-            label="Credit limit"
-            value={form.creditLimit}
-            onChange={(creditLimit) => setForm({ ...form, creditLimit })}
-          />
-          <Field label="APR %" value={form.apr} onChange={(apr) => setForm({ ...form, apr })} />
-          <Field
-            label="Minimum payment"
-            value={form.minimumPayment}
-            onChange={(minimumPayment) => setForm({ ...form, minimumPayment })}
-          />
-          <Field
-            label="Due date"
-            value={form.dueDay}
-            onChange={(dueDay) => setForm({ ...form, dueDay })}
-          />
-          <Field
-            label="Statement date"
-            value={form.statementDay}
-            onChange={(statementDay) => setForm({ ...form, statementDay })}
-          />
+          {["CHECKING", "SAVINGS", "OTHER"].includes(form.type) ? (
+            <Field
+              label="Available balance"
+              help="Optional amount available today, if different from current balance."
+              value={form.available}
+              onChange={(available) => setForm({ ...form, available })}
+            />
+          ) : null}
+          {form.type === "CREDIT" ? (
+            <>
+              <Field
+                label="Available credit"
+                value={form.available}
+                onChange={(available) => setForm({ ...form, available })}
+              />
+              <Field
+                label="Credit limit"
+                value={form.creditLimit}
+                onChange={(creditLimit) => setForm({ ...form, creditLimit })}
+              />
+              <Field label="APR %" value={form.apr} onChange={(apr) => setForm({ ...form, apr })} />
+              <Field
+                label="Minimum payment"
+                value={form.minimumPayment}
+                onChange={(minimumPayment) => setForm({ ...form, minimumPayment })}
+              />
+              <Field
+                label="Payment due day"
+                value={form.dueDay}
+                onChange={(dueDay) => setForm({ ...form, dueDay })}
+              />
+              <Field
+                label="Statement closing day"
+                value={form.statementDay}
+                onChange={(statementDay) => setForm({ ...form, statementDay })}
+              />
+            </>
+          ) : null}
+          {["LOAN", "MORTGAGE"].includes(form.type) ? (
+            <>
+              <Field label="APR %" value={form.apr} onChange={(apr) => setForm({ ...form, apr })} />
+              <Field
+                label="Minimum payment"
+                value={form.minimumPayment}
+                onChange={(minimumPayment) => setForm({ ...form, minimumPayment })}
+              />
+              <Field
+                label="Payment due day"
+                value={form.dueDay}
+                onChange={(dueDay) => setForm({ ...form, dueDay })}
+              />
+            </>
+          ) : null}
           <Field
             label="Notes"
             value={form.notes}
@@ -146,22 +214,23 @@ export function AccountsClient({
           />
         </div>
         <div className="mt-5 flex gap-3">
-          <Button disabled={status === "saving"} onClick={() => save("PATCH") as never}>
-            Save account
-          </Button>
           <Button
-            variant="secondary"
-            disabled={status === "saving"}
-            onClick={() => save("POST") as never}
+            disabled={status === "saving" || (mode === "edit" && !editingId)}
+            onClick={() => save() as never}
           >
-            <Plus className="h-4 w-4" /> Create as new
+            {mode === "add" ? "Create account" : "Save account"}
           </Button>
+          {mode === "edit" ? (
+            <Button variant="secondary" onClick={startAdd}>
+              Cancel edit
+            </Button>
+          ) : null}
         </div>
       </Card>
       <Card className="overflow-hidden">
         <div className="border-b border-[var(--border)] p-6">
           <h2 className="text-xl font-semibold">All Accounts</h2>
-          <p className="text-[var(--muted)]">Balances and details derive from SQLite</p>
+          <p className="text-[var(--muted)]">Choose an account to edit, archive, or restore.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] text-left text-sm">
@@ -195,7 +264,7 @@ export function AccountsClient({
                     <div className="text-xs text-[var(--muted)]">{account.notes}</div>
                   </td>
                   <td className="px-5 py-4">{account.institution}</td>
-                  <td className="px-5 py-4">{account.type}</td>
+                  <td className="px-5 py-4">{accountTypeLabels[account.type] ?? account.type}</td>
                   <td
                     className={
                       account.balanceMinor < 0 ? "px-5 py-4 text-[var(--red)]" : "px-5 py-4"
@@ -256,36 +325,47 @@ function accountForm(account: AccountDto | undefined, householdId: string) {
 }
 
 function toPayload(form: ReturnType<typeof accountForm>) {
+  const isCashLike = ["CHECKING", "SAVINGS", "OTHER"].includes(form.type);
+  const isCredit = form.type === "CREDIT";
+  const isDebt = ["CREDIT", "LOAN", "MORTGAGE"].includes(form.type);
   return {
     householdId: form.householdId,
     name: form.name,
     institution: form.institution,
     type: form.type,
     balanceMinor: parseMoneyToMinor(form.balance),
-    availableMinor: form.available ? parseMoneyToMinor(form.available) : null,
-    creditLimitMinor: form.creditLimit ? parseMoneyToMinor(form.creditLimit) : null,
-    aprBasisPoints: form.apr ? Math.round(Number(form.apr) * 100) : null,
-    minimumPaymentMinor: form.minimumPayment ? parseMoneyToMinor(form.minimumPayment) : null,
-    dueDay: form.dueDay ? Number(form.dueDay) : null,
-    statementDay: form.statementDay ? Number(form.statementDay) : null,
+    availableMinor: isCashLike || isCredit ? parseOptionalMoney(form.available) : null,
+    creditLimitMinor: isCredit ? parseOptionalMoney(form.creditLimit) : null,
+    aprBasisPoints: isDebt && form.apr ? Math.round(Number(form.apr) * 100) : null,
+    minimumPaymentMinor: isDebt ? parseOptionalMoney(form.minimumPayment) : null,
+    dueDay: isDebt && form.dueDay ? Number(form.dueDay) : null,
+    statementDay: isCredit && form.statementDay ? Number(form.statementDay) : null,
     notes: form.notes || null,
     lastUpdated: new Date().toISOString(),
   };
 }
 
+function parseOptionalMoney(value: string) {
+  return value ? parseMoneyToMinor(value) : null;
+}
+
 function Field({
   label,
+  help,
   value,
   onChange,
 }: {
   label: string;
+  help?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <label>
       <span className="text-sm text-[var(--muted)]">{label}</span>
+      {help ? <span className="ml-2 text-xs text-[var(--muted)]">Info: {help}</span> : null}
       <input
+        aria-label={label}
         className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -298,25 +378,68 @@ function Select({
   label,
   value,
   options,
+  labels = {},
   onChange,
 }: {
   label: string;
   value: string;
   options: string[];
+  labels?: Record<string, string>;
   onChange: (value: string) => void;
 }) {
   return (
     <label>
       <span className="text-sm text-[var(--muted)]">{label}</span>
       <select
+        aria-label={label}
         className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option}>{option}</option>
+          <option key={option} value={option}>
+            {labels[option] ?? option}
+          </option>
         ))}
       </select>
     </label>
+  );
+}
+
+function InstitutionSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const listed = institutions.includes(value);
+  return (
+    <div>
+      <label>
+        <span className="text-sm text-[var(--muted)]">Institution</span>
+        <select
+          aria-label="Institution"
+          className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
+          value={listed ? value : "Other institution"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {institutions.map((institution) => (
+            <option key={institution} value={institution}>
+              {institution}
+            </option>
+          ))}
+        </select>
+      </label>
+      {!listed || value === "Other institution" ? (
+        <input
+          aria-label="Other institution name"
+          className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
+          value={value === "Other institution" ? "" : value}
+          placeholder="Institution name"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      ) : null}
+    </div>
   );
 }

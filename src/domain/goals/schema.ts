@@ -19,5 +19,6 @@ export const goalContributionSchema = z.object({
     .int()
     .refine((value) => value !== 0, "Contribution cannot be zero."),
   contributionDate: z.coerce.date(),
+  source: z.string().min(1).max(120).default("Manual contribution"),
   note: z.string().max(500).nullable().optional(),
 });
