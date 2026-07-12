@@ -228,7 +228,16 @@ export default async function DataQualityPage() {
                     {count} {title.toLowerCase()}
                   </p>
                   <p className="mt-2 text-sm text-[var(--muted)]">{impact}</p>
-                  <p className="mt-2 text-sm font-medium">Action: {action}</p>
+                  {count ? (
+                    <a
+                      className="mt-2 inline-block text-sm font-semibold text-[var(--teal)]"
+                      href={qualityHref(title)}
+                    >
+                      {action}
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-sm font-medium">Action: {action}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -237,4 +246,17 @@ export default async function DataQualityPage() {
       )}
     </AppShell>
   );
+}
+
+function qualityHref(title: string) {
+  if (title === "Uncategorized transactions") return "/transactions?category=uncategorized";
+  if (title === "Transactions lacking review") return "/transactions?status=NEEDS_REVIEW";
+  if (title.includes("Duplicate")) return "/transactions?status=FLAGGED";
+  if (title.includes("transfer") || title.includes("credit-card"))
+    return "/transactions?transfer=suggested";
+  if (title.includes("recurring")) return "/transactions?recurring=suggested";
+  if (title.includes("account") || title.includes("debt")) return "/accounts";
+  if (title.includes("goal")) return "/goals";
+  if (title.includes("import")) return "/transactions?source=CSV_IMPORT";
+  return "/transactions";
 }

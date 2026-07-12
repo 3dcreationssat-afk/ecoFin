@@ -518,7 +518,7 @@ function buildCategorySpending(
         row.name,
         row.actualMinor,
         row.budgetMinor,
-        `/transactions?category=${row.id}`,
+        `/transactions?category=${row.id}&period=CURRENT_MONTH`,
       ),
   );
   const period = monthBounds(asOf);
