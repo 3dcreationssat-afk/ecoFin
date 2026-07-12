@@ -8,6 +8,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
   try {
     await client.auditLog.deleteMany();
     await client.backupRecord.deleteMany();
+    await client.decisionScenario.deleteMany();
     await client.debtPlan.deleteMany();
     await client.transactionSavedView.deleteMany();
     await client.merchantRule.deleteMany();
@@ -402,6 +403,34 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         userConfirmed: true,
       },
     });
+    const streamingRecurring = await client.recurringExpense.create({
+      data: {
+        householdId: household.id,
+        merchantKey: "streaming subscription",
+        displayName: "Streaming subscription",
+        frequency: "MONTHLY",
+        typicalAmountMinor: 1599,
+        minAmountMinor: 1599,
+        maxAmountMinor: 1599,
+        averageAmountMinor: 1599,
+        medianAmountMinor: 1599,
+        monthlyEquivalentMinor: 1599,
+        annualEquivalentMinor: 19188,
+        amountVariabilityBps: 0,
+        confidence: "HIGH",
+        confidenceScore: 100,
+        status: "CONFIRMED",
+        classification: "DISCRETIONARY",
+        recommendation: "REVIEW",
+        recurringType: "SUBSCRIPTION",
+        firstObservedDate: new Date("2026-05-19"),
+        lastObservedDate: new Date("2026-06-19"),
+        nextExpectedDate: new Date("2026-07-19"),
+        reasonsJson: '["User-confirmed synthetic subscription"]',
+        detectionHash: "demo-streaming",
+        userConfirmed: true,
+      },
+    });
     await client.expectedIncomeSchedule.createMany({
       data: [
         {
@@ -534,6 +563,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
           frequency: "MONTHLY",
           accountId: checking.id,
           categoryId: subscriptions.id,
+          recurringExpenseId: streamingRecurring.id,
           obligationType: "SUBSCRIPTION",
           sourceType: "DEMO",
           essentiality: "DISCRETIONARY",
@@ -878,6 +908,87 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         },
       });
     }
+
+    const autoLoan = seededAccounts.find((account) => account.type === "LOAN");
+    await client.decisionScenario.create({
+      data: {
+        householdId: household.id,
+        name: "Add vehicle payment",
+        description:
+          "Model a synthetic vehicle payment, down payment, insurance, and operating cost.",
+        isDemo: true,
+        components: {
+          create: {
+            type: "VEHICLE_PAYMENT",
+            name: "Replacement vehicle",
+            amountMinor: 52500,
+            secondaryAmountMinor: 300000,
+            insuranceIncreaseMinor: 6500,
+            operatingIncreaseMinor: 5000,
+            tradeInMinor: 100000,
+            frequency: "MONTHLY",
+            startDate: new Date("2026-07-15"),
+            durationMonths: 60,
+            essentiality: "IMPORTANT",
+          },
+        },
+      },
+    });
+    await client.decisionScenario.create({
+      data: {
+        householdId: household.id,
+        name: "Cancel selected subscription",
+        description: "Pause the confirmed synthetic streaming subscription for comparison.",
+        isDemo: true,
+        components: {
+          create: {
+            type: "CANCEL_RECURRING",
+            name: `Cancel ${streamingRecurring.displayName}`,
+            linkedRecurringId: streamingRecurring.id,
+            startDate: new Date("2026-07-12"),
+          },
+        },
+      },
+    });
+    if (autoLoan) {
+      await client.decisionScenario.create({
+        data: {
+          householdId: household.id,
+          name: "Increase debt payment",
+          description:
+            "Add a synthetic monthly payment to the auto loan without changing the saved debt plan.",
+          isDemo: true,
+          components: {
+            create: {
+              type: "DEBT_EXTRA_PAYMENT",
+              name: "Auto loan extra payment",
+              amountMinor: 25000,
+              frequency: "MONTHLY",
+              startDate: new Date("2026-07-12"),
+              linkedDebtAccountId: autoLoan.id,
+            },
+          },
+        },
+      });
+    }
+    await client.decisionScenario.create({
+      data: {
+        householdId: household.id,
+        name: "Add childcare cost",
+        description: "Model a new essential monthly childcare obligation.",
+        isDemo: true,
+        components: {
+          create: {
+            type: "RECURRING_EXPENSE",
+            name: "Childcare",
+            amountMinor: 120000,
+            frequency: "MONTHLY",
+            startDate: new Date("2026-07-15"),
+            essentiality: "ESSENTIAL",
+          },
+        },
+      },
+    });
 
     await client.auditLog.create({
       data: {

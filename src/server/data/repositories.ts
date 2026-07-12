@@ -391,6 +391,7 @@ export async function startFreshWorkspace(input: unknown) {
   return prisma.$transaction(async (tx) => {
     const before = await demoResetCounts(tx);
     await tx.auditLog.deleteMany();
+    await tx.decisionScenario.deleteMany();
     await tx.debtPlan.deleteMany();
     await tx.transactionSavedView.deleteMany();
     await tx.merchantRule.deleteMany();
@@ -458,6 +459,8 @@ export async function demoResetCounts(db: Db = prisma) {
     transferMatches,
     recurringExpenses,
     recurringLinks,
+    decisionScenarios,
+    decisionScenarioComponents,
     expectedIncomeSchedules,
     scheduledObligations,
     planningOccurrences,
@@ -473,6 +476,8 @@ export async function demoResetCounts(db: Db = prisma) {
     db.transferMatch.count(),
     db.recurringExpense.count(),
     db.recurringExpenseTransaction.count(),
+    db.decisionScenario.count(),
+    db.decisionScenarioComponent.count(),
     db.expectedIncomeSchedule.count(),
     db.scheduledObligation.count(),
     Promise.all([db.expectedIncomeOccurrence.count(), db.obligationOccurrence.count()]).then(
@@ -491,6 +496,8 @@ export async function demoResetCounts(db: Db = prisma) {
     transferMatches,
     recurringExpenses,
     recurringLinks,
+    decisionScenarios,
+    decisionScenarioComponents,
     expectedIncomeSchedules,
     scheduledObligations,
     planningOccurrences,

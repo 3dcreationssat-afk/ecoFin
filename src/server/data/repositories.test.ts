@@ -183,8 +183,10 @@ describe("persistent repositories", () => {
       transactions: 20,
       importBatches: 0,
       transferMatches: 0,
-      recurringExpenses: 2,
+      recurringExpenses: 3,
       recurringLinks: 0,
+      decisionScenarios: 4,
+      decisionScenarioComponents: 4,
       auditEvents: 2,
     });
     expect(await prismaModule.prisma.account.count({ where: { name: "Reset Test Account" } })).toBe(

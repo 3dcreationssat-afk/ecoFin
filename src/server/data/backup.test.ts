@@ -5,6 +5,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PrismaClient } from "@prisma/client";
 import {
   appVersion,
   activeSqlitePath,
@@ -48,6 +49,11 @@ describe("backup and restore service", () => {
   });
 
   it("previews and restores a valid backup with a mandatory safety backup", async () => {
+    const scenario = await prismaModule.prisma.decisionScenario.findFirstOrThrow();
+    await prismaModule.prisma.decisionScenario.update({
+      where: { id: scenario.id },
+      data: { name: "Scenario before backup" },
+    });
     await repositories.updateHousehold({
       name: "Before Backup",
       currency: "USD",
@@ -58,6 +64,10 @@ describe("backup and restore service", () => {
       debtStrategy: "AVALANCHE",
     });
     const created = await backup.createLocalBackup();
+    await prismaModule.prisma.decisionScenario.update({
+      where: { id: scenario.id },
+      data: { name: "Scenario after backup" },
+    });
     await repositories.updateHousehold({
       name: "After Backup",
       currency: "USD",
@@ -75,6 +85,15 @@ describe("backup and restore service", () => {
     expect(restored.safetyBackup.isPreRestore).toBe(true);
     const household = await repositories.getHousehold();
     expect(household.name).toBe("Before Backup");
+    const restoredClient = new PrismaClient();
+    try {
+      expect(
+        (await restoredClient.decisionScenario.findUniqueOrThrow({ where: { id: scenario.id } }))
+          .name,
+      ).toBe("Scenario before backup");
+    } finally {
+      await restoredClient.$disconnect();
+    }
   });
 
   it("rejects hash mismatches, newer schemas, and unsafe archive entries", async () => {
@@ -142,6 +161,8 @@ function makeZip(
       transactionSavedViews: 0,
       merchantRules: 0,
       debtPlans: 0,
+      decisionScenarios: 0,
+      decisionScenarioComponents: 0,
       reconciliationAdjustments: 0,
       expectedIncomeSchedules: 0,
       expectedIncomeOccurrences: 0,

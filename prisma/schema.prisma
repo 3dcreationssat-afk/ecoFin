@@ -44,7 +44,60 @@ model Household {
   transactionSavedViews TransactionSavedView[]
   merchantRules         MerchantRule[]
   debtPlans             DebtPlan[]
+  decisionScenarios     DecisionScenario[]
   auditLogs             AuditLog[]
+}
+
+model DecisionScenario {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  description String?
+  status      String   @default("DRAFT")
+  isDemo      Boolean  @default(false)
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  components  DecisionScenarioComponent[]
+
+  @@index([householdId, archivedAt, updatedAt])
+}
+
+model DecisionScenarioComponent {
+  id              String   @id @default(cuid())
+  scenarioId      String
+  type            String
+  name            String
+  amountMinor     Int?
+  secondaryAmountMinor Int?
+  frequency       String?
+  startDate       DateTime?
+  endDate         DateTime?
+  durationMonths  Int?
+  essentiality    String?
+  linkedAccountId String?
+  linkedDebtAccountId String?
+  linkedGoalId    String?
+  linkedRecurringId String?
+  policyMode      String?
+  targetBasisPoints Int?
+  minimumDiscretionaryReserveMinor Int?
+  extraSafetyReserveMinor Int?
+  minimumCashRetainedMinor Int?
+  insuranceIncreaseMinor Int?
+  operatingIncreaseMinor Int?
+  tradeInMinor    Int?
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  scenario        DecisionScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([scenarioId, sortOrder])
+  @@index([linkedAccountId])
+  @@index([linkedDebtAccountId])
+  @@index([linkedGoalId])
+  @@index([linkedRecurringId])
 }
 
 model DebtPlan {
