@@ -3,11 +3,15 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { backupRoot } from "@/domain/backup/backup";
+import { parseTransactionQuery } from "@/domain/transactions/query";
+
+const parseQueryForTest = (value: string) => parseTransactionQuery(new URLSearchParams(value));
 
 process.env.DATABASE_URL = "file:./vitest-integration.db";
 
 let repositories: typeof import("./repositories");
 let prismaModule: typeof import("@/server/db/prisma");
+let transactionViews: typeof import("./transaction-views");
 
 describe("persistent repositories", () => {
   beforeAll(async () => {
@@ -17,6 +21,7 @@ describe("persistent repositories", () => {
     });
     repositories = await import("./repositories");
     prismaModule = await import("@/server/db/prisma");
+    transactionViews = await import("./transaction-views");
   }, 120_000);
 
   afterAll(async () => {
@@ -110,6 +115,28 @@ describe("persistent repositories", () => {
     expect(audit.some((entry) => entry.field === "excluded")).toBe(true);
   });
 
+  it("persists, filters, defaults, renames, updates, and archives saved transaction views", async () => {
+    const query = parseQueryForTest("status=NEEDS_REVIEW&pageSize=50");
+    const created = await transactionViews.createSavedView({ name: " Needs review ", query });
+    await expect(transactionViews.createSavedView({ name: "needs REVIEW", query })).rejects.toThrow(
+      "already exists",
+    );
+    await transactionViews.updateSavedView(created.id, { isDefault: true });
+    expect((await transactionViews.defaultSavedView())?.id).toBe(created.id);
+    await transactionViews.updateSavedView(created.id, {
+      name: "Review queue",
+      query: parseQueryForTest("excluded=excluded"),
+    });
+    const filtered = await transactionViews.transactionPage(
+      parseQueryForTest("excluded=excluded&pageSize=25"),
+    );
+    expect(filtered.items.every((item) => item.excluded)).toBe(true);
+    await transactionViews.updateSavedView(created.id, { isDefault: false });
+    expect(await transactionViews.defaultSavedView()).toBeNull();
+    await transactionViews.updateSavedView(created.id, { isArchived: true });
+    expect(await transactionViews.listSavedViews()).toHaveLength(0);
+  });
+
   it("resets the active demo database to canonical seed counts and records reset audit", async () => {
     const household = await repositories.getHousehold();
     await repositories.createAccount({
@@ -176,6 +203,10 @@ describe("persistent repositories", () => {
 
   it("starts fresh without recreating demo records and preserves backup files", async () => {
     await repositories.resetDemoDataWithResult({ confirmation: "RESET DEMO DATA" });
+    await transactionViews.createSavedView({
+      name: "Removed by start fresh",
+      query: parseQueryForTest("status=FLAGGED"),
+    });
     const backupDir = backupRoot();
     mkdirSync(backupDir, { recursive: true });
     const backupPath = join(backupDir, "start-fresh-preservation-test.zip");
@@ -218,6 +249,7 @@ describe("persistent repositories", () => {
       recurringExpenses: 0,
     });
     expect(await repositories.workspaceState()).toBe("EMPTY");
+    expect(await prismaModule.prisma.transactionSavedView.count()).toBe(0);
     expect(await prismaModule.prisma.backupRecord.count({ where: { id: backup.id } })).toBe(1);
     expect(existsSync(backupPath)).toBe(true);
     expect(

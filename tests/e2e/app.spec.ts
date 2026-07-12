@@ -322,6 +322,33 @@ test("transaction pagination, filters, search, and URL state work", async ({ pag
   await expect(page.getByLabel("Source")).toHaveValue("MANUAL");
 });
 
+test("advanced transaction filters, history, and saved views work", async ({ page }, testInfo) => {
+  await page.goto("/transactions?period=ALL");
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await page.getByLabel("Excluded").selectOption("excluded");
+  await expect(page).toHaveURL(/excluded=excluded/);
+  await expect(page.getByRole("button", { name: /excluded: excluded/i })).toBeVisible();
+  await page.goBack();
+  await expect(page).not.toHaveURL(/excluded=excluded/);
+  await page.goForward();
+  await expect(page).toHaveURL(/excluded=excluded/);
+
+  const viewName = `Playwright excluded ${testInfo.project.name}`;
+  page.once("dialog", (dialog) => dialog.accept(viewName));
+  await page.getByRole("button", { name: "Saved Views" }).click();
+  await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith("/api/transaction-saved-views")),
+    page.getByRole("button", { name: "Save current view" }).click(),
+  ]);
+  await expect(page.getByText(viewName, { exact: true })).toBeVisible();
+  await page
+    .getByText(viewName, { exact: true })
+    .locator("../..")
+    .getByRole("button", { name: "Apply", exact: true })
+    .click();
+  await expect(page).toHaveURL(/excluded=excluded/);
+});
+
 test("transaction drawer edit persists and original values remain unchanged", async ({ page }) => {
   await page.goto("/transactions");
   await page
