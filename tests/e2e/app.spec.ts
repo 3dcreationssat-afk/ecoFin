@@ -194,6 +194,13 @@ test("decision simulator persists isolated components and comparisons", async ({
 }, testInfo) => {
   await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
   await page.goto("/decisions");
+  await page.getByRole("link", { name: "Add vehicle payment" }).click();
+  await page.getByText("Detailed impact-horizon breakdown", { exact: true }).click();
+  await expect(page.getByText(/Vehicle: down payment/)).toBeVisible();
+  await expect(
+    page.getByText(/Immediate linked emergency-fund balance divided by average monthly essential/),
+  ).toBeVisible();
+  await expect(page.getByText(/planned contribution is fixed/).first()).toBeVisible();
   const scenarioName = `Playwright decision ${testInfo.project.name}`;
   await page.getByLabel("New scenario name").fill(scenarioName);
   await page.getByRole("button", { name: "New scenario" }).click();
@@ -210,6 +217,13 @@ test("decision simulator persists isolated components and comparisons", async ({
   await page.getByLabel("Component amount").fill("350.00");
   await page.getByRole("button", { name: "Add component" }).click();
   await expect(page.getByText("Synthetic purchase", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Upfront impact", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ongoing monthly impact", { exact: true })).toBeVisible();
+  await expect(page.getByText("Current-period impact", { exact: true })).toBeVisible();
+  await expect(page.getByText("First 12-month impact", { exact: true })).toBeVisible();
+  await page.getByText("Detailed impact-horizon breakdown", { exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "Bounded total" })).toBeVisible();
+  await expect(page.getByText("Monthly net cash flow", { exact: true })).toHaveCount(0);
 
   await page.getByLabel("Component type").selectOption("CANCEL_RECURRING");
   await page.getByLabel("Component name").fill("Cancel synthetic recurring");

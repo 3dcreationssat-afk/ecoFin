@@ -26,6 +26,14 @@ describe("decision scenario persistence and isolation", () => {
     const before = await realCounts();
     const dashboard = await scenarios.decisionSimulatorDashboard();
     expect(dashboard.evaluation).not.toBeNull();
+    expect(dashboard.evaluation?.impacts.currentPeriodMinor).toBe(
+      (dashboard.evaluation?.impacts.currentPeriodOneTimeMinor ?? 0) +
+        (dashboard.evaluation?.impacts.currentPeriodRecurringMinor ?? 0) +
+        (dashboard.evaluation?.impacts.currentPeriodInteractionMinor ?? 0),
+    );
+    expect(dashboard.evaluation?.goalImpacts.every((goal) => goal.explanation.length > 0)).toBe(
+      true,
+    );
     expect(await realCounts()).toEqual(before);
   });
 
