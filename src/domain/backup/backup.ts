@@ -28,6 +28,10 @@ export const backupManifestSchema = z.object({
     transactionSavedViews: z.number().int().nonnegative(),
     merchantRules: z.number().int().nonnegative(),
     reconciliationAdjustments: z.number().int().nonnegative(),
+    expectedIncomeSchedules: z.number().int().nonnegative(),
+    expectedIncomeOccurrences: z.number().int().nonnegative(),
+    scheduledObligations: z.number().int().nonnegative(),
+    obligationOccurrences: z.number().int().nonnegative(),
     auditLogs: z.number().int().nonnegative(),
   }),
   databaseFileSize: z.number().int().positive(),
@@ -146,6 +150,7 @@ export function migrationFingerprint() {
     "20260712170000_transaction_saved_views/migration.sql",
     "20260712210000_bulk_review_merchant_rules/migration.sql",
     "20260713010000_account_ledger_reconciliation/migration.sql",
+    "20260713020000_planning_schedules_policy/migration.sql",
   ];
   const hash = createHash("sha256");
   for (const file of migrationFiles) {

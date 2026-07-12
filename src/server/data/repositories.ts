@@ -457,6 +457,9 @@ export async function demoResetCounts(db: Db = prisma) {
     transferMatches,
     recurringExpenses,
     recurringLinks,
+    expectedIncomeSchedules,
+    scheduledObligations,
+    planningOccurrences,
     auditEvents,
   ] = await Promise.all([
     db.household.count(),
@@ -469,6 +472,11 @@ export async function demoResetCounts(db: Db = prisma) {
     db.transferMatch.count(),
     db.recurringExpense.count(),
     db.recurringExpenseTransaction.count(),
+    db.expectedIncomeSchedule.count(),
+    db.scheduledObligation.count(),
+    Promise.all([db.expectedIncomeOccurrence.count(), db.obligationOccurrence.count()]).then(
+      ([a, b]) => a + b,
+    ),
     db.auditLog.count(),
   ]);
   return {
@@ -482,6 +490,9 @@ export async function demoResetCounts(db: Db = prisma) {
     transferMatches,
     recurringExpenses,
     recurringLinks,
+    expectedIncomeSchedules,
+    scheduledObligations,
+    planningOccurrences,
     auditEvents,
   };
 }
@@ -511,27 +522,50 @@ async function markWorkspaceUserData(db: Db, householdId: string) {
 }
 
 async function countProvenanceRecords(db: Db, isDemo: boolean) {
-  const [accounts, categories, goals, transactions] = await Promise.all([
+  const [accounts, categories, goals, transactions, incomes, obligations] = await Promise.all([
     db.account.count({ where: { isDemo } }),
     db.category.count({ where: { isDemo } }),
     db.goal.count({ where: { isDemo } }),
     db.transaction.count({ where: { isDemo } }),
+    db.expectedIncomeSchedule.count({ where: { isDemo } }),
+    db.scheduledObligation.count({ where: { isDemo } }),
   ]);
-  return accounts + categories + goals + transactions;
+  return accounts + categories + goals + transactions + incomes + obligations;
 }
 
 async function countMeaningfulFinancialRecords(db: Db) {
-  const [accounts, categories, goals, transactions, imports, transfers, recurring] =
-    await Promise.all([
-      db.account.count(),
-      db.category.count(),
-      db.goal.count(),
-      db.transaction.count(),
-      db.importBatch.count(),
-      db.transferMatch.count(),
-      db.recurringExpense.count(),
-    ]);
-  return accounts + categories + goals + transactions + imports + transfers + recurring;
+  const [
+    accounts,
+    categories,
+    goals,
+    transactions,
+    imports,
+    transfers,
+    recurring,
+    incomes,
+    obligations,
+  ] = await Promise.all([
+    db.account.count(),
+    db.category.count(),
+    db.goal.count(),
+    db.transaction.count(),
+    db.importBatch.count(),
+    db.transferMatch.count(),
+    db.recurringExpense.count(),
+    db.expectedIncomeSchedule.count(),
+    db.scheduledObligation.count(),
+  ]);
+  return (
+    accounts +
+    categories +
+    goals +
+    transactions +
+    imports +
+    transfers +
+    recurring +
+    incomes +
+    obligations
+  );
 }
 
 function activeDatabaseDiagnostic() {

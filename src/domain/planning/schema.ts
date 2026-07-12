@@ -33,7 +33,7 @@ export const expectedIncomeSchema = expectedIncomeBase.refine(
     (v.twiceMonthlyDay1 && v.twiceMonthlyDay2 && v.twiceMonthlyDay1 < v.twiceMonthlyDay2),
   { message: "Twice-monthly schedules require two ordered days." },
 );
-export const expectedIncomeUpdateSchema = expectedIncomeBase.partial({ householdId: true });
+export const expectedIncomeUpdateSchema = expectedIncomeBase.partial();
 export const obligationSchema = z.object({
   householdId: z.string().min(1),
   name: z.string().trim().min(1).max(120),
@@ -66,6 +66,7 @@ export const obligationSchema = z.object({
   active: z.boolean().default(true),
   notes: z.string().trim().max(500).nullable().optional(),
 });
+export const obligationUpdateSchema = obligationSchema.partial();
 export const occurrenceActionSchema = z.object({
   action: z.enum(["PAID", "RECEIVED", "SKIPPED", "PARTIALLY_PAID", "REJECT_MATCH"]),
   transactionId: z.string().nullable().optional(),

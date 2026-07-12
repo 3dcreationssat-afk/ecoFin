@@ -429,6 +429,10 @@ async function validateDatabaseFile(path: string) {
       "TransactionSavedView",
       "MerchantRule",
       "ReconciliationAdjustment",
+      "ExpectedIncomeSchedule",
+      "ExpectedIncomeOccurrence",
+      "ScheduledObligation",
+      "ObligationOccurrence",
       "AuditLog",
     ]) {
       if (!tables.some((entry) => entry.name === table))
@@ -459,6 +463,10 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     transactionSavedViews,
     merchantRules,
     reconciliationAdjustments,
+    expectedIncomeSchedules,
+    expectedIncomeOccurrences,
+    scheduledObligations,
+    obligationOccurrences,
     auditLogs,
   ] = await Promise.all([
     client.household.count(),
@@ -473,6 +481,10 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     client.transactionSavedView.count(),
     client.merchantRule.count(),
     client.reconciliationAdjustment.count(),
+    client.expectedIncomeSchedule.count(),
+    client.expectedIncomeOccurrence.count(),
+    client.scheduledObligation.count(),
+    client.obligationOccurrence.count(),
     client.auditLog.count(),
   ]);
   return {
@@ -488,6 +500,10 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     transactionSavedViews,
     merchantRules,
     reconciliationAdjustments,
+    expectedIncomeSchedules,
+    expectedIncomeOccurrences,
+    scheduledObligations,
+    obligationOccurrences,
     auditLogs,
   };
 }

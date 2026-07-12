@@ -3,6 +3,7 @@ import {
   expectedIncomeSchema,
   expectedIncomeUpdateSchema,
   obligationSchema,
+  obligationUpdateSchema,
   occurrenceActionSchema,
   savingsPolicySchema,
 } from "@/domain/planning/schema";
@@ -157,7 +158,13 @@ export async function setExpectedIncomeState(id: string, action: "PAUSE" | "RESU
 }
 export async function createObligation(input: unknown) {
   const data = obligationSchema.parse(input);
-  await validateLinks(prisma, data.householdId, data);
+  await validateLinks(prisma, data.householdId, {
+    accountId: data.accountId,
+    categoryId: data.categoryId,
+    recurringExpenseId: data.recurringExpenseId,
+    debtAccountId: data.debtAccountId,
+    goalId: data.goalId,
+  });
   const record = await prisma.scheduledObligation.create({ data: { ...data, isDemo: false } });
   await auditChange(prisma, {
     householdId: data.householdId,
@@ -171,8 +178,14 @@ export async function createObligation(input: unknown) {
 export async function updateObligation(id: string, input: unknown) {
   const existing = await prisma.scheduledObligation.findUnique({ where: { id } });
   if (!existing) throw new AppError("Obligation not found.", 404);
-  const data = obligationSchema.partial({ householdId: true }).parse(input);
-  await validateLinks(prisma, existing.householdId, data);
+  const data = obligationUpdateSchema.parse(input);
+  await validateLinks(prisma, existing.householdId, {
+    accountId: data.accountId,
+    categoryId: data.categoryId,
+    recurringExpenseId: data.recurringExpenseId,
+    debtAccountId: data.debtAccountId,
+    goalId: data.goalId,
+  });
   const updated = await prisma.scheduledObligation.update({ where: { id }, data });
   await auditFields(prisma, {
     householdId: existing.householdId,

@@ -101,7 +101,13 @@ export type CashFlowInput = {
     recurringExpenseId: string | null;
     debtAccountId: string | null;
     goalId: string | null;
-    occurrences: { id: string; expectedDate: Date; expectedAmountMinor: number; status: string }[];
+    occurrences: {
+      id: string;
+      expectedDate: Date;
+      expectedAmountMinor: number;
+      status: string;
+      amountDifferenceMinor?: number;
+    }[];
   }[];
   savingsPolicy?: {
     mode: string;
@@ -257,7 +263,7 @@ export function calculateCashFlow(input: CashFlowInput) {
     )) {
       const amount =
         occurrence.status === "PARTIALLY_PAID"
-          ? Math.max(0, occurrence.expectedAmountMinor)
+          ? Math.max(0, -(occurrence.amountDifferenceMinor ?? -occurrence.expectedAmountMinor))
           : occurrence.expectedAmountMinor;
       remainingEssentialObligationsMinor += amount;
       events.push({
