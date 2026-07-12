@@ -1,4 +1,5 @@
 import { dueDateInPeriod, financialPeriod } from "./period";
+import { savingsRecommendation } from "@/domain/planning/occurrences";
 
 export type ConfidenceLevel = "HIGH" | "MODERATE" | "LIMITED";
 export type CashFlowEvent = {
@@ -83,6 +84,35 @@ export type CashFlowInput = {
   recurring: CashFlowRecurring[];
   goals: CashFlowGoal[];
   importBatches: { status: string; rejectedRowCount: number; duplicateCandidateCount: number }[];
+  expectedIncomeSchedules?: {
+    id: string;
+    name: string;
+    confidence: string;
+    active: boolean;
+    archivedAt: Date | null;
+    occurrences: { id: string; expectedDate: Date; expectedAmountMinor: number; status: string }[];
+  }[];
+  scheduledObligations?: {
+    id: string;
+    name: string;
+    confidence: string;
+    active: boolean;
+    archivedAt: Date | null;
+    recurringExpenseId: string | null;
+    debtAccountId: string | null;
+    goalId: string | null;
+    occurrences: { id: string; expectedDate: Date; expectedAmountMinor: number; status: string }[];
+  }[];
+  savingsPolicy?: {
+    mode: string;
+    targetBps: number;
+    minimumDiscretionaryReserveMinor: number;
+    extraSafetyReserveMinor: number;
+    minimumCashRetainedMinor: number;
+    includeGoalContributions: boolean;
+    emergencyShortfallIncreasesRecommendation: boolean;
+    conservativeAdjustmentBps: number;
+  };
 };
 export type CashFlowProjection = ReturnType<typeof calculateCashFlow>;
 
@@ -93,6 +123,16 @@ const inRange = (date: Date, start: Date, end: Date) => date >= start && date < 
 
 export function calculateCashFlow(input: CashFlowInput) {
   const period = financialPeriod(input.asOf, input.financialMonthStart);
+  const policy = input.savingsPolicy ?? {
+    mode: "BALANCED",
+    targetBps: 5000,
+    minimumDiscretionaryReserveMinor: 100000,
+    extraSafetyReserveMinor: 0,
+    minimumCashRetainedMinor: 0,
+    includeGoalContributions: true,
+    emergencyShortfallIncreasesRecommendation: false,
+    conservativeAdjustmentBps: 2000,
+  };
   const factors: ConfidenceFactor[] = [];
   if (input.workspaceMode === "MIXED")
     factors.push({
@@ -180,6 +220,57 @@ export function calculateCashFlow(input: CashFlowInput) {
   let remainingExpectedIncomeMinor = 0;
   let remainingEssentialObligationsMinor = 0;
   let conservativeExtraMinor = 0;
+  for (const schedule of input.expectedIncomeSchedules ?? []) {
+    if (!schedule.active || schedule.archivedAt) continue;
+    for (const occurrence of schedule.occurrences.filter(
+      (o) =>
+        ["UPCOMING", "OVERDUE"].includes(o.status) &&
+        o.expectedDate >= input.asOf &&
+        o.expectedDate < period.end,
+    )) {
+      remainingExpectedIncomeMinor += occurrence.expectedAmountMinor;
+      events.push({
+        id: `income-${occurrence.id}`,
+        date: occurrence.expectedDate,
+        label: schedule.name,
+        amountMinor: occurrence.expectedAmountMinor,
+        kind: "SCHEDULED",
+        source: "Expected income schedule",
+        confidence: schedule.confidence as ConfidenceLevel,
+      });
+    }
+  }
+  const linkedRecurringIds = new Set(
+    (input.scheduledObligations ?? []).map((o) => o.recurringExpenseId).filter(Boolean),
+  );
+  const linkedDebtIds = new Set(
+    (input.scheduledObligations ?? []).map((o) => o.debtAccountId).filter(Boolean),
+  );
+  const linkedGoalIds = new Set(
+    (input.scheduledObligations ?? []).map((o) => o.goalId).filter(Boolean),
+  );
+  for (const schedule of input.scheduledObligations ?? []) {
+    if (!schedule.active || schedule.archivedAt) continue;
+    for (const occurrence of schedule.occurrences.filter(
+      (o) =>
+        ["UPCOMING", "OVERDUE", "PARTIALLY_PAID"].includes(o.status) && o.expectedDate < period.end,
+    )) {
+      const amount =
+        occurrence.status === "PARTIALLY_PAID"
+          ? Math.max(0, occurrence.expectedAmountMinor)
+          : occurrence.expectedAmountMinor;
+      remainingEssentialObligationsMinor += amount;
+      events.push({
+        id: `obligation-${occurrence.id}`,
+        date: occurrence.expectedDate,
+        label: schedule.name,
+        amountMinor: -amount,
+        kind: "SCHEDULED",
+        source: "Scheduled obligation",
+        confidence: schedule.confidence as ConfidenceLevel,
+      });
+    }
+  }
   for (const item of input.recurring) {
     const date = item.nextExpectedDate;
     if (
@@ -191,6 +282,7 @@ export function calculateCashFlow(input: CashFlowInput) {
       continue;
     const amount = Math.abs(item.typicalAmountMinor);
     const confirmed = item.userConfirmed && item.status === "CONFIRMED";
+    if (linkedRecurringIds.has(item.id)) continue;
     if (!confirmed) {
       if (item.recurringType !== "INCOME") conservativeExtraMinor += amount;
       factors.push({
@@ -219,6 +311,7 @@ export function calculateCashFlow(input: CashFlowInput) {
   for (const account of input.accounts.filter(
     (a) => !a.archivedAt && LIABILITY.has(a.type) && (a.ledgerBalanceMinor ?? 0) > 0,
   )) {
+    if (linkedDebtIds.has(account.id)) continue;
     if (account.minimumPaymentMinor === null || account.dueDay === null) {
       factors.push({
         positive: false,
@@ -254,7 +347,10 @@ export function calculateCashFlow(input: CashFlowInput) {
     const contributed = goal.contributions
       .filter((c) => inRange(c.contributionDate, period.start, period.end))
       .reduce((sum, c) => sum + c.amountMinor, 0);
-    const remaining = Math.max(0, goal.plannedMonthlyMinor - contributed);
+    const remaining =
+      !policy.includeGoalContributions || linkedGoalIds.has(goal.id)
+        ? 0
+        : Math.max(0, goal.plannedMonthlyMinor - contributed);
     committedPlannedSavingsMinor += remaining;
     if (remaining)
       events.push({
@@ -314,18 +410,29 @@ export function calculateCashFlow(input: CashFlowInput) {
     checkingBufferReserveMinor -
     emergencyFundProtectionMinor -
     dataQualityReserveMinor;
-  const recommendedSafeToSaveMinor = Math.max(0, maximumAvailableSurplusMinor);
   const confidence: ConfidenceLevel =
     factors.filter((f) => !f.positive).length === 0
       ? "HIGH"
       : factors.filter((f) => !f.positive).length <= 2
         ? "MODERATE"
         : "LIMITED";
+  const recommendation = savingsRecommendation({
+    maximumSurplusMinor: maximumAvailableSurplusMinor,
+    mode: policy.mode,
+    targetBps: policy.targetBps,
+    discretionaryReserveMinor: policy.minimumDiscretionaryReserveMinor,
+    extraSafetyReserveMinor: policy.extraSafetyReserveMinor,
+    minimumCashRetainedMinor: policy.minimumCashRetainedMinor,
+    startingCashMinor: startingUsableLiquidCashMinor,
+    confidence,
+    conservativeAdjustmentBps: policy.conservativeAdjustmentBps,
+  });
+  const recommendedSafeToSaveMinor = recommendation.recommendedMinor;
   const conservativeSafeToSaveMinor = Math.max(
     0,
-    recommendedSafeToSaveMinor - (confidence === "HIGH" ? 0 : conservativeExtraMinor),
+    recommendation.conservativeMinor - conservativeExtraMinor,
   );
-  const safeToSpendMinor = Math.max(0, maximumAvailableSurplusMinor - recommendedSafeToSaveMinor);
+  const safeToSpendMinor = recommendation.safeToSpendMinor;
   const projectedMonthEndMinor =
     startingUsableLiquidCashMinor +
     remainingExpectedIncomeMinor -
@@ -404,6 +511,9 @@ export function calculateCashFlow(input: CashFlowInput) {
     recommendedSafeToSaveMinor,
     conservativeSafeToSaveMinor,
     safeToSpendMinor,
+    retainedDiscretionaryMinor: recommendation.retainedDiscretionaryMinor,
+    savingsPolicyMode: policy.mode,
+    savingsPolicyCapMinor: recommendation.policyCapMinor,
     shortfallMinor: Math.max(0, -maximumAvailableSurplusMinor),
     confidence,
     confidenceFactors: factors,
