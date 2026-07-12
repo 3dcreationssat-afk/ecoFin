@@ -57,13 +57,12 @@ describe("csv import repositories", () => {
     expect((await imports.setImportProfileArchived(profile.id, true)).archivedAt).toBeTruthy();
   });
 
-  it("previews a CSV near the supported row and file-size limits", async () => {
+  it("previews a CSV above the former 1000-row limit", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[0];
     const rows = Array.from(
-      { length: 900 },
-      (_, index) =>
-        `07/10/2026,Synthetic transaction ${index.toString().padStart(4, "0")} ${"x".repeat(120)},-4.25`,
+      { length: 1500 },
+      (_, index) => `07/10/2026,Synthetic transaction ${index.toString().padStart(4, "0")},-4.25`,
     );
     const content = `Date,Description,Amount\n${rows.join("\n")}`;
 
@@ -78,16 +77,13 @@ describe("csv import repositories", () => {
     });
 
     expect(preview.status).toBe("PREVIEW");
-    expect(preview.rows).toHaveLength(900);
+    expect(preview.rows).toHaveLength(1500);
   });
 
-  it("returns an actionable validation error when a CSV exceeds the row limit", async () => {
+  it("returns an actionable validation error when a CSV exceeds 10000 rows", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[0];
-    const rows = Array.from(
-      { length: 1001 },
-      (_, index) => `07/10/2026,Synthetic transaction ${index},-4.25`,
-    );
+    const rows = Array.from({ length: 10_001 }, (_, index) => `7/1/26,S${index},-1`);
     const content = `Date,Description,Amount\n${rows.join("\n")}`;
 
     await expect(
@@ -101,7 +97,7 @@ describe("csv import repositories", () => {
         hasHeader: true,
       }),
     ).rejects.toMatchObject({
-      message: "CSV exceeds the 1000 row limit.",
+      message: "CSV exceeds the 10000 row limit.",
       status: 422,
     });
   });

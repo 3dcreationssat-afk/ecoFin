@@ -3,7 +3,7 @@ import type { dateFormats } from "./schema";
 
 export const IMPORT_LIMITS = {
   maxFileBytes: 512 * 1024,
-  maxRows: 1000,
+  maxRows: 10_000,
   maxFieldChars: 500,
   previewRows: 8,
 };

@@ -146,16 +146,15 @@ export async function previewImport(input: unknown) {
         }),
       },
     });
-    await tx.importRow.createMany({
-      data: parsed.rows.map((row, index) => ({
-        importBatchId: created.id,
-        rowNumber: index + 1,
-        sourceFieldsJson: JSON.stringify(rowToFields(parsed.headers, row)),
-        validationStatus: "WARNING",
-        validationErrorsJson: JSON.stringify(["Map columns and validate before import."]),
-        importDecision: "REVIEW",
-      })),
-    });
+    const stagedRows = parsed.rows.map((row, index) => ({
+      importBatchId: created.id,
+      rowNumber: index + 1,
+      sourceFieldsJson: JSON.stringify(rowToFields(parsed.headers, row)),
+      validationStatus: "WARNING",
+      validationErrorsJson: JSON.stringify(["Map columns and validate before import."]),
+      importDecision: "REVIEW",
+    }));
+    await createImportRowsInChunks(tx, stagedRows);
     await auditChange(tx, {
       householdId: household.id,
       entityType: "ImportBatch",
@@ -284,24 +283,23 @@ export async function validateImport(input: unknown) {
       }),
     );
     markSameFileDuplicates(validatedRows);
-    await tx.importRow.createMany({
-      data: validatedRows.map((row) => ({
-        importBatchId: target.id,
-        rowNumber: row.rowNumber,
-        sourceFieldsJson: JSON.stringify(row.sourceFields),
-        parsedTransactionDate: row.transactionDate,
-        parsedPostedDate: row.postedDate,
-        originalDescription: row.originalDescription,
-        originalAmountText: row.originalAmountText,
-        parsedAmountMinor: row.amountMinor,
-        currency: mapping.currency,
-        duplicateStatus: row.duplicateStatus,
-        duplicateReason: row.duplicateReason,
-        validationStatus: row.validationStatus,
-        validationErrorsJson: JSON.stringify(row.errors),
-        importDecision: row.importDecision,
-      })),
-    });
+    const stagedRows = validatedRows.map((row) => ({
+      importBatchId: target.id,
+      rowNumber: row.rowNumber,
+      sourceFieldsJson: JSON.stringify(row.sourceFields),
+      parsedTransactionDate: row.transactionDate,
+      parsedPostedDate: row.postedDate,
+      originalDescription: row.originalDescription,
+      originalAmountText: row.originalAmountText,
+      parsedAmountMinor: row.amountMinor,
+      currency: mapping.currency,
+      duplicateStatus: row.duplicateStatus,
+      duplicateReason: row.duplicateReason,
+      validationStatus: row.validationStatus,
+      validationErrorsJson: JSON.stringify(row.errors),
+      importDecision: row.importDecision,
+    }));
+    await createImportRowsInChunks(tx, stagedRows);
     const counts = summarizeRows(validatedRows);
     const updated = await tx.importBatch.update({
       where: { id: target.id },
@@ -766,6 +764,16 @@ function parseImportCsv(
   } catch (error) {
     if (error instanceof Error) throw new AppError(error.message, 422);
     throw error;
+  }
+}
+
+async function createImportRowsInChunks(
+  tx: Prisma.TransactionClient,
+  rows: Prisma.ImportRowCreateManyInput[],
+) {
+  const chunkSize = 250;
+  for (let index = 0; index < rows.length; index += chunkSize) {
+    await tx.importRow.createMany({ data: rows.slice(index, index + chunkSize) });
   }
 }
 
