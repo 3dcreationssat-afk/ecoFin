@@ -57,6 +57,55 @@ describe("csv import repositories", () => {
     expect((await imports.setImportProfileArchived(profile.id, true)).archivedAt).toBeTruthy();
   });
 
+  it("previews a CSV near the supported row and file-size limits", async () => {
+    const dashboard = await imports.importDashboard();
+    const account = dashboard.accounts[0];
+    const rows = Array.from(
+      { length: 900 },
+      (_, index) =>
+        `07/10/2026,Synthetic transaction ${index.toString().padStart(4, "0")} ${"x".repeat(120)},-4.25`,
+    );
+    const content = `Date,Description,Amount\n${rows.join("\n")}`;
+
+    const preview = await imports.previewImport({
+      accountId: account.id,
+      filename: "synthetic-large.csv",
+      fileSize: Buffer.byteLength(content, "utf8"),
+      content,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+    });
+
+    expect(preview.status).toBe("PREVIEW");
+    expect(preview.rows).toHaveLength(900);
+  });
+
+  it("returns an actionable validation error when a CSV exceeds the row limit", async () => {
+    const dashboard = await imports.importDashboard();
+    const account = dashboard.accounts[0];
+    const rows = Array.from(
+      { length: 1001 },
+      (_, index) => `07/10/2026,Synthetic transaction ${index},-4.25`,
+    );
+    const content = `Date,Description,Amount\n${rows.join("\n")}`;
+
+    await expect(
+      imports.previewImport({
+        accountId: account.id,
+        filename: "synthetic-too-many-rows.csv",
+        fileSize: Buffer.byteLength(content, "utf8"),
+        content,
+        delimiter: ",",
+        encoding: "UTF-8",
+        hasHeader: true,
+      }),
+    ).rejects.toMatchObject({
+      message: "CSV exceeds the 1000 row limit.",
+      status: 422,
+    });
+  });
+
   it("previews, validates, imports, detects repeats, and undoes signed amount CSV", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[0];

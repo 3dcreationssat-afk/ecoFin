@@ -109,7 +109,10 @@ export async function previewImport(input: unknown) {
   const account = household.accounts.find((item) => item.id === data.accountId && !item.archivedAt);
   if (!account) throw new AppError("Choose an active account for the import.", 422);
 
-  const parsed = parseCsv(data, { delimiter: data.delimiter, hasHeader: data.hasHeader });
+  const parsed = parseImportCsv(data, {
+    delimiter: data.delimiter,
+    hasHeader: data.hasHeader,
+  });
   const fileHash = sha256Text(data.content);
   const repeatedFile = await prisma.importBatch.findFirst({
     where: {
@@ -173,7 +176,10 @@ export async function validateImport(input: unknown) {
   const household = await getHousehold();
   const account = household.accounts.find((item) => item.id === data.accountId && !item.archivedAt);
   if (!account) throw new AppError("Choose an active account for the import.", 422);
-  const parsed = parseCsv(data, { delimiter: data.delimiter, hasHeader: data.hasHeader });
+  const parsed = parseImportCsv(data, {
+    delimiter: data.delimiter,
+    hasHeader: data.hasHeader,
+  });
   const fileHash = sha256Text(data.content);
   const existingTransactions = await prisma.transaction.findMany({
     where: { householdId: household.id, accountId: account.id },
@@ -749,6 +755,18 @@ function rowToFields(headers: string[], row: string[]) {
     fields[header] = row[index] ?? "";
   });
   return fields;
+}
+
+function parseImportCsv(
+  input: Parameters<typeof parseCsv>[0],
+  options: Parameters<typeof parseCsv>[1],
+) {
+  try {
+    return parseCsv(input, options);
+  } catch (error) {
+    if (error instanceof Error) throw new AppError(error.message, 422);
+    throw error;
+  }
 }
 
 function getColumn(fields: Record<string, string>, column: string) {

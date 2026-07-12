@@ -1,5 +1,9 @@
 # Change Ledger
 
+## 2026-07-12
+
+- Corrected CSV preview and validation error handling so expected file-format and import-limit failures return actionable validation messages instead of a generic server error; added near-limit and over-limit regression coverage.
+
 ## 2026-07-11
 
 - Initialized Financial Compass as a Next.js, TypeScript, Tailwind, Prisma, SQLite application.
