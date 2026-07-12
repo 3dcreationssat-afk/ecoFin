@@ -17,6 +17,8 @@
 - Transaction-derived account ledgers with explicit opening anchors, positive-liability convention, reported snapshots, reconciliation, adjustments, and confidence.
 - Validated repository-derived debt payoff planning with saved Avalanche, Snowball, and Custom plans,
   temporary extra-payment scenarios, monthly schedules, comparisons, and data-quality remediation.
+- Isolated saved Decision Scenarios with typed expense, income, recurring cancellation, vehicle,
+  debt, savings, policy, and buffer assumptions plus deterministic comparisons and risks.
 
 ## Preliminary Signals
 
@@ -27,5 +29,6 @@
 
 ## Demonstration or Unavailable Capabilities
 
-- Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, decision simulation, and report export are not implemented.
+- Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, applying
+  scenarios to real records, and report export are not implemented.
 - Disabled controls remain visible only when they identify a planned capability and do not silently perform no action.

@@ -57,6 +57,7 @@ Dependencies:
 ## Increment 3: Transaction Management Parity
 
 Status: Cash Flow, Safe to Save, and validated debt payoff complete; decision scenarios deferred
+Status update: the isolated validated Decision Simulator is complete; applying scenarios is deferred.
 
 Scope:
 

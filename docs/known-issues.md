@@ -1,5 +1,10 @@
 # Known Issues
 
+- Scenario recurring assumptions model one event per active financial period; they are not a
+  multi-year daily cash forecast. Goal dates assume constant monthly contributions.
+- There is no apply-to-real-data workflow. Scenario assumptions intentionally never mutate actual
+  financial records.
+
 - Match suggestions require confirmation and use amount/date proximity; merchant-aware split allocation remains future work.
 - Conservative and Aggressive modes use documented 35% ceiling and 75% floor respectively; richer per-mode reserve presets remain future product policy work.
 

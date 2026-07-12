@@ -4,6 +4,10 @@ Debt rows below retain the original audit evidence. As of 2026-07-12, the valida
 complete: repository-derived summary, strategy selection, precise extra payment, persisted accessible
 custom order, payoff impact, milestones, and bounded monthly schedule are implemented and tested.
 
+Decision rows also retain original evidence. The validated follow-up now implements typed isolated
+scenario persistence, component building, comparisons, timeline, risks, goal/debt/runway impacts,
+responsive behavior, and lifecycle tests; applying a scenario remains intentionally unavailable.
+
 Planning status: expected income, obligations, occurrences, policy recommendations, and retained Safe to Spend are implemented; complex split matching is deferred.
 
 Cash allocation audit: retained reserve, allocatable surplus, recommendation, Safe to Spend, and zero unallocated remainder now reconcile explicitly.

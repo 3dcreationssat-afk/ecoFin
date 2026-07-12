@@ -21,6 +21,10 @@
 
 ## 2026-07-12
 
+- Added isolated typed Decision Scenarios with audited lifecycle/component CRUD, canonical examples,
+  shared Cash Flow/savings/goal/debt evaluation, comparisons, timeline, runway, deterministic risks,
+  confidence, backup/reset/start-fresh integration, responsive UI, and tests.
+
 - Added the validated deterministic Debt Payoff Engine, minimum-only/Avalanche/Snowball/Custom
   comparisons, saved audited plans, extra-payment simulation, schedules, confidence and remediation,
   Debt Planner UI, Overview summary integration, lifecycle/backup support, and tests.

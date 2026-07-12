@@ -9,6 +9,9 @@ Date: 2026-07-12
 
 ## Implemented Capabilities
 
+- Isolated Decision Simulator with durable typed assumptions, audited CRUD/duplicate/archive/delete,
+  shared validated-engine evaluation, goal/debt/runway impacts, risks, confidence, and lifecycle tests.
+
 - Deterministic debt payoff with minimum-only, Avalanche, Snowball, Custom, explicit extra payment,
   rollover, schedule, saved/audited plan state, confidence, and invalid-metadata blocking.
 
@@ -34,7 +37,7 @@ Date: 2026-07-12
 ## Demonstration-only Capabilities
 
 - Seed data is synthetic demonstration data.
-- Report export and the general decision scenario engine remain unavailable.
+- Report export and applying scenarios to real data remain unavailable.
 - Planned controls are visible but disabled for later phases.
 - Transfer and recurring detection are deterministic and local; they are not AI, bank-connected, or automated account-management services.
 

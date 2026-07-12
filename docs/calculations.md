@@ -2,6 +2,9 @@
 
 ## Implemented
 
+- Decision scenarios apply typed in-memory overlays and reuse Cash Flow, savings policy, goal
+  completion, and debt payoff engines. Metric deltas remain integer minor units.
+
 - Debt payoff uses positive liability ledgers, integer monthly interest rounding, payments after
   interest, exact final-payment caps, a 600-month horizon, minimum-only comparison, strategy rollover,
   and deterministic confidence as documented in `debt-payoff-engine.md`.
@@ -46,7 +49,6 @@
 
 ## Preliminary or Unavailable
 
-- The general decision simulator remains unavailable.
 - Overview reserved status is limited to `Planned`, `Not specifically reserved`, or `Unknown`; there is no reservation engine.
 
 ## Planned

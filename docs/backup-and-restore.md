@@ -3,6 +3,9 @@
 Current-schema SQLite backups include `DebtPlan` and `DebtPlanOrder`; the manifest reports plan count.
 Generated payoff schedules are recalculated and therefore are not persisted backup records.
 
+Backups include `DecisionScenario` and `DecisionScenarioComponent`, with both counts in the manifest.
+Scenario evaluation output is reproducible and is not stored in the archive.
+
 Manifests and validation include planning schedules and occurrences; household policy fields travel with the SQLite household record.
 
 Financial Compass Phase 2B implements local backup and restore for the active SQLite database.
