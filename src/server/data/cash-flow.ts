@@ -4,6 +4,10 @@ import { AppError } from "./errors";
 import { ensurePlanningOccurrences } from "./planning";
 
 export async function getCashFlowProjection(asOf = new Date()) {
+  return calculateCashFlow(await getCashFlowInput(asOf));
+}
+
+export async function getCashFlowInput(asOf = new Date()) {
   const occurrenceEnd = new Date(asOf);
   occurrenceEnd.setUTCFullYear(occurrenceEnd.getUTCFullYear() + 1);
   await ensurePlanningOccurrences(occurrenceEnd);
@@ -19,7 +23,7 @@ export async function getCashFlowProjection(asOf = new Date()) {
     },
   });
   if (!household) throw new AppError("Household not found. Run npm run db:seed.", 404);
-  return calculateCashFlow({
+  return {
     asOf,
     financialMonthStart: household.financialMonthStart,
     checkingBufferMinor: household.checkingBufferMinor,
@@ -43,7 +47,7 @@ export async function getCashFlowProjection(asOf = new Date()) {
         household.emergencyShortfallIncreasesRecommendation,
       conservativeAdjustmentBps: household.conservativeConfidenceAdjustmentBps,
     },
-  });
+  };
 }
 
 export function cashAllocationSummary(
