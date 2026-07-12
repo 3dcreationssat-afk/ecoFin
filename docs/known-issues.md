@@ -1,7 +1,7 @@
 # Known Issues
 
-- Emergency goals are explicitly identified by the current goal naming contract; a dedicated goal
-  purpose field and household-configurable runway-month target are not yet persisted.
+- Settings currently edits one emergency source at a time, while the normalized service supports
+  multiple account links. Goal-linked protected-amount mode is not implemented.
 
 - Scenario first-year and bounded totals use monthly-anniversary assumptions; they are not a
   multi-year daily cash forecast and do not model within-month proration. Goal dates assume constant

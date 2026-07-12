@@ -10,6 +10,10 @@ Flow, goal projection, and debt payoff. Only definitions persist; evaluated resu
 
 Planning schemas and recurrence/policy rules live in `src/domain/planning`; audited orchestration and match suggestions live in `src/server/data/planning.ts`.
 
+`EmergencyFundConfiguration` owns household enabled state and targets. Normalized
+`EmergencyFundAccount` rows own validated account designations and amount modes. Goal purpose is
+durable planning metadata, not a source-selection mechanism.
+
 Financial-period and Cash Flow calculations live in `src/domain/cash-flow`. `src/server/data/cash-flow.ts` maps SQLite records into the pure engine; server pages pass its serializable result to focused visualization.
 
 ## Implemented

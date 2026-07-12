@@ -4,7 +4,8 @@
 
 - Emergency runway is centralized as eligible explicitly mapped emergency protection divided by
   deduplicated essential average monthly obligations; component provenance and confidence are
-  returned with the ratio.
+  returned with the ratio. Eligibility and both amount/runway targets come from persisted
+  configuration rather than display names.
 
 - Decision scenarios apply typed in-memory overlays and reuse Cash Flow, savings policy, goal
   completion, and debt payoff engines. Upfront, recurring-monthly, current-period, first-12-month,

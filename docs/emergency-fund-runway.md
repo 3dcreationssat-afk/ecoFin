@@ -10,11 +10,12 @@ runway.
 
 ## Numerator
 
-An eligible source is an active goal explicitly named as an emergency fund and linked to an active
-asset account. The protected amount is the smallest of the goal's current amount, goal target, and
-linked account ledger balance. General checking, unrelated goals, unlinked savings, investments,
-credit availability, and expected income are excluded. An account mapped by multiple emergency goals
-is counted once and lowers confidence.
+An eligible source is an active Savings, Checking, or Cash account explicitly linked through the
+household emergency configuration. General savings, liabilities, archived accounts, investments,
+credit availability, and expected income are excluded. Display names never designate funds.
+
+Each account uses `ENTIRE_BALANCE` or `FIXED_AMOUNT`. Entire balance uses its positive ledger; fixed
+amount is capped by that ledger. Both are capped by the remaining household amount target.
 
 An explicitly emergency-funded scenario withdrawal reduces the protected amount. A one-time cost
 funded from another account does not change the numerator.
@@ -40,8 +41,8 @@ twice-monthly × 2, monthly unchanged, quarterly ÷ 3, semiannual ÷ 6, and annu
 Eligible balance:
 
 - High-Yield Savings ledger: $14,200.00
-- Emergency Fund protected progress: $8,400.00
-- Eligible amount (the lower protected amount): **$8,400.00**
+- Fixed configured protection: $8,400.00
+- Eligible amount after ledger/target caps: **$8,400.00**
 
 Essential monthly obligations:
 
@@ -77,5 +78,6 @@ also counted the mortgage through both its schedule and debt minimum. The older 
 Runway confidence is Limited when no eligible emergency source exists, a mapping is archived or
 duplicated, an essential obligation lacks required inputs, a debt minimum is missing, a possible
 scheduled duplicate exists, or the denominator is zero. A zero denominator produces `Unavailable`,
-not a precise ratio. Data Quality exposes these conditions and a three-month review threshold. A
-household-configurable runway-month target is not yet persisted.
+not a precise ratio. Data Quality compares it with the persisted 1–24 month household target (three
+months by default). Goals have explicit purposes; an emergency goal is planning metadata, never a
+second cash source, and renaming it does not change runway.

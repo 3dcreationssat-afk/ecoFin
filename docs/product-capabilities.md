@@ -6,6 +6,8 @@
 - Deterministic financial-month projection, explainable Safe to Save/Safe to Spend, protection reserves, running timeline, and confidence remediation are implemented from SQLite records.
 - Explainable emergency runway uses one shared, deduplicated monthly-essential calculation across
   Cash Flow, Decisions, and Data Quality.
+- Explicit emergency configuration supports liquid-account selection, fixed or entire-balance
+  protection, persisted amount/runway targets, audited writes, and goal-purpose metadata.
 
 ## Implemented Local Capabilities
 

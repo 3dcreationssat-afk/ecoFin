@@ -1,5 +1,8 @@
 # Privacy And Security
 
+Emergency configuration, account links, and targets stay in local SQLite and never collect account
+credentials or remote provider identifiers.
+
 Debt plans and custom account order remain in local SQLite and local backups. The payoff engine makes
 no network requests and sends no financial data to lenders, analytics, AI, or external services.
 

@@ -10,6 +10,8 @@ Cash after obligations and protections is the upstream financial result. The ret
 
 For the canonical demo: `$18,093.58 - $1,750.00 = $16,343.58` allocatable. Balanced recommends `$8,171.79`, Safe to Spend is `$8,171.79`, and unallocated surplus is `$0.00`. Both identities reconcile to the cent.
 
-The checking buffer is a combined household checking target. Emergency protection uses only an explicitly linked emergency-fund goal: its current protected amount is withheld from spendable cash, the target shortfall is shown separately, and its monthly goal plan is not deducted twice.
+The checking buffer is a combined household checking target. Emergency protection uses only explicit
+household configuration and eligible account links. A related goal remains planning metadata and is
+not counted as a second cash source.
 
 Reserves show known amounts such as reconciliation differences and duplicate candidates. Missing anchors, stale snapshots, incomplete imports, missing debt terms, unmapped emergency funds, unconfirmed recurring items, and mixed provenance lower deterministic confidence and provide remediation links. No blanket percentage or AI score is used.

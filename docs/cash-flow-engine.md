@@ -12,7 +12,8 @@ Precedence prevents double counting: recorded contributions satisfy goal plans f
 
 Emergency runway uses the shared numerator, essential monthly denominator, normalization,
 deduplication, and confidence rules in `emergency-fund-runway.md`. It is distinct from the
-current-period Cash Flow obligation total.
+current-period Cash Flow obligation total. Eligibility, protected amount, amount target, and runway
+target come only from explicit persisted configuration.
 
 Timeline events are Recorded, Scheduled, Forecast, or User assumption and retain their persisted source. The engine never fabricates paycheck dates from `incomeSchedule` or isolated history.
 

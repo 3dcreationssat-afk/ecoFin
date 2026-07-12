@@ -4,6 +4,9 @@ Validated Cash Flow, Safe to Save/Safe to Spend, debt payoff, and isolated decis
 
 Financial Compass is a private, local-first personal finance decision-support application for one household.
 
+Emergency protection uses explicit persisted account designations, protected-amount modes, and a
+configurable runway target; mutable display names never confer financial meaning.
+
 It helps a household understand income, spending, debts, recurring expenses, goals, data quality, and future decision tradeoffs. It is not a bank, accounting platform, tax product, investment adviser, credit counselor, bill-payment service, credit-score estimator, or substitute for professional financial advice.
 
 ## Current Status

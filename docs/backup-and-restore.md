@@ -1,5 +1,8 @@
 # Backup And Restore
 
+Manifest counts and validation include emergency configurations and normalized account links.
+Restore preserves designation, amount modes, targets, goal purposes, and audit history.
+
 Current-schema SQLite backups include `DebtPlan` and `DebtPlanOrder`; the manifest reports plan count.
 Generated payoff schedules are recalculated and therefore are not persisted backup records.
 

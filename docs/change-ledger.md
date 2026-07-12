@@ -21,6 +21,10 @@
 
 ## 2026-07-12
 
+- Added explicit emergency configuration, normalized account links, protected-amount modes,
+  persisted amount/runway targets, goal purposes, audited Settings controls, lifecycle support, and
+  target-aware warnings.
+
 - Centralized emergency runway, corrected recurring-income and linked-mortgage double counting,
   added component explanations and deterministic Data Quality signals, and reconciled canonical
   Cash Flow and Decision values.

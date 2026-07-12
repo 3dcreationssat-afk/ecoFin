@@ -51,3 +51,6 @@ an unaffordable fixed plan is warned about rather than silently reduced.
 Debt extra payments use the existing payoff approximation. Vehicle scenarios use only user-entered
 cash assumptions and do not estimate APR, tax, depreciation, resale value, or insurance. Tax,
 investment, credit-score, refinancing, AI, and real-data application workflows are out of scope.
+
+Emergency-funded assumptions match explicit configured account IDs. Scenario warnings use the
+persisted runway target and never mutate saved configuration.

@@ -6,6 +6,8 @@
 - Cash Flow and Safe to Save are repository-derived and explainable. Expected-income and general scheduled-obligation CRUD remain documented limitations rather than fabricated projections.
 - Emergency runway is repository-derived, integer-normalized, source-explainable, and shared by Cash
   Flow and Decision scenarios; incomplete inputs lower runway confidence.
+- Emergency designation and targets are persisted, validated, audited, backup-safe, restored by demo
+  reset, and disabled explicitly by Start Fresh.
 
 Date: 2026-07-12
 
