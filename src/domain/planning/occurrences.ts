@@ -56,25 +56,46 @@ export function savingsRecommendation(input: {
   confidence: string;
   conservativeAdjustmentBps: number;
 }) {
-  const retained =
+  const cashAfterObligationsAndProtectionsMinor = input.maximumSurplusMinor;
+  const requestedRetained =
     Math.max(
       input.discretionaryReserveMinor,
       input.minimumCashRetainedMinor - input.startingCashMinor,
       0,
     ) + input.extraSafetyReserveMinor;
-  const available = Math.max(0, input.maximumSurplusMinor - retained);
-  const target = Math.floor((input.maximumSurplusMinor * input.targetBps) / 10000);
-  const recommended = Math.max(0, Math.min(available, target));
-  const confidenceReduction =
+  const retained = Math.min(
+    Math.max(0, cashAfterObligationsAndProtectionsMinor),
+    requestedRetained,
+  );
+  const allocatable = Math.max(0, cashAfterObligationsAndProtectionsMinor - retained);
+  const effectiveTargetBps =
+    input.mode === "CONSERVATIVE"
+      ? Math.min(input.targetBps, 3500)
+      : input.mode === "AGGRESSIVE"
+        ? Math.max(input.targetBps, 7500)
+        : input.targetBps;
+  const target = Math.floor((allocatable * effectiveTargetBps) / 10000);
+  const recommended = Math.max(0, Math.min(allocatable, target));
+  const adjustmentBps =
     input.confidence === "HIGH"
       ? 0
-      : Math.floor((recommended * input.conservativeAdjustmentBps) / 10000);
+      : input.confidence === "LIMITED"
+        ? Math.min(10000, input.conservativeAdjustmentBps * 2)
+        : input.conservativeAdjustmentBps;
+  const confidenceReduction = Math.floor((recommended * adjustmentBps) / 10000);
   const conservative = Math.max(0, recommended - confidenceReduction);
+  const safeToSpend = Math.max(0, allocatable - recommended);
+  const unallocated = allocatable - recommended - safeToSpend;
   return {
-    retainedDiscretionaryMinor: retained,
+    cashAfterObligationsAndProtectionsMinor,
+    retainedSafetyReserveMinor: retained,
+    allocatableSurplusMinor: allocatable,
     recommendedMinor: recommended,
     conservativeMinor: conservative,
-    safeToSpendMinor: Math.max(0, input.maximumSurplusMinor - recommended),
+    safeToSpendMinor: safeToSpend,
+    unallocatedSurplusMinor: unallocated,
     policyCapMinor: target,
+    effectiveTargetBps,
+    conservativeReductionMinor: confidenceReduction,
   };
 }
