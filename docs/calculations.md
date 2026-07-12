@@ -14,6 +14,11 @@
 - Percentage values shown in demonstration-only financial engines remain synthetic display values.
 - Date and duration formatting are not centralized yet; current date and duration strings are static demonstration values.
 - CSV statement dates are persisted as date-only UTC-midnight values after explicit date-format parsing.
+- Transfer candidate scoring is deterministic. It requires same household, different accounts, exact opposite-sign amount, non-zero value, and date proximity within three days.
+- Transfer scoring adds explainable points for exact date, one-day proximity, two-to-three-day proximity, transfer/payment language, account-name references, checking-to-savings pairing, and checking-to-credit-card payment pairing.
+- Transfer confidence is `HIGH` at 85 or above, `MEDIUM` from 65 to 84, and `LOW` below 65.
+- Confirmed `TRANSFER_OUT` and `TRANSFER_IN` transactions are excluded from household income, household spending, category spending, merchant spending, and budget actuals. They remain included in account activity and cash movement views.
+- Credit-card payments are treated as internal transfers only after confirmation. Interest, fees, refunds, and statement credits remain expenses/refunds and are not automatic payment candidates.
 
 ## Demonstration Only
 

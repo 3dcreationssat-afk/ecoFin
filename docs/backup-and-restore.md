@@ -24,6 +24,7 @@ Financial Compass Phase 2B implements local backup and restore for the active SQ
 - The active SQLite file is replaced only after validation passes.
 - If post-replacement validation fails, the service copies the pre-restore recovery file back into place and records an automatic rollback audit entry.
 - Restore source metadata is recorded in `BackupRecord` with status `RESTORED_FROM`.
+- Transfer relationships are stored in SQLite and are preserved by backup and restore.
 
 ## Validation Rules
 
@@ -38,6 +39,7 @@ Backup validation rejects:
 - mismatched database SHA-256
 - non-SQLite files or SQLite databases failing integrity checks
 - databases missing required Phase 2B tables
+- databases missing the Phase 2C `TransferMatch` table
 
 ## User Interfaces
 
@@ -59,5 +61,6 @@ Do not commit, upload, email, or share backup ZIP files. Store them only in a lo
 
 - Backup/restore is local-only and does not sync to cloud storage.
 - Restore supports only the same application version and same committed migration fingerprint.
+- Restore supports transfer relationships only for the same schema fingerprint.
 - There is no selective restore, merge UI, encrypted archive format, remote backup provider, or scheduled backup job.
 - Demo reset clears backup metadata in SQLite but does not delete ZIP files already written under `backups/local/`.

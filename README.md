@@ -6,7 +6,7 @@ It helps a household understand income, spending, debts, recurring expenses, goa
 
 ## Current Status
 
-Phase 2B local backup and restore is implemented on top of the completed Phase 2A CSV import foundation.
+Phase 2C explainable transfer matching is implemented on top of the completed Phase 2B backup and restore foundation.
 
 Implemented:
 
@@ -18,12 +18,13 @@ Implemented:
 - Immutable original transaction fields for normal drawer edits.
 - Secure CSV transaction import with preview, explicit mapping, validation, duplicate review, reusable profiles, import-batch history, audit records, and safe batch undo.
 - Local SQLite backup and restore with manifest validation, SHA-256 verification, mandatory pre-restore safety backup, rollback on failed restore, audit records, Settings UI, and CLI scripts.
+- Explainable transfer detection, manual confirmation/rejection, manual matching, unmatching, credit-card payment handling, audit records, data-quality signals, and household reporting exclusion for confirmed transfers.
 - Synthetic seed/reset flow for one local demo household.
 - Repository-derived overview, accounts, transactions, goals, settings, and data-quality values.
 
 Still planned:
 
-- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic transfer pairing, recurring detection, automatic merchant rules, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
+- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic recurring detection, automatic merchant rules, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
 - Production-grade safe-to-save, cash-flow, budget forecast, debt payoff, recurring, and decision scenario engines.
 
 ## Local Setup
@@ -82,6 +83,8 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - Monetary domain values use integer minor units.
 - User-entered decimal strings are parsed centrally before persistence.
 - CSV amounts support signed amount columns and separate debit/credit columns with explicit sign convention, decimal separator, and thousands separator.
+- Confirmed transfers are directional transaction classifications: `TRANSFER_OUT` and `TRANSFER_IN`.
+- Household income and spending exclude confirmed transfers; account activity still shows both transaction records.
 - APR values use basis points, for example `2149` means `21.49%`.
 - Demonstration-only financial screens remain labeled until validated engines exist.
 
@@ -91,6 +94,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA` and runs through a server-side reset service.
 - In-app backup creation writes an application-controlled local ZIP package with `database.sqlite`, `manifest.json`, and `README.txt`.
 - Restore requires validation, the exact phrase `RESTORE BACKUP`, and a mandatory pre-restore safety backup.
+- Backup/restore includes transfer relationships and requires the current transfer schema fingerprint.
 
 ## Verification
 
@@ -119,3 +123,4 @@ Key implementation records live in:
 - `docs/known-issues.md`
 - `docs/phase-1-audit.md`
 - `docs/privacy-and-security.md`
+- `docs/transfer-matching.md`

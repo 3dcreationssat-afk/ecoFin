@@ -27,6 +27,7 @@ Uploaded CSV file contents are parsed locally and are not stored permanently. Im
 7. Confirm import with the explicit confirmation contract.
 8. Review summary and batch history.
 9. Undo a batch when no imported transactions were materially edited.
+10. Review any transfer candidates found after import.
 
 Transactions are not created until explicit confirmation.
 
@@ -109,6 +110,10 @@ Duplicate candidates are never silently discarded. The user can import, skip, or
 Undo removes only transactions created by the selected import batch, records an audit event, and marks the batch `UNDONE`. Audit history and batch metadata remain.
 
 Undo is blocked when imported transactions were materially edited after import, including category assignment, note changes, exclusion changes, review-status changes, or merchant normalization changes.
+
+Undo is also blocked when imported transactions participate in confirmed transfer matches. Unmatch the transfer before undoing the batch.
+
+After import confirmation, transfer candidate generation runs for imported transactions. It never confirms automatically and records a recoverable warning in batch metadata if scanning fails.
 
 ## Security Notes
 

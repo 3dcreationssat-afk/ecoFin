@@ -18,6 +18,8 @@ Financial Compass is local-first.
 - Local backup packages are created under `backups/local/`, are ignored by Git, and contain complete unencrypted SQLite financial data.
 - Restore validation rejects corrupt, oversized, unsupported, unsafe, hash-mismatched, schema-mismatched, and SQLite-integrity-failing packages before replacement.
 - Restore creates a mandatory pre-restore safety backup and attempts automatic rollback if the active database fails post-restore validation.
+- Transfer matching is local deterministic logic. It does not use external bank APIs, remote AI, telemetry, or cloud services.
+- Transfer audit records store relationship identifiers, status changes, reasons, and bounded notes rather than full transaction snapshots.
 
 ## Prohibited Data
 

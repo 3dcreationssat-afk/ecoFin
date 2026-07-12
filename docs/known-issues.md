@@ -8,6 +8,8 @@
 - Base44 screenshots were used as static references; exact pixel values are estimated.
 - Report Print, CSV, and HTML export controls are disabled because export is not implemented.
 - Backup/restore is local-only, unencrypted, same-version/same-schema only, and has no selective restore, scheduled backup, remote provider, or merge workflow.
+- Transfer matching supports exact same-currency one-to-one matches only. Fees, partial transfers, aggregated transfers, currency conversion, investment transfers, and recurring-transfer detection are not implemented.
+- Transfer suggestions are conservative and must be manually confirmed; no transfer is auto-confirmed.
 - Demo reset is single-household and intended for the synthetic local dataset only.
 - Date and duration formatting are not fully centralized.
 - `npm audit` and `npm audit --omit=dev` report a moderate Next.js/PostCSS advisory. The reported fix is a semver-major downgrade to `next@9.3.3`, so it was not applied.

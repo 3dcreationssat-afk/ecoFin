@@ -23,10 +23,15 @@
 - Batch undo removes only transactions created by the selected batch and is blocked after material transaction edits.
 - Local backup creation snapshots the active SQLite database into `backups/local/` with a manifest, SHA-256 database hash, schema fingerprint, table counts, validation result, and `BackupRecord` metadata.
 - Restore validates an uploaded backup package, creates a mandatory pre-restore safety backup, swaps the SQLite file only after validation, records restore-source metadata, and rolls back from a recovery copy if post-restore validation fails.
+- Transfer matching uses a durable `TransferMatch` model linking outgoing and incoming transactions without merging records.
+- Transfer candidate generation is idempotent and explainable. Confirmation and unmatching run in database transactions and audit the reporting impact.
+- Confirmed transfers set directional transaction types `TRANSFER_OUT` and `TRANSFER_IN` so household reporting can neutralize the pair while account activity remains visible.
 
 ## Future Ingestion Extension Point
 
 Future connected-bank providers should feed parsed source records into the same staging and normalization boundary used by CSV imports. `BANK_CONNECTION` is reserved as a source type, but no provider API, Plaid connection, webhook, or background synchronization is implemented.
+
+Future ingestion providers must not auto-confirm transfers. They may add source metadata for the same transfer candidate service.
 
 ## Planned
 
