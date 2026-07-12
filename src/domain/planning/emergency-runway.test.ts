@@ -8,6 +8,19 @@ function input(): CashFlowInput {
     financialMonthStart: 1,
     checkingBufferMinor: 100_000,
     emergencyFundTargetMinor: 600_000,
+    emergencyFundConfiguration: {
+      enabled: true,
+      targetAmountMinor: 600_000,
+      targetRunwayMonths: 3,
+      accounts: [
+        {
+          accountId: "savings",
+          includedAmountMode: "FIXED_AMOUNT",
+          fixedProtectedAmountMinor: 300_000,
+          sortOrder: 0,
+        },
+      ],
+    },
     workspaceMode: "USER_DATA",
     accounts: [
       account("checking", "Checking", "CHECKING", 900_000),
@@ -20,6 +33,7 @@ function input(): CashFlowInput {
       {
         id: "emergency",
         name: "Emergency Fund",
+        purpose: "EMERGENCY_FUND",
         plannedMonthlyMinor: 20_000,
         currentMinor: 300_000,
         targetMinor: 600_000,
@@ -98,12 +112,70 @@ describe("emergency runway", () => {
     });
   });
 
+  it("does not infer emergency behavior from a goal name", () => {
+    const data = input();
+    data.emergencyFundConfiguration = null;
+    expect(calculateEmergencyRunway(data).eligibleBalanceMinor).toBe(0);
+  });
+
+  it("keeps behavior unchanged when the explicitly classified goal is renamed", () => {
+    const data = input();
+    const before = calculateEmergencyRunway(data).eligibleBalanceMinor;
+    data.goals[0].name = "Rainy Day Reserve";
+    expect(calculateEmergencyRunway(data).eligibleBalanceMinor).toBe(before);
+  });
+
+  it("supports entire-balance mode capped by the configured target", () => {
+    const data = input();
+    data.emergencyFundConfiguration!.targetAmountMinor = 400_000;
+    data.emergencyFundConfiguration!.accounts[0].includedAmountMode = "ENTIRE_BALANCE";
+    expect(calculateEmergencyRunway(data).eligibleBalanceMinor).toBe(400_000);
+  });
+
+  it("supports multiple eligible accounts without counting goal metadata", () => {
+    const data = input();
+    data.emergencyFundConfiguration!.targetAmountMinor = 1_000_000;
+    data.emergencyFundConfiguration!.accounts.push({
+      accountId: "checking",
+      includedAmountMode: "FIXED_AMOUNT",
+      fixedProtectedAmountMinor: 200_000,
+      sortOrder: 1,
+    });
+    expect(calculateEmergencyRunway(data).eligibleBalanceMinor).toBe(500_000);
+  });
+
+  it("rejects archived and liability sources from the numerator", () => {
+    const data = input();
+    data.emergencyFundConfiguration!.accounts = [
+      {
+        accountId: "card",
+        includedAmountMode: "ENTIRE_BALANCE",
+        fixedProtectedAmountMinor: null,
+        sortOrder: 0,
+      },
+    ];
+    const liability = calculateEmergencyRunway(data);
+    expect(liability.eligibleBalanceMinor).toBe(0);
+    expect(liability.confidence).toBe("LIMITED");
+    data.emergencyFundConfiguration!.accounts[0].accountId = "savings";
+    data.accounts.find((account) => account.id === "savings")!.archivedAt = data.asOf;
+    expect(calculateEmergencyRunway(data).eligibleBalanceMinor).toBe(0);
+  });
+
+  it("compares runway with the configured household target", () => {
+    const result = calculateEmergencyRunway(input());
+    expect(result.targetRunwayMonths).toBe(3);
+    expect(result.meetsRunwayTarget).toBe(false);
+  });
+
   it("does not count an account twice through duplicate emergency goals", () => {
     const data = input();
-    data.goals.push({ ...data.goals[0], id: "emergency-2" });
+    data.emergencyFundConfiguration!.accounts.push({
+      ...data.emergencyFundConfiguration!.accounts[0],
+    });
     const result = calculateEmergencyRunway(data);
     expect(result.eligibleBalanceMinor).toBe(300_000);
-    expect(result.issues.join(" ")).toContain("more than one emergency-fund goal");
+    expect(result.issues.join(" ")).toContain("mapped more than once");
   });
 
   it("includes essentials and debt minimums but excludes optional and one-time costs", () => {
@@ -180,12 +252,14 @@ describe("emergency runway", () => {
   it("returns zero runway for a configured zero emergency balance", () => {
     const data = input();
     data.goals[0].currentMinor = 0;
+    data.emergencyFundConfiguration!.accounts[0].fixedProtectedAmountMinor = 0;
     expect(calculateEmergencyRunway(data).runwayBasisPoints).toBe(0);
   });
 
   it("rounds the runway ratio to the nearest basis point using integer math", () => {
     const data = input();
     data.goals[0].currentMinor = 100_001;
+    data.emergencyFundConfiguration!.accounts[0].fixedProtectedAmountMinor = 100_001;
     data.scheduledObligations = [obligation("rent", "Rent", 30_000, "ESSENTIAL")];
     data.accounts = data.accounts.filter((item) => item.id !== "card");
     expect(calculateEmergencyRunway(data).runwayBasisPoints).toBe(33_334);

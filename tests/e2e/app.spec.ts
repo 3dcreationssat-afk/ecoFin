@@ -131,6 +131,45 @@ test("settings tabs, privacy, and household persistence work after reload", asyn
   await expect(page.getByText("Info: The calendar day")).toBeVisible();
 });
 
+test("explicit emergency configuration survives goal rename and validates targets", async ({
+  page,
+}) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
+  await page.goto("/settings#household");
+  await expect(page.getByRole("heading", { name: "Emergency Fund" })).toBeVisible();
+  await page.getByLabel("Target runway in months").fill("4");
+  await page.getByRole("button", { name: "Save emergency fund" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Linked emergency account").selectOption({ index: 1 });
+  await page.getByRole("textbox", { name: /^Protected amount/ }).fill("5000.00");
+  await page.getByRole("button", { name: "Save emergency fund" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Target runway in months").fill("25");
+  await page.getByRole("button", { name: "Save emergency fund" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "24" })).toBeVisible();
+  await page.getByLabel("Target runway in months").fill("4");
+
+  await page.goto("/cash-flow");
+  await expect(page.getByRole("heading", { name: "Emergency runway" })).toBeVisible();
+  const before = await page
+    .getByRole("heading", { name: "Emergency runway" })
+    .locator("..")
+    .innerText();
+  await page.goto("/goals");
+  await page.getByRole("button", { name: "Emergency Fund" }).click();
+  await page.getByLabel("Goal name").fill("Rainy Day Reserve");
+  await page.getByRole("button", { name: "Save goal" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.goto("/cash-flow");
+  const after = await page
+    .getByRole("heading", { name: "Emergency runway" })
+    .locator("..")
+    .innerText();
+  expect(after).toBe(before);
+});
+
 test("mobile navigation reaches accounts", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -857,7 +896,7 @@ test("start fresh empties demo data, updates badges, and preserves navigation pr
     await expect(page.getByText("Whole Foods Market")).toHaveCount(0);
     await page.goto("/goals");
     await expect(page.getByRole("heading", { name: "No goals yet." })).toBeVisible();
-    await expect(page.getByText("Emergency Fund")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Emergency Fund" })).toHaveCount(0);
     await page.goto("/decisions");
     await expect(
       page.getByRole("heading", { name: "Explore a decision without changing real records." }),

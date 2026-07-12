@@ -11,6 +11,19 @@ function cashInput(): CashFlowInput {
     financialMonthStart: 1,
     checkingBufferMinor: 100_000,
     emergencyFundTargetMinor: 600_000,
+    emergencyFundConfiguration: {
+      enabled: true,
+      targetAmountMinor: 600_000,
+      targetRunwayMonths: 3,
+      accounts: [
+        {
+          accountId: "checking",
+          includedAmountMode: "FIXED_AMOUNT",
+          fixedProtectedAmountMinor: 300_000,
+          sortOrder: 0,
+        },
+      ],
+    },
     workspaceMode: "USER_DATA",
     accounts: [
       {
@@ -59,6 +72,7 @@ function cashInput(): CashFlowInput {
       {
         id: "emergency",
         name: "Emergency Fund",
+        purpose: "EMERGENCY_FUND",
         plannedMonthlyMinor: 20_000,
         currentMinor: 300_000,
         targetMinor: 600_000,

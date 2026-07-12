@@ -193,6 +193,11 @@ describe("persistent repositories", () => {
       0,
     );
     expect(await prismaModule.prisma.goal.count({ where: { name: "Reset Test Goal" } })).toBe(0);
+    expect(await prismaModule.prisma.emergencyFundConfiguration.findFirst()).toMatchObject({
+      enabled: true,
+      targetAmountMinor: 1_500_000,
+      targetRunwayMonths: 3,
+    });
     expect(
       await prismaModule.prisma.auditLog.count({
         where: { action: "demo_reset", source: "reset" },
@@ -259,6 +264,10 @@ describe("persistent repositories", () => {
       recurringExpenses: 0,
     });
     expect(await repositories.workspaceState()).toBe("EMPTY");
+    expect(await prismaModule.prisma.emergencyFundConfiguration.findFirst()).toMatchObject({
+      enabled: false,
+      targetRunwayMonths: 3,
+    });
     expect(await prismaModule.prisma.transactionSavedView.count()).toBe(0);
     expect(await prismaModule.prisma.backupRecord.count({ where: { id: backup.id } })).toBe(1);
     expect(existsSync(backupPath)).toBe(true);

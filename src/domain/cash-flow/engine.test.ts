@@ -90,10 +90,24 @@ describe("cash-flow engine", () => {
   it("deducts only remaining planned savings and protects explicitly mapped emergency funds", () => {
     const input = base();
     input.emergencyFundTargetMinor = 50000;
+    input.emergencyFundConfiguration = {
+      enabled: true,
+      targetAmountMinor: 50000,
+      targetRunwayMonths: 3,
+      accounts: [
+        {
+          accountId: "checking",
+          includedAmountMode: "FIXED_AMOUNT",
+          fixedProtectedAmountMinor: 30000,
+          sortOrder: 0,
+        },
+      ],
+    };
     input.goals = [
       {
         id: "goal",
         name: "Emergency Fund",
+        purpose: "EMERGENCY_FUND",
         plannedMonthlyMinor: 10000,
         currentMinor: 30000,
         targetMinor: 50000,

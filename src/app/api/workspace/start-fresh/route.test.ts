@@ -70,6 +70,10 @@ describe("start fresh API route", () => {
       },
       database: { provider: "sqlite", filename: "vitest-start-fresh.db" },
     });
+    expect(await prismaModule.prisma.emergencyFundConfiguration.findFirst()).toMatchObject({
+      enabled: false,
+      targetRunwayMonths: 3,
+    });
   });
 
   it("returns a structured failure response without a raw stack trace", async () => {
