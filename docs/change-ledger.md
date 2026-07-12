@@ -5,6 +5,7 @@
 - Corrected CSV preview and validation error handling so expected file-format and import-limit failures return actionable validation messages instead of a generic server error; added near-limit and over-limit regression coverage.
 - Raised the CSV import ceiling from 1,000 to 10,000 rows and staged import rows in bounded SQLite batches so normal multi-year household exports can be previewed and validated safely.
 - Improved account-form validation feedback by preserving field-specific server messages and constraining debt payment and statement days to valid calendar-day values.
+- Made duplicate-candidate handling explicitly user-controlled: unresolved candidates now block confirmation until each is deliberately marked Import or Skip, with matching client and server enforcement.
 
 ## 2026-07-11
 

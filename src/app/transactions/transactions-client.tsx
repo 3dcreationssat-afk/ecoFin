@@ -192,7 +192,7 @@ const duplicateStatusLabels: Record<string, string> = {
 const decisionLabels: Record<string, string> = {
   IMPORT: "Import",
   SKIP: "Skip",
-  REVIEW: "Review later",
+  REVIEW: "Choose Import or Skip",
 };
 
 const batchStatusLabels: Record<string, string> = {
@@ -954,6 +954,18 @@ function ImportDialog({
 
   async function confirm() {
     if (!batch) return;
+    const unresolvedDuplicateRows = batch.rows.filter(
+      (row) =>
+        row.validationStatus !== "INVALID" &&
+        row.duplicateStatus !== "NONE" &&
+        (decisions[row.id] ?? row.importDecision) === "REVIEW",
+    );
+    if (unresolvedDuplicateRows.length) {
+      setError(
+        `Choose Import or Skip for every duplicate candidate before confirming. Unresolved rows: ${unresolvedDuplicateRows.map((row) => row.rowNumber).join(", ")}.`,
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     const response = await postJson("/api/imports/confirm", {
@@ -1229,6 +1241,20 @@ function ImportDialog({
           {step >= 6 && step <= 8 ? (
             <div className="space-y-5">
               <ValidationSummary batch={batch} />
+              {batch?.rows.some(
+                (row) =>
+                  row.validationStatus !== "INVALID" &&
+                  row.duplicateStatus !== "NONE" &&
+                  (decisions[row.id] ?? row.importDecision) === "REVIEW",
+              ) ? (
+                <div
+                  role="alert"
+                  className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                >
+                  Duplicate matches are candidates, not confirmed duplicates. Choose Import or Skip
+                  for each candidate before confirming; Financial Compass will not decide for you.
+                </div>
+              ) : null}
               {batch?.repeatedFile ? (
                 <div
                   role="alert"
@@ -1248,7 +1274,21 @@ function ImportDialog({
                 </div>
               ) : null}
               <ReviewRows batch={batch} decisions={decisions} setDecisions={setDecisions} />
-              <Button onClick={confirm} disabled={busy || (batch?.repeatedFile && !allowRepeated)}>
+              <Button
+                onClick={confirm}
+                disabled={
+                  busy ||
+                  (batch?.repeatedFile && !allowRepeated) ||
+                  Boolean(
+                    batch?.rows.some(
+                      (row) =>
+                        row.validationStatus !== "INVALID" &&
+                        row.duplicateStatus !== "NONE" &&
+                        (decisions[row.id] ?? row.importDecision) === "REVIEW",
+                    ),
+                  )
+                }
+              >
                 Confirm import
               </Button>
             </div>
@@ -2196,7 +2236,7 @@ function ReviewRows({
                         })
                       }
                     >
-                      {(["IMPORT", "SKIP", "REVIEW"] as const).map((decision) => (
+                      {(["REVIEW", "IMPORT", "SKIP"] as const).map((decision) => (
                         <option key={decision} value={decision}>
                           {decisionLabels[decision]}
                         </option>

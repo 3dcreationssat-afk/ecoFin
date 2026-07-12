@@ -218,6 +218,71 @@ describe("csv import repositories", () => {
     ).toBe(0);
   });
 
+  it("requires an explicit Import or Skip decision for every duplicate candidate", async () => {
+    const dashboard = await imports.importDashboard();
+    const account = dashboard.accounts[0];
+    const content =
+      "Date,Description,Amount\n07/10/2026,Synthetic repeated charge,-4.25\n07/10/2026,Synthetic repeated charge,-4.25";
+    const preview = await imports.previewImport({
+      accountId: account.id,
+      filename: "synthetic-duplicate-candidates.csv",
+      fileSize: content.length,
+      content,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+    });
+    const validated = await imports.validateImport({
+      batchId: preview.id,
+      accountId: account.id,
+      filename: "synthetic-duplicate-candidates.csv",
+      fileSize: content.length,
+      content,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+      mapping: {
+        delimiter: ",",
+        encoding: "UTF-8",
+        hasHeader: true,
+        dateColumn: "Date",
+        descriptionColumn: "Description",
+        amountMode: "SIGNED_AMOUNT",
+        amountColumn: "Amount",
+        dateFormat: "MM/DD/YYYY",
+        decimalSeparator: ".",
+        thousandsSeparator: ",",
+        signConvention: "DEBITS_NEGATIVE",
+        currency: "USD",
+        saveProfile: false,
+      },
+    });
+    const candidate = validated.rows.find((row) => row.duplicateStatus !== "NONE");
+    expect(candidate?.importDecision).toBe("REVIEW");
+
+    await expect(
+      imports.confirmImport({
+        batchId: validated.id,
+        decisions: validated.rows.map((row) => ({
+          rowId: row.id,
+          decision: row.id === candidate?.id ? "REVIEW" : "IMPORT",
+        })),
+        confirm: "IMPORT CSV",
+      }),
+    ).rejects.toThrow(/Choose Import or Skip.*Unresolved rows: 2/);
+
+    const imported = await imports.confirmImport({
+      batchId: validated.id,
+      decisions: validated.rows.map((row) => ({
+        rowId: row.id,
+        decision: row.id === candidate?.id ? "SKIP" : "IMPORT",
+      })),
+      confirm: "IMPORT CSV",
+    });
+    expect(imported.importedTransactionCount).toBe(1);
+    expect(imported.rows.find((row) => row.id === candidate?.id)?.createdTransactionId).toBeNull();
+  });
+
   it("imports debit and credit column CSV with explicit sign convention", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[1];

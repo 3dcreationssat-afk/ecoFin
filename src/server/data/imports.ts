@@ -343,6 +343,18 @@ export async function confirmImport(input: unknown) {
     throw new AppError("This file was already imported. Explicit override is required.", 409);
   }
   const decisions = new Map(data.decisions.map((decision) => [decision.rowId, decision.decision]));
+  const unresolvedDuplicateRows = batch.rows.filter(
+    (row) =>
+      row.validationStatus !== "INVALID" &&
+      row.duplicateStatus !== "NONE" &&
+      (!decisions.has(row.id) || decisions.get(row.id) === "REVIEW"),
+  );
+  if (unresolvedDuplicateRows.length > 0) {
+    throw new AppError(
+      `Choose Import or Skip for every duplicate candidate before confirming. Unresolved rows: ${unresolvedDuplicateRows.map((row) => row.rowNumber).join(", ")}.`,
+      422,
+    );
+  }
   const rowsToImport = batch.rows.filter((row) => {
     const decision = decisions.get(row.id) ?? row.importDecision;
     return row.validationStatus !== "INVALID" && decision === "IMPORT";
