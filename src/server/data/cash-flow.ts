@@ -46,10 +46,11 @@ export async function getCashFlowProjection(asOf = new Date()) {
   });
 }
 
-export function cashAllocationSummary(projection: Awaited<ReturnType<typeof getCashFlowProjection>>) {
+export function cashAllocationSummary(
+  projection: Awaited<ReturnType<typeof getCashFlowProjection>>,
+) {
   return {
-    cashAfterObligationsAndProtectionsMinor:
-      projection.cashAfterObligationsAndProtectionsMinor,
+    cashAfterObligationsAndProtectionsMinor: projection.cashAfterObligationsAndProtectionsMinor,
     retainedSafetyReserveMinor: projection.retainedSafetyReserveMinor,
     allocatableSurplusMinor: projection.allocatableSurplusMinor,
     recommendedSafeToSaveMinor: projection.recommendedSafeToSaveMinor,
