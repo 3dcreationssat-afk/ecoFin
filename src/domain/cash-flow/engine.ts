@@ -1,5 +1,6 @@
 import { dueDateInPeriod, financialPeriod } from "./period";
 import { savingsRecommendation } from "@/domain/planning/occurrences";
+import { calculateEmergencyRunway } from "@/domain/planning/emergency-runway";
 
 export type ConfidenceLevel = "HIGH" | "MODERATE" | "LIMITED";
 export type CashFlowEvent = {
@@ -413,6 +414,14 @@ export function calculateCashFlow(input: CashFlowInput) {
       explanation: "Finish or undo incomplete import batches.",
       href: "/transactions",
     });
+  const emergencyRunway = calculateEmergencyRunway(input);
+  if (emergencyRunway.confidence === "LIMITED")
+    factors.push({
+      positive: false,
+      label: "Emergency runway inputs are incomplete",
+      explanation: emergencyRunway.issues.join(" "),
+      href: "/data-quality",
+    });
   const dataQualityReserveMinor = reserves.reduce((sum, r) => sum + r.amountMinor, 0);
   const maximumAvailableSurplusMinor =
     startingUsableLiquidCashMinor +
@@ -518,6 +527,7 @@ export function calculateCashFlow(input: CashFlowInput) {
     emergencyFundShortfallMinor,
     emergencyFundTargetMinor: input.emergencyFundTargetMinor,
     emergencyProtectedMinor,
+    emergencyRunway,
     dataQualityReserveMinor,
     cashAfterObligationsAndProtectionsMinor: maximumAvailableSurplusMinor,
     maximumAvailableSurplusMinor: recommendation.allocatableSurplusMinor,
