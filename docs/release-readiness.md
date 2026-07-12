@@ -1,6 +1,7 @@
 # Release Readiness
 
 - Planning schedules, satisfaction, and savings policy are durable, audited, backup/reset-safe, and tested.
+- Cash allocation identities reconcile exactly in integer cents across all policy modes and are shared by Cash Flow and Overview.
 
 - Cash Flow and Safe to Save are repository-derived and explainable. Expected-income and general scheduled-obligation CRUD remain documented limitations rather than fabricated projections.
 

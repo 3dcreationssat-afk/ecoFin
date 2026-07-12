@@ -21,6 +21,8 @@
 
 ## 2026-07-12
 
+- Reconciled cash-allocation semantics so retained safety reserves are subtracted once before allocatable surplus, added mode-specific targets, transparent confidence reductions, a UI waterfall, and cent-exact invariants.
+
 - Added expected-income and obligation schedules, satisfaction occurrences, deterministic matching, precedence, policy-based recommendations, demo inputs, lifecycle/backup support, and workflows.
 
 - Added validated deterministic Cash Flow with financial-month boundaries, conservative liquidity, confirmed forecasts, debt/goal obligations, explicit reserves, Safe to Save/Safe to Spend, timeline, confidence remediation, Overview integration, and tests.

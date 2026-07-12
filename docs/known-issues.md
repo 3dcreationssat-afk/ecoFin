@@ -1,6 +1,7 @@
 # Known Issues
 
 - Match suggestions require confirmation and use amount/date proximity; merchant-aware split allocation remains future work.
+- Conservative and Aggressive modes use documented 35% ceiling and 75% floor respectively; richer per-mode reserve presets remain future product policy work.
 
 - Cash Flow does not invent expected income from a schedule label or isolated history; explicit expected-income CRUD and a general scheduled-obligation model remain future work. Safe to Spend is zero when the full surplus is allocated to Recommended Safe to Save.
 

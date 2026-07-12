@@ -11,3 +11,11 @@ Future income and expenses come only from confirmed persisted recurring records 
 Precedence prevents double counting: recorded contributions satisfy goal plans first; actual transfers never create planned-saving deductions; debt minimums are separate from ordinary recurring obligations; unconfirmed recurring rows appear only in conservative uncertainty; duplicate candidates are reserved rather than projected.
 
 Timeline events are Recorded, Scheduled, Forecast, or User assumption and retain their persisted source. The engine never fabricates paycheck dates from `incomeSchedule` or isolated history.
+
+Allocation uses two exact integer identities:
+
+`cash after obligations and protections - retained safety reserve = allocatable surplus`
+
+`allocatable surplus = Recommended Safe to Save + Safe to Spend + unallocated surplus`
+
+The retained safety reserve is a policy amount and is not also included in Safe to Spend.
