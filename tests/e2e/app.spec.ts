@@ -189,6 +189,80 @@ test("debt planner remains usable on mobile without document overflow", async ({
   ).toBe(true);
 });
 
+test("decision simulator persists isolated components and comparisons", async ({
+  page,
+}, testInfo) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
+  await page.goto("/decisions");
+  const scenarioName = `Playwright decision ${testInfo.project.name}`;
+  await page.getByLabel("New scenario name").fill(scenarioName);
+  await page.getByRole("button", { name: "New scenario" }).click();
+  await expect(page.getByRole("link", { name: scenarioName })).toBeVisible();
+
+  await page.getByLabel("Component name").fill("Synthetic monthly cost");
+  await page.getByLabel("Component amount").fill("200.00");
+  await page.getByRole("button", { name: "Add component" }).click();
+  await expect(page.getByText("Synthetic monthly cost", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Current plan vs. scenario" })).toBeVisible();
+
+  await page.getByLabel("Component type").selectOption("ONE_TIME_EXPENSE");
+  await page.getByLabel("Component name").fill("Synthetic purchase");
+  await page.getByLabel("Component amount").fill("350.00");
+  await page.getByRole("button", { name: "Add component" }).click();
+  await expect(page.getByText("Synthetic purchase", { exact: true }).first()).toBeVisible();
+
+  await page.getByLabel("Component type").selectOption("CANCEL_RECURRING");
+  await page.getByLabel("Component name").fill("Cancel synthetic recurring");
+  await page.getByLabel("Linked record").selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Add component" }).click();
+  await expect(page.getByText("Cancel synthetic recurring", { exact: true }).first()).toBeVisible();
+
+  await page.getByLabel("Component type").selectOption("DEBT_EXTRA_PAYMENT");
+  await page.getByLabel("Component name").fill("Synthetic debt extra");
+  await page.getByLabel("Component amount").fill("250.00");
+  await page.getByLabel("Linked record").selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Add component" }).click();
+  await expect(page.getByText("Synthetic debt extra", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Debt impact" })).toBeVisible();
+
+  await page.getByLabel("Component type").selectOption("SAVINGS_POLICY_OVERRIDE");
+  await page.getByLabel("Component name").fill("Synthetic policy");
+  await page.getByLabel("Policy mode").selectOption("CUSTOM");
+  await page.getByLabel("Savings target percent").fill("65");
+  await page.getByRole("button", { name: "Add component" }).click();
+  await expect(page.getByText("Synthetic policy", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Interpretation and risks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scenario timeline" })).toBeVisible();
+});
+
+test("decision scenario duplicate, rename, archive, and delete are explicit", async ({ page }) => {
+  await page.goto("/decisions");
+  await page.getByRole("button", { name: "Duplicate" }).click();
+  await expect(page.getByRole("link", { name: /copy$/ })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept("Renamed isolated scenario"));
+  await page.getByRole("button", { name: "Rename" }).click();
+  await expect(page.getByRole("link", { name: "Renamed isolated scenario" })).toBeVisible();
+  await page.getByRole("button", { name: "Archive" }).click();
+  await expect(
+    page.getByRole("link", { name: /Renamed isolated scenario · Archived/ }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: /Renamed isolated scenario · Archived/ }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByRole("link", { name: /Renamed isolated scenario/ })).toHaveCount(0);
+});
+
+test("decision simulator remains usable on mobile without document overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/decisions");
+  await expect(page.getByRole("heading", { name: "Scenario builder" })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+});
+
 test("complete signed amount CSV import workflow and undo", async ({ page }, testInfo) => {
   const marker = `Synthetic Coffee ${testInfo.project.name}`;
   await page.goto("/transactions");
@@ -762,6 +836,11 @@ test("start fresh empties demo data, updates badges, and preserves navigation pr
     await page.goto("/goals");
     await expect(page.getByRole("heading", { name: "No goals yet." })).toBeVisible();
     await expect(page.getByText("Emergency Fund")).toHaveCount(0);
+    await page.goto("/decisions");
+    await expect(
+      page.getByRole("heading", { name: "Explore a decision without changing real records." }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create your first scenario." })).toBeVisible();
 
     await page.goto("/accounts");
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Fresh Checking");
