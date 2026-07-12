@@ -21,6 +21,21 @@ export default async function Home() {
   const period = currentPeriodSummary(household.transactions);
   const dashboard = buildOverviewDashboard({ household });
   const cashFlow = isEmpty ? null : await getCashFlowProjection();
+  if (cashFlow?.emergencyRunway.meetsRunwayTarget === false) {
+    const runwayAction = {
+      id: "emergency-runway-target",
+      type: "Emergency runway",
+      severity: "Warning" as const,
+      title: "Emergency runway is below your configured target",
+      explanation: `Current runway is ${(cashFlow.emergencyRunway.runwayBasisPoints! / 10_000).toFixed(1)} months versus a ${cashFlow.emergencyRunway.targetRunwayMonths}-month target.`,
+      impact: "Emergency protection may not cover the preferred duration of essential obligations.",
+      actionLabel: "Review emergency fund",
+      href: "/settings#emergency-fund",
+    };
+    dashboard.actionItems.unshift(runwayAction);
+    dashboard.visibleActionItems.unshift(runwayAction);
+    dashboard.visibleActionItems.splice(6);
+  }
   const debtPlan = isEmpty ? null : await getDebtPlan(household.id);
   const debtInputs: DebtInput[] = household.accounts.map((account) => ({
     id: account.id,

@@ -52,15 +52,14 @@ export default async function DataQualityPage() {
   const issues = [
     [
       "No emergency fund configured",
-      runway.sources.length ? 0 : 1,
+      cashFlowInput.emergencyFundConfiguration?.enabled && runway.sources.length ? 0 : 1,
       "Emergency runway has no eligible numerator.",
       "Create an Emergency Fund goal and link it to an active liquid account.",
     ],
     [
       "Invalid emergency-fund mappings",
-      runway.issues.filter((issue) =>
-        /archived account|more than one emergency-fund goal/.test(issue),
-      ).length,
+      runway.issues.filter((issue) => /archived account|eligible liquid|exceeds/.test(issue))
+        .length,
       "Archived or duplicate mappings make the protected balance ambiguous.",
       "Review Emergency Fund goal account links.",
     ],
@@ -85,9 +84,9 @@ export default async function DataQualityPage() {
       "Review linked scheduled, recurring, and debt obligations.",
     ],
     [
-      "Emergency runway below review threshold",
-      runway.runwayBasisPoints != null && runway.runwayBasisPoints < 30_000 ? 1 : 0,
-      "Eligible emergency funds cover less than the current three-month review threshold.",
+      "Emergency runway below configured target",
+      runway.meetsRunwayTarget === false ? 1 : 0,
+      `Eligible emergency funds cover less than the configured ${runway.targetRunwayMonths ?? "missing"}-month target.`,
       "Review emergency funding and essential obligation inputs.",
     ],
     [
@@ -356,7 +355,8 @@ function qualityHref(title: string) {
     return "/transactions?transfer=suggested";
   if (title.includes("recurring")) return "/transactions?recurring=suggested";
   if (title.includes("account") || title.includes("debt")) return "/accounts";
-  if (title.includes("goal") || title.includes("emergency")) return "/goals";
+  if (title.includes("emergency")) return "/settings#emergency-fund";
+  if (title.includes("goal")) return "/goals";
   if (title.includes("obligation")) return "/cash-flow#planning";
   if (title.includes("import")) return "/transactions?source=CSV_IMPORT";
   return "/transactions";

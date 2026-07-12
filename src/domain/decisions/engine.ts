@@ -297,9 +297,9 @@ export function evaluateScenario(input: {
     });
   const baselineEmergencyRunway = calculateEmergencyRunway(baselineInput);
   const emergencyAccountIds = new Set(
-    baselineInput.goals
-      .filter((goal) => /emergency/i.test(goal.name) && goal.linkedAccountId)
-      .map((goal) => goal.linkedAccountId!),
+    baselineInput.emergencyFundConfiguration?.enabled
+      ? baselineInput.emergencyFundConfiguration.accounts.map((account) => account.accountId)
+      : [],
   );
   const emergencyWithdrawals = impacts.components
     .filter(
@@ -360,6 +360,7 @@ export function evaluateScenario(input: {
     scenarioDebt,
     validation,
     impacts,
+    targetRunwayBasisPoints: scenarioEmergencyRunway.targetRunwayBasisPoints,
   });
   const confidence =
     validation.length ||
@@ -425,6 +426,12 @@ function cloneCashFlowInput(input: CashFlowInput): CashFlowInput {
       occurrences: item.occurrences.map((value) => ({ ...value })),
     })),
     savingsPolicy: input.savingsPolicy ? { ...input.savingsPolicy } : undefined,
+    emergencyFundConfiguration: input.emergencyFundConfiguration
+      ? {
+          ...input.emergencyFundConfiguration,
+          accounts: input.emergencyFundConfiguration.accounts.map((account) => ({ ...account })),
+        }
+      : input.emergencyFundConfiguration,
   };
 }
 
@@ -765,6 +772,7 @@ function buildRisks(input: {
   scenarioDebt: ScenarioEvaluation["scenarioDebt"];
   validation: string[];
   impacts: ScenarioImpactHorizons;
+  targetRunwayBasisPoints: number | null;
 }): ScenarioRisk[] {
   const risks: ScenarioRisk[] = input.validation.map((explanation) => ({
     level: "CRITICAL",
@@ -786,12 +794,16 @@ function buildRisks(input: {
       title: "Safe to Spend decreases",
       explanation: `Scenario reduces Safe to Spend by ${input.baseline.safeToSpendMinor - input.scenario.safeToSpendMinor} minor units.`,
     });
-  if (input.scenarioRunway != null && input.scenarioRunway < 30_000)
+  if (
+    input.scenarioRunway != null &&
+    input.targetRunwayBasisPoints != null &&
+    input.scenarioRunway < input.targetRunwayBasisPoints
+  )
     risks.push({
       level: "WARNING",
       code: "RUNWAY_LOW",
-      title: "Emergency runway is below three months",
-      explanation: `Linked emergency funds cover ${input.scenarioRunway} basis points of one month of essential obligations.`,
+      title: "Emergency runway is below the configured target",
+      explanation: `Runway is ${input.scenarioRunway} basis points versus the configured ${input.targetRunwayBasisPoints} basis-point target.`,
     });
   if (input.goalImpacts.some((goal) => (goal.differenceMonths ?? 0) > 0))
     risks.push({

@@ -69,6 +69,7 @@ export type CashFlowRecurring = {
 export type CashFlowGoal = {
   id: string;
   name: string;
+  purpose?: string;
   plannedMonthlyMinor: number;
   currentMinor: number;
   targetMinor: number;
@@ -81,6 +82,17 @@ export type CashFlowInput = {
   financialMonthStart: number;
   checkingBufferMinor: number;
   emergencyFundTargetMinor: number;
+  emergencyFundConfiguration?: {
+    enabled: boolean;
+    targetAmountMinor: number | null;
+    targetRunwayMonths: number | null;
+    accounts: {
+      accountId: string;
+      includedAmountMode: string;
+      fixedProtectedAmountMinor: number | null;
+      sortOrder: number;
+    }[];
+  } | null;
   workspaceMode: string;
   accounts: CashFlowAccount[];
   transactions: CashFlowTransaction[];
@@ -355,8 +367,7 @@ export function calculateCashFlow(input: CashFlowInput) {
   }
 
   let committedPlannedSavingsMinor = 0;
-  let emergencyProtectedMinor = 0;
-  let emergencyMapped = false;
+  const emergencyRunway = calculateEmergencyRunway(input);
   for (const goal of input.goals.filter((g) => !g.archivedAt)) {
     const contributed = goal.contributions
       .filter((c) => inRange(c.contributionDate, period.start, period.end))
@@ -376,21 +387,20 @@ export function calculateCashFlow(input: CashFlowInput) {
         source: "Goal plan",
         confidence: "HIGH",
       });
-    if (/emergency/i.test(goal.name) && goal.linkedAccountId) {
-      emergencyMapped = true;
-      emergencyProtectedMinor += Math.min(goal.currentMinor, goal.targetMinor);
-    }
   }
-  const emergencyFundShortfallMinor = emergencyMapped
-    ? Math.max(0, input.emergencyFundTargetMinor - emergencyProtectedMinor)
-    : input.emergencyFundTargetMinor;
-  const emergencyFundProtectionMinor = emergencyMapped ? emergencyProtectedMinor : 0;
-  if (!emergencyMapped && input.emergencyFundTargetMinor > 0)
+  const emergencyProtectedMinor = emergencyRunway.eligibleBalanceMinor;
+  const emergencyFundTargetMinor = input.emergencyFundConfiguration?.targetAmountMinor ?? 0;
+  const emergencyFundShortfallMinor = Math.max(
+    0,
+    emergencyFundTargetMinor - emergencyProtectedMinor,
+  );
+  const emergencyFundProtectionMinor = emergencyProtectedMinor;
+  if (emergencyRunway.confidence === "LIMITED")
     factors.push({
       positive: false,
-      label: "Emergency fund is not mapped",
-      explanation: "No savings account is assumed to be emergency protection.",
-      href: "/goals",
+      label: "Emergency fund configuration needs review",
+      explanation: emergencyRunway.issues.join(" "),
+      href: "/settings#emergency-fund",
     });
 
   const checkingCashMinor = liquidAccounts
@@ -413,14 +423,6 @@ export function calculateCashFlow(input: CashFlowInput) {
       label: "An import is incomplete",
       explanation: "Finish or undo incomplete import batches.",
       href: "/transactions",
-    });
-  const emergencyRunway = calculateEmergencyRunway(input);
-  if (emergencyRunway.confidence === "LIMITED")
-    factors.push({
-      positive: false,
-      label: "Emergency runway inputs are incomplete",
-      explanation: emergencyRunway.issues.join(" "),
-      href: "/data-quality",
     });
   const dataQualityReserveMinor = reserves.reduce((sum, r) => sum + r.amountMinor, 0);
   const maximumAvailableSurplusMinor =
@@ -525,7 +527,7 @@ export function calculateCashFlow(input: CashFlowInput) {
     checkingCashMinor,
     emergencyFundProtectionMinor,
     emergencyFundShortfallMinor,
-    emergencyFundTargetMinor: input.emergencyFundTargetMinor,
+    emergencyFundTargetMinor,
     emergencyProtectedMinor,
     emergencyRunway,
     dataQualityReserveMinor,

@@ -9,9 +9,13 @@ export type EmergencyRunwayResult = {
   eligibleBalanceMinor: number;
   essentialMonthlyMinor: number;
   runwayBasisPoints: number | null;
+  targetRunwayMonths: number | null;
+  targetRunwayBasisPoints: number | null;
+  meetsRunwayTarget: boolean | null;
+  targetAmountMinor: number | null;
   confidence: "HIGH" | "LIMITED";
   sources: {
-    goalId: string;
+    goalId: string | null;
     goalName: string;
     accountId: string;
     accountName: string;
@@ -39,31 +43,49 @@ export function calculateEmergencyRunway(
   const issues: string[] = [];
   const exclusions: string[] = [];
   const withdrawals = adjustment.withdrawals ?? [];
-  const emergencyGoals = input.goals
-    .filter((goal) => !goal.archivedAt && /emergency/i.test(goal.name) && goal.linkedAccountId)
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const configuration = input.emergencyFundConfiguration;
+  const emergencyGoals = input.goals.filter(
+    (goal) => !goal.archivedAt && goal.purpose === "EMERGENCY_FUND",
+  );
   const mappedAccounts = new Set<string>();
   const sources: EmergencyRunwayResult["sources"] = [];
+  let remainingTarget = configuration?.targetAmountMinor ?? Number.MAX_SAFE_INTEGER;
 
-  for (const goal of emergencyGoals) {
-    const account = input.accounts.find((item) => item.id === goal.linkedAccountId);
+  if (!configuration) issues.push("Emergency fund configuration is missing.");
+  else if (!configuration.enabled) issues.push("Emergency fund protection is disabled.");
+  if (configuration?.targetRunwayMonths == null) issues.push("Emergency runway target is missing.");
+
+  for (const link of configuration?.enabled ? configuration.accounts : []) {
+    const account = input.accounts.find((item) => item.id === link.accountId);
+    const goal = emergencyGoals.find((item) => item.linkedAccountId === link.accountId);
     if (!account || account.archivedAt) {
-      issues.push(`${goal.name} is mapped to a missing or archived account.`);
+      issues.push(`An emergency source is mapped to a missing or archived account.`);
+      continue;
+    }
+    if (!new Set(["SAVINGS", "CHECKING", "CASH"]).has(account.type)) {
+      issues.push(`${account.name} is not an eligible liquid emergency account.`);
       continue;
     }
     if (mappedAccounts.has(account.id)) {
-      issues.push(`${account.name} is mapped to more than one emergency-fund goal.`);
+      issues.push(`${account.name} is mapped more than once in emergency-fund configuration.`);
       continue;
     }
     mappedAccounts.add(account.id);
     const ledgerBalanceMinor = Math.max(0, account.ledgerBalanceMinor ?? 0);
-    const protectedMinor = Math.min(ledgerBalanceMinor, goal.currentMinor, goal.targetMinor);
+    const requestedProtectedMinor =
+      link.includedAmountMode === "FIXED_AMOUNT"
+        ? Math.max(0, link.fixedProtectedAmountMinor ?? 0)
+        : ledgerBalanceMinor;
+    if (requestedProtectedMinor > ledgerBalanceMinor)
+      issues.push(`${account.name} fixed protection exceeds its eligible ledger balance.`);
+    const protectedMinor = Math.min(ledgerBalanceMinor, requestedProtectedMinor, remainingTarget);
+    remainingTarget = Math.max(0, remainingTarget - protectedMinor);
     const withdrawalMinor = withdrawals
       .filter((item) => item.accountId === account.id)
       .reduce((sum, item) => sum + Math.max(0, item.amountMinor), 0);
     sources.push({
-      goalId: goal.id,
-      goalName: goal.name,
+      goalId: goal?.id ?? null,
+      goalName: goal?.name ?? "Emergency protection",
       accountId: account.id,
       accountName: account.name,
       ledgerBalanceMinor,
@@ -72,7 +94,16 @@ export function calculateEmergencyRunway(
       resultingEligibleMinor: Math.max(0, protectedMinor - withdrawalMinor),
     });
   }
-  if (!sources.length) issues.push("No eligible emergency fund is configured.");
+  if (configuration?.enabled && !sources.length)
+    issues.push("No eligible emergency fund account is configured.");
+  if (
+    emergencyGoals.some(
+      (goal) =>
+        goal.linkedAccountId &&
+        !configuration?.accounts.some((account) => account.accountId === goal.linkedAccountId),
+    )
+  )
+    issues.push("An emergency-fund goal is not linked to a configured emergency account.");
 
   const obligations: EmergencyRunwayResult["obligations"] = [];
   const linkedRecurring = new Set<string>();
@@ -174,13 +205,23 @@ export function calculateEmergencyRunway(
   );
   if (!essentialMonthlyMinor)
     issues.push("No complete essential monthly obligations are configured.");
+  const runwayBasisPoints =
+    essentialMonthlyMinor > 0
+      ? roundDiv(eligibleBalanceMinor * 10_000, essentialMonthlyMinor)
+      : null;
+  const targetRunwayMonths = configuration?.targetRunwayMonths ?? null;
+  const targetRunwayBasisPoints = targetRunwayMonths == null ? null : targetRunwayMonths * 10_000;
   return {
     eligibleBalanceMinor,
     essentialMonthlyMinor,
-    runwayBasisPoints:
-      essentialMonthlyMinor > 0
-        ? roundDiv(eligibleBalanceMinor * 10_000, essentialMonthlyMinor)
-        : null,
+    runwayBasisPoints,
+    targetRunwayMonths,
+    targetRunwayBasisPoints,
+    meetsRunwayTarget:
+      runwayBasisPoints == null || targetRunwayBasisPoints == null
+        ? null
+        : runwayBasisPoints >= targetRunwayBasisPoints,
+    targetAmountMinor: configuration?.targetAmountMinor ?? null,
     confidence: issues.length ? "LIMITED" : "HIGH",
     sources,
     obligations,
