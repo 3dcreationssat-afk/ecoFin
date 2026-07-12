@@ -90,6 +90,17 @@ describe("summary calculations", () => {
         markedWithoutMatch: 4,
         excludedCandidates: 1,
       },
+      recurring: {
+        unconfirmed: 2,
+        lowConfidence: 1,
+        withoutCategory: 3,
+        priceIncreases: 4,
+        chargesAfterCanceled: 1,
+        missingExpected: 2,
+        duplicateServices: 1,
+        unlinkedRecurringTransactions: 5,
+        inactiveStillActive: 1,
+      },
       asOf: new Date("2026-07-11"),
     });
     expect(result).toEqual({
@@ -110,6 +121,15 @@ describe("summary calculations", () => {
       rejectedTransferCandidates: 3,
       transferMarkedWithoutCounterpart: 4,
       excludedTransferCandidates: 1,
+      unconfirmedRecurringCandidates: 2,
+      lowConfidenceRecurringCandidates: 1,
+      recurringWithoutCategory: 3,
+      recurringPriceIncreases: 4,
+      recurringChargesAfterCanceled: 1,
+      recurringMissingExpectedCharge: 2,
+      duplicateRecurringServices: 1,
+      unlinkedRecurringExpenseTransactions: 5,
+      inactiveRecurringStillExpected: 1,
     });
   });
 });

@@ -32,6 +32,8 @@ describe("backup domain helpers", () => {
           goals: 1,
           importBatches: 0,
           transferMatches: 0,
+          recurringExpenses: 0,
+          recurringLinks: 0,
           auditLogs: 1,
         },
         databaseFileSize: 100,

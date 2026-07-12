@@ -387,6 +387,62 @@ test("data quality exposes transfer review issues", async ({ page }) => {
   await expect(page.getByText("Possible credit-card payments")).toBeVisible();
 });
 
+test("recurring scan, review, confirm, reject, manual create, and savings work", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/recurring");
+  await page.getByRole("button", { name: "Run scan" }).click();
+  await expect(page.getByText(/Scan complete/)).toBeVisible();
+  await expect(page.getByText("Netflix").first()).toBeVisible();
+  await expect(page.getByText("Spotify").first()).toBeVisible();
+  await page.getByRole("button", { name: "Edit" }).first().click();
+  await expect(
+    page.getByRole("heading", { name: /Netflix|Spotify|City Water Utility/ }),
+  ).toBeVisible();
+  await expect(page.getByText("Why it was detected")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Supporting transactions" })).toBeVisible();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Recurring expense updated.")).toBeVisible();
+  await page.getByRole("button", { name: "Confirm" }).first().click();
+  await expect(page.getByText("Recurring item confirmed.")).toBeVisible();
+  await page.getByRole("button", { name: "Reject" }).first().click();
+  await expect(page.getByText("Recurring suggestion rejected.")).toBeVisible();
+
+  const manualName = `Synthetic Membership ${testInfo.project.name}`;
+  await page.getByRole("button", { name: "Create recurring item" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Display name").fill(manualName);
+  await dialog.getByLabel("Service name").fill("Synthetic Service");
+  await dialog.getByLabel("Merchant pattern").fill(manualName);
+  await dialog.getByLabel("Typical amount").fill("12.34");
+  await dialog.getByLabel("Classification").selectOption("OPTIONAL");
+  await dialog.getByLabel("Recommendation").selectOption("CONSIDER_CANCELING");
+  await dialog.getByLabel("Recurring type").selectOption("MEMBERSHIP");
+  await dialog.getByRole("button", { name: "Create item" }).click();
+  await expect(page.getByText("Manual recurring item created.")).toBeVisible();
+  await page.getByLabel(`Select ${manualName} for savings`).check();
+  await page.getByRole("button", { name: "Calculate selected savings" }).click();
+  await expect(page.getByText("$12.34 monthly")).toBeVisible();
+});
+
+test("data quality and mobile recurring review expose recurring issues without overflow", async ({
+  page,
+}) => {
+  await page.goto("/recurring");
+  await page.getByRole("button", { name: "Run scan" }).click();
+  await page.goto("/data-quality");
+  await expect(page.getByText("Unconfirmed recurring candidates")).toBeVisible();
+  await expect(page.getByText("Recurring price increases")).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/recurring");
+  await expect(page.getByRole("heading", { name: "Recurring Expenses" })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
+});
+
 test("mobile transfer review remains usable without document overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/transactions");
