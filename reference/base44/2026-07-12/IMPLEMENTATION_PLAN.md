@@ -52,7 +52,7 @@ Dependencies:
 
 ## Increment 3: Transaction Management Parity
 
-Status: deferred
+Status: Cash Flow and Safe to Save complete; debt payoff and decision scenarios deferred
 
 Scope:
 

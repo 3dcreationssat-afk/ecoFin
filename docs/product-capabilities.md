@@ -1,5 +1,7 @@
 # Product Capabilities
 
+- Deterministic financial-month projection, explainable Safe to Save/Safe to Spend, protection reserves, running timeline, and confidence remediation are implemented from SQLite records.
+
 ## Implemented Local Capabilities
 
 - Local household, account, category, goal, contribution, transaction, CSV import, transfer review, recurring review, backup, restore, demo reset, and start-fresh persistence.

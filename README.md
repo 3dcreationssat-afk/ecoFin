@@ -1,5 +1,7 @@
 # Financial Compass
 
+Validated repository-derived Cash Flow and explainable Safe to Save/Safe to Spend are documented in `docs/cash-flow-engine.md` and `docs/safe-to-save.md`.
+
 Financial Compass is a private, local-first personal finance decision-support application for one household.
 
 It helps a household understand income, spending, debts, recurring expenses, goals, data quality, and future decision tradeoffs. It is not a bank, accounting platform, tax product, investment adviser, credit counselor, bill-payment service, credit-score estimator, or substitute for professional financial advice.

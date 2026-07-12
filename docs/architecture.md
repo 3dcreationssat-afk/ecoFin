@@ -1,5 +1,7 @@
 # Architecture
 
+Financial-period and Cash Flow calculations live in `src/domain/cash-flow`. `src/server/data/cash-flow.ts` maps SQLite records into the pure engine; server pages pass its serializable result to focused visualization.
+
 ## Implemented
 
 - Next.js App Router renders local application screens.

@@ -16,3 +16,5 @@ Ledger formula:
 `affectsLedger` is independent of `affectsIncomeSpendingReports`. Confirmed transfers and card payments affect both account ledgers while remaining excluded from household income/spending. Pending, duplicate-candidate, and explicitly non-ledger rows do not affect the cached ledger.
 
 CSV confirmation and undo recalculate affected accounts. Normal merchant/category/note edits do not change amounts and therefore do not change ledger totals. Transfer confirmation/unmatch recalculates both accounts. Future amount/date/account correction workflows must call the same recalculation service.
+
+Cash Flow uses only trustworthy anchored ledgers. A reported available balance may cap usable liquidity only when current (seven days or less old) and lower; it never changes the ledger.

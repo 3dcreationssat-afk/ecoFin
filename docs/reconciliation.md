@@ -7,3 +7,5 @@ If an account has no anchor, the first explicit reconciliation establishes a `RE
 Adjustments are durable `ReconciliationAdjustment` records with account, integer amount, effective date, reason, optional note, timestamp, and audit. They are ledger corrections, not ordinary spending transactions, and never appear in household income/spending.
 
 Confidence is deterministic: missing anchors are Limited; fresh zero-difference ledgers without duplicates/unreviewed rows are High; small explainable uncertainty can be Moderate; stale or materially incomplete records are Limited.
+
+Known differences become explicit Cash Flow uncertainty reserves. Unanchored accounts contribute no usable cash; reported snapshots are never silently promoted to authority.

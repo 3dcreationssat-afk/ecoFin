@@ -1,5 +1,7 @@
 # Release Readiness
 
+- Cash Flow and Safe to Save are repository-derived and explainable. Expected-income and general scheduled-obligation CRUD remain documented limitations rather than fabricated projections.
+
 Date: 2026-07-12
 
 ## Implemented Capabilities

@@ -1,5 +1,7 @@
 # Known Issues
 
+- Cash Flow does not invent expected income from a schedule label or isolated history; explicit expected-income CRUD and a general scheduled-obligation model remain future work. Safe to Spend is zero when the full surplus is allocated to Recommended Safe to Save.
+
 - Validated financial recommendation engines are not implemented.
 - Safe-to-save, safe-to-spend, scheduled cash-flow projection, debt payoff, and decision scenario outputs remain preliminary or unavailable.
 - Overview, Cash Flow, Budget, Debt, and Reports now use repository-derived values where deterministic local inputs exist, but cash-flow month-end and budget forecast values are still planning signals rather than validated recommendations.

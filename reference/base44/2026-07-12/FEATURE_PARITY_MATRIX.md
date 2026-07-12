@@ -1,5 +1,7 @@
 # Feature Parity Matrix
 
+Validated Cash Flow status (2026-07-12): Projected Month-End, Safe to Save, Safe to Spend, confidence, calculation links, timeline, and protection breakdown are implemented from repository inputs. Explicit expected-income CRUD remains deferred.
+
 Priority definitions:
 
 - P0: core workflow missing or currently misleading if presented as product behavior.

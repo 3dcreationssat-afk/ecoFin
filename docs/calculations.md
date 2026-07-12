@@ -2,6 +2,8 @@
 
 ## Implemented
 
+- Validated Cash Flow, projected month-end, Recommended and Conservative Safe to Save, Safe to Spend, explicit uncertainty reserves, and deterministic confidence follow `cash-flow-engine.md` and `safe-to-save.md`.
+
 - Account ledger balance equals the explicit opening balance plus cleared, nonduplicate, ledger-affecting transaction effects after the anchor plus explicit reconciliation adjustments. Assets are positive owned amounts; liabilities are positive amounts owed.
 - Institution-reported and available balances are comparison snapshots and never drive ledger calculation. Reconciliation difference is `reported - ledger`.
 
@@ -37,8 +39,7 @@
 
 ## Preliminary or Unavailable
 
-- Safe to Save, Safe to Spend, scheduled cash-flow projection, debt payoff, and decision simulator values are not production recommendation engines yet.
-- Cash-flow month-end uses current cash plus recorded current-month net cash flow. It does not include future income, future bills, recurring schedules, or household buffer rules.
+- Debt payoff and decision simulator values are not production engines yet.
 - Debt payoff date, remaining interest, and strategy impact are intentionally unavailable until a validated payoff engine is implemented.
 - Overview reserved status is limited to `Planned`, `Not specifically reserved`, or `Unknown`; there is no reservation engine.
 
