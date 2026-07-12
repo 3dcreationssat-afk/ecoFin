@@ -11,7 +11,10 @@ import {
 } from "@/domain/debt/payoff";
 import { monthDifference, projectGoalCompletion } from "@/domain/goals/projection";
 import { financialPeriod } from "@/domain/cash-flow/period";
-import { normalizeRecurringAmount, type Frequency } from "@/domain/recurring/detection";
+import {
+  calculateEmergencyRunway,
+  type EmergencyRunwayResult,
+} from "@/domain/planning/emergency-runway";
 import type { ScenarioComponentInput } from "./schema";
 
 export type ScenarioComponent = ScenarioComponentInput & { id: string };
@@ -85,6 +88,8 @@ export type ScenarioEvaluation = {
   scenarioEmergencyBalanceMinor: number;
   baselineEssentialMonthlyMinor: number;
   scenarioEssentialMonthlyMinor: number;
+  baselineEmergencyRunway: EmergencyRunwayResult;
+  scenarioEmergencyRunway: EmergencyRunwayResult;
   impacts: ScenarioImpactHorizons;
   interpretations: string[];
   validation: string[];
@@ -290,13 +295,13 @@ export function evaluateScenario(input: {
             : "The contribution remains fixed, but it exceeds available planning capacity; the goal plan is at risk.",
       };
     });
-  const baselineEmergencyBalanceMinor = baseline.emergencyProtectedMinor;
+  const baselineEmergencyRunway = calculateEmergencyRunway(baselineInput);
   const emergencyAccountIds = new Set(
     baselineInput.goals
       .filter((goal) => /emergency/i.test(goal.name) && goal.linkedAccountId)
       .map((goal) => goal.linkedAccountId!),
   );
-  const emergencyFundedOneTimeMinor = impacts.components
+  const emergencyWithdrawals = impacts.components
     .filter(
       (impact) =>
         impact.oneTimeMinor < 0 &&
@@ -305,25 +310,46 @@ export function evaluateScenario(input: {
             ?.linkedAccountId ?? "",
         ),
     )
-    .reduce((sum, impact) => sum + Math.abs(impact.oneTimeMinor), 0);
-  const scenarioEmergencyBalanceMinor = Math.max(
-    0,
-    baselineEmergencyBalanceMinor - emergencyFundedOneTimeMinor,
-  );
-  const baselineEssentialMonthlyMinor = essentialMonthlyMinor(baselineInput);
-  const scenarioEssentialMonthlyMinor = Math.max(
-    0,
-    baselineEssentialMonthlyMinor +
-      essentialScenarioMonthlyDelta(input.cashFlowInput, input.components),
-  );
-  const baselineRunway = emergencyRunwayBps(
-    baselineEmergencyBalanceMinor,
-    baselineEssentialMonthlyMinor,
-  );
-  const scenarioRunway = emergencyRunwayBps(
-    scenarioEmergencyBalanceMinor,
-    scenarioEssentialMonthlyMinor,
-  );
+    .map((impact) => {
+      const component = input.components.find((item) => item.id === impact.componentId)!;
+      return {
+        id: impact.componentId,
+        label: component.name,
+        accountId: component.linkedAccountId!,
+        amountMinor: Math.abs(impact.oneTimeMinor),
+      };
+    });
+  const scenarioMonthlyChanges = input.components.flatMap((component) => {
+    const monthly = componentCashAmounts(input.cashFlowInput, component).monthlyMinor;
+    if (!monthly) return [];
+    if (component.type === "CANCEL_RECURRING") {
+      const recurring = input.cashFlowInput.recurring.find(
+        (item) => item.id === component.linkedRecurringId,
+      );
+      return recurring?.classification === "ESSENTIAL" && recurring.recurringType === "EXPENSE"
+        ? [{ id: component.id, label: component.name, amountMinor: monthly, essential: true }]
+        : [];
+    }
+    if (!["RECURRING_EXPENSE", "VEHICLE_PAYMENT"].includes(component.type)) return [];
+    return [
+      {
+        id: component.id,
+        label: component.name,
+        amountMinor: Math.abs(monthly),
+        essential: component.essentiality === "ESSENTIAL",
+      },
+    ];
+  });
+  const scenarioEmergencyRunway = calculateEmergencyRunway(baselineInput, {
+    withdrawals: emergencyWithdrawals,
+    monthlyChanges: scenarioMonthlyChanges,
+  });
+  const baselineEmergencyBalanceMinor = baselineEmergencyRunway.eligibleBalanceMinor;
+  const scenarioEmergencyBalanceMinor = scenarioEmergencyRunway.eligibleBalanceMinor;
+  const baselineEssentialMonthlyMinor = baselineEmergencyRunway.essentialMonthlyMinor;
+  const scenarioEssentialMonthlyMinor = scenarioEmergencyRunway.essentialMonthlyMinor;
+  const baselineRunway = baselineEmergencyRunway.runwayBasisPoints;
+  const scenarioRunway = scenarioEmergencyRunway.runwayBasisPoints;
   const metrics = buildMetrics(baseline, scenario);
   const risks = buildRisks({
     baseline,
@@ -336,7 +362,10 @@ export function evaluateScenario(input: {
     impacts,
   });
   const confidence =
-    validation.length || scenario.confidence === "LIMITED"
+    validation.length ||
+    scenario.confidence === "LIMITED" ||
+    baselineEmergencyRunway.confidence === "LIMITED" ||
+    scenarioEmergencyRunway.confidence === "LIMITED"
       ? "LIMITED"
       : scenario.confidence === "MODERATE" || input.components.some((item) => !item.startDate)
         ? "MODERATE"
@@ -362,6 +391,8 @@ export function evaluateScenario(input: {
     scenarioEmergencyBalanceMinor,
     baselineEssentialMonthlyMinor,
     scenarioEssentialMonthlyMinor,
+    baselineEmergencyRunway,
+    scenarioEmergencyRunway,
     impacts,
     interpretations: buildInterpretations({
       impacts,
@@ -723,81 +754,6 @@ function metric(
     differenceMinor: scenarioMinor - currentMinor,
     explanation,
   };
-}
-
-function emergencyRunwayBps(balanceMinor: number, essentialMonthlyMinor: number): number | null {
-  return essentialMonthlyMinor > 0
-    ? Math.round((balanceMinor * 10_000) / essentialMonthlyMinor)
-    : null;
-}
-
-function essentialMonthlyMinor(input: CashFlowInput) {
-  const linkedRecurring = new Set(
-    (input.scheduledObligations ?? []).map((item) => item.recurringExpenseId).filter(Boolean),
-  );
-  const scheduled = (input.scheduledObligations ?? [])
-    .filter(
-      (item) =>
-        item.active &&
-        !item.archivedAt &&
-        item.essentiality === "ESSENTIAL" &&
-        item.frequency !== "ONE_TIME",
-    )
-    .reduce(
-      (sum, item) =>
-        sum +
-        monthlyEquivalent(
-          item.amountMinor ?? item.occurrences[0]?.expectedAmountMinor ?? 0,
-          item.frequency,
-        ),
-      0,
-    );
-  const recurring = input.recurring
-    .filter(
-      (item) =>
-        item.status === "CONFIRMED" &&
-        item.classification === "ESSENTIAL" &&
-        !linkedRecurring.has(item.id),
-    )
-    .reduce(
-      (sum, item) => sum + (item.monthlyEquivalentMinor ?? Math.abs(item.typicalAmountMinor)),
-      0,
-    );
-  const debtMinimums = input.accounts
-    .filter(
-      (account) =>
-        !account.archivedAt &&
-        ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type) &&
-        (account.ledgerBalanceMinor ?? 0) > 0,
-    )
-    .reduce(
-      (sum, account) =>
-        sum + Math.min(account.minimumPaymentMinor ?? 0, account.ledgerBalanceMinor ?? 0),
-      0,
-    );
-  return scheduled + recurring + debtMinimums;
-}
-
-function monthlyEquivalent(amountMinor: number, frequency?: string) {
-  if (!frequency || frequency === "MONTHLY") return amountMinor;
-  if (frequency === "ONE_TIME") return 0;
-  return normalizeRecurringAmount(amountMinor, frequency as Frequency).monthlyEquivalentMinor;
-}
-
-function essentialScenarioMonthlyDelta(input: CashFlowInput, components: ScenarioComponent[]) {
-  return components.reduce((sum, component) => {
-    if (
-      (component.type === "RECURRING_EXPENSE" || component.type === "VEHICLE_PAYMENT") &&
-      component.essentiality === "ESSENTIAL"
-    )
-      return sum + Math.abs(componentCashAmounts(input, component).monthlyMinor);
-    if (component.type === "CANCEL_RECURRING") {
-      const recurring = input.recurring.find((item) => item.id === component.linkedRecurringId);
-      if (recurring?.classification === "ESSENTIAL")
-        return sum - Math.abs(componentCashAmounts(input, component).monthlyMinor);
-    }
-    return sum;
-  }, 0);
 }
 
 function buildRisks(input: {
