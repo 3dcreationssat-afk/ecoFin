@@ -18,7 +18,8 @@
 - Validated repository-derived debt payoff planning with saved Avalanche, Snowball, and Custom plans,
   temporary extra-payment scenarios, monthly schedules, comparisons, and data-quality remediation.
 - Isolated saved Decision Scenarios with typed expense, income, recurring cancellation, vehicle,
-  debt, savings, policy, and buffer assumptions plus deterministic comparisons and risks.
+  debt, savings, policy, and buffer assumptions plus reconciled upfront/monthly/period/first-year
+  horizons, fixed-goal affordability, explicit emergency-runway inputs, and deterministic risks.
 
 ## Preliminary Signals
 

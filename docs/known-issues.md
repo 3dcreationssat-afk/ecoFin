@@ -1,7 +1,8 @@
 # Known Issues
 
-- Scenario recurring assumptions model one event per active financial period; they are not a
-  multi-year daily cash forecast. Goal dates assume constant monthly contributions.
+- Scenario first-year and bounded totals use monthly-anniversary assumptions; they are not a
+  multi-year daily cash forecast and do not model within-month proration. Goal dates assume constant
+  fixed monthly contributions unless explicitly changed by the scenario.
 - There is no apply-to-real-data workflow. Scenario assumptions intentionally never mutate actual
   financial records.
 

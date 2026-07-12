@@ -10,7 +10,8 @@ Date: 2026-07-12
 ## Implemented Capabilities
 
 - Isolated Decision Simulator with durable typed assumptions, audited CRUD/duplicate/archive/delete,
-  shared validated-engine evaluation, goal/debt/runway impacts, risks, confidence, and lifecycle tests.
+  shared validated-engine evaluation, reconciled impact horizons, fixed-goal affordability,
+  goal/debt/runway impacts, risks, confidence, and lifecycle tests.
 
 - Deterministic debt payoff with minimum-only, Avalanche, Snowball, Custom, explicit extra payment,
   rollover, schedule, saved/audited plan state, confidence, and invalid-metadata blocking.

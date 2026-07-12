@@ -6,7 +6,8 @@ custom order, payoff impact, milestones, and bounded monthly schedule are implem
 
 Decision rows also retain original evidence. The validated follow-up now implements typed isolated
 scenario persistence, component building, comparisons, timeline, risks, goal/debt/runway impacts,
-responsive behavior, and lifecycle tests; applying a scenario remains intentionally unavailable.
+responsive behavior, and lifecycle tests. A semantic audit added separately reconciled upfront,
+monthly, current-period, first-year, and bounded impacts; applying a scenario remains intentionally unavailable.
 
 Planning status: expected income, obligations, occurrences, policy recommendations, and retained Safe to Spend are implemented; complex split matching is deferred.
 

@@ -21,6 +21,10 @@
 
 ## 2026-07-12
 
+- Audited Decision Simulator semantics: separated upfront, recurring monthly, current-period,
+  first-12-month, and bounded impacts; added exact component reconciliation, effective-date-aware
+  cancellations, explicit fixed-goal affordability, and numerator/denominator emergency runway.
+
 - Added isolated typed Decision Scenarios with audited lifecycle/component CRUD, canonical examples,
   shared Cash Flow/savings/goal/debt evaluation, comparisons, timeline, runway, deterministic risks,
   confidence, backup/reset/start-fresh integration, responsive UI, and tests.

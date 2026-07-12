@@ -3,7 +3,8 @@
 ## Implemented
 
 - Decision scenarios apply typed in-memory overlays and reuse Cash Flow, savings policy, goal
-  completion, and debt payoff engines. Metric deltas remain integer minor units.
+  completion, and debt payoff engines. Upfront, recurring-monthly, current-period, first-12-month,
+  and bounded totals remain integer minor units and current-period impact reconciles exactly.
 
 - Debt payoff uses positive liability ledgers, integer monthly interest rounding, payments after
   interest, exact final-payment caps, a 600-month horizon, minimum-only comparison, strategy rollover,

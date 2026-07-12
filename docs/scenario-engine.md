@@ -28,19 +28,36 @@ timelines, comparisons, risks, and schedules are reproducible and are not stored
 
 Amounts are net integer minor-unit assumptions. Dates are UTC date-only boundaries. A duration ends a
 component at the corresponding month boundary. Components outside the active financial period remain
-persisted but do not change that period's Cash Flow result.
+persisted but do not change that period's Cash Flow result. Cancellation savings begin with the first
+linked charge on or after the effective date; past charges remain unchanged.
 
 ## Metrics
 
-Before/after output includes monthly net movement, cash after obligations and protections, allocatable
+Before/after output includes current-period net movement, cash after obligations and protections, allocatable
 surplus, Recommended and Conservative Safe to Save, Safe to Spend, projected month-end, required
 commitments, goal completion, debt payoff, interest, and confidence.
 
+Each component also reports exact signed cash impacts for:
+
+- upfront: the one-time event, excluding recurring amounts;
+- ongoing monthly: one eligible monthly occurrence;
+- current period: eligible events within the selected financial-period boundary;
+- first 12 months: upfront events plus monthly anniversaries from the evaluation date;
+- bounded total: all occurrences only when an end date or duration makes the total finite.
+
+Current-period impact reconciles as `upfront + recurring + interaction`. The interaction is explicit
+when a policy/reserve overlay changes a shared allocation result. A vehicle's upfront impact is
+`trade-in - down payment`; its ongoing impact is the negative sum of payment, insurance increase,
+and operating increase. Debt interest savings stay separate from current cash impact.
+
 Emergency runway is:
 
-`explicitly linked emergency-fund balance / (essential obligations + debt minimums in the period)`
+`immediate explicitly linked emergency-fund balance / average monthly essential obligations`
 
-No unrelated savings account is treated as an emergency fund.
+The denominator includes essential scheduled/confirmed recurring obligations, debt minimums, and
+essential scenario recurring costs. It excludes optional costs, one-time costs, and goal
+contributions. A negative one-time impact reduces the numerator only when its funding account is the
+explicit emergency account. No unrelated savings account is treated as an emergency fund.
 
 ## Confidence And Risks
 
@@ -52,8 +69,9 @@ advice is generated.
 
 ## Numeric Example
 
-Adding a $200.00 monthly cost and $350.00 one-time purchase in the current period reduces projected
-month-end by exactly $550.00. The same overlay is passed through the configured savings policy, so
+Adding a $200.00 monthly cost and $350.00 one-time purchase in the current period produces a
+\-$350.00 upfront impact, -$200.00 ongoing monthly impact, and -$550.00 current-period impact. Its
+first-12-month impact is -$2,750.00 when all 12 monthly anniversaries are eligible. The same overlay is passed through the configured savings policy, so
 Safe to Save and Safe to Spend change according to existing policy rules rather than a simulator-only
 formula.
 
