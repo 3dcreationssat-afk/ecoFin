@@ -123,3 +123,7 @@ Use focused conventional commits and do not rewrite history:
 - `test(parity): cover base44-aligned workflows`
 
 Do not push from this recovery pass.
+
+# Completed increment: transaction filters and saved views (2026-07-12)
+
+Advanced URL filters, server-side pagination, durable saved views/default precedence, and Overview/Data Quality drill-down compatibility are implemented. Bulk actions, merchant rules, splits, and new imports remain deferred.

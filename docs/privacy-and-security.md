@@ -39,3 +39,5 @@ Do not commit screenshots or UAT artifacts containing personal names, account de
 ## Dependency Audit
 
 As of the Phase 1 audit, the Prisma high-severity advisory was remediated by upgrading Prisma packages to `6.19.3`. A moderate Next/PostCSS advisory remains unresolved because npm only offers a semver-major downgrade path that is not a safe remediation for this app.
+
+- Saved transaction views store validated filter preferences and explicitly saved search text, never transaction snapshots, uploads, credentials, or account secrets.

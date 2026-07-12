@@ -12,6 +12,7 @@ Date: 2026-07-12
 - Dedicated goal contribution workflow with contribution history.
 - CSV import preview, mapping, validation, repeated-file blocking, duplicate review, confirmation, and undo.
 - Transaction search, account/category/type/status/source filters, URL state, result counts, pagination, and bounded table scrolling.
+- Advanced date/period, amount, excluded, transfer, and recurring-link filters plus durable saved/default views and server-side pagination.
 - Explainable transfer review with scan, confirm, reject, unmatch, eligible manual-match filtering, and validation feedback.
 - Explainable recurring-expense review with scan, confirm, reject, edit, manual creation, cancellation tracking, reactivation, supporting transactions, price-change flags, and savings selection.
 - Local backup creation, validation, restore preview, mandatory pre-restore safety backup, restore confirmation, and backup deletion.
@@ -29,8 +30,7 @@ Date: 2026-07-12
 
 ## Known Limitations
 
-- Transaction filtering is client-side over the locally loaded dataset.
-- Overview category drill-down uses existing Transactions filters and does not add period filtering or saved views.
+- Transaction amount-range entry is currently expressed in integer minor units.
 - Overview upcoming obligations only include persisted account minimums and confirmed recurring records; no reservation engine or bill-pay workflow is implemented.
 - Curated institutions are stored as account institution text; there is no separate institution table or normalized identifier yet.
 - Goal contribution source account is stored as contribution source text, not a foreign key.

@@ -18,3 +18,5 @@
 - Start fresh creates an empty single-household workspace and preserves backups/preferences, but it is not a selective Remove demo records only workflow and not a general Delete all local financial data workflow.
 - Date and duration formatting are not fully centralized.
 - `npm audit` and `npm audit --omit=dev` report a moderate Next.js/PostCSS advisory. The reported fix is a semver-major downgrade to `next@9.3.3`, so it was not applied.
+- Transaction amount-range controls currently accept integer minor units rather than localized decimal currency input.
+- Saved-view management uses a compact popover and native confirmation prompts; richer dialog focus trapping remains a future design-system refinement.

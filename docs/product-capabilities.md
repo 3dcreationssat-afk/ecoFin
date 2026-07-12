@@ -7,6 +7,7 @@
 - Repository-derived Budget actuals, current-pace forecasts, remaining amounts, and status labels by category group.
 - Repository-derived Cash Flow, Debt, and Reports summary values where deterministic local inputs exist.
 - Empty workspace, demonstration workspace, user-data workspace, and mixed-data workspace states.
+- Advanced server-side transaction filters, URL state, sorting, pagination, saved-view CRUD, and one household default saved view.
 
 ## Preliminary Signals
 
@@ -17,5 +18,5 @@
 
 ## Demonstration or Unavailable Capabilities
 
-- Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, decision simulation, report export, saved transaction views, merchant rules, and debt payoff simulation are not implemented.
+- Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, decision simulation, report export, merchant rules, and debt payoff simulation are not implemented.
 - Disabled controls remain visible only when they identify a planned capability and do not silently perform no action.

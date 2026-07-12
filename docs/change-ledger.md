@@ -26,3 +26,9 @@
 - Added workspace lifecycle states, a Start fresh workflow for empty local workspaces, empty-state screens, and clarified Restore demonstration data semantics while preserving backup ZIP files and browser preferences.
 - Added the Base44 parity audit package and replaced static Overview, Cash Flow, Budget, Debt, and Reports figures with repository-derived or explicitly unavailable/preliminary values.
 - Added the actionable Overview increment with repository-derived attention items, upcoming obligations, category status rows, goal statuses, debt strategy recommendation, direct drill-down links, and focused unit/e2e coverage.
+
+# 2026-07-12 — Advanced transaction filters and saved views
+
+- Added validated URL-authoritative advanced filtering, financial-period bounds, sorting, and server-side pagination.
+- Added durable archived `TransactionSavedView` records, case-insensitive household naming, default precedence, CRUD routes, compact UI, and lifecycle/backup integration.
+- Added Overview/Data Quality drill-down parameters, query and repository tests, indexes, and `docs/transaction-views.md`.

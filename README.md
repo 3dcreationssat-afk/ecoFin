@@ -23,6 +23,7 @@ Implemented:
 - Synthetic seed/reset flow for one local demo household plus a separate Start fresh workflow for an empty workspace.
 - Workspace state badges for Demonstration data, Empty workspace, Your data, and Mixed data.
 - Repository-derived overview action queue, upcoming obligations, category spending, goal statuses, debt recommendation, cash-flow, budget, reports, accounts, transactions, goals, settings, and data-quality values where deterministic local inputs exist.
+- Server-paginated transaction search, advanced URL filters, sorting, durable saved views, and household default-view precedence.
 
 Still planned:
 
@@ -101,6 +102,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - In-app backup creation writes an application-controlled local ZIP package with `database.sqlite`, `manifest.json`, and `README.txt`.
 - Restore requires validation, the exact phrase `RESTORE BACKUP`, and a mandatory pre-restore safety backup.
 - Backup/restore includes transfer and recurring relationships and requires the current schema fingerprint.
+- Backup/restore includes transaction saved views. Start Fresh and demonstration reset remove saved views and seed none.
 
 ## Verification
 

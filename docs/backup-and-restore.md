@@ -63,5 +63,6 @@ Do not commit, upload, email, or share backup ZIP files. Store them only in a lo
 - Backup/restore is local-only and does not sync to cloud storage.
 - Restore supports only the same application version and same committed migration fingerprint.
 - Restore supports transfer and recurring relationships only for the same schema fingerprint.
+- Saved transaction views are contained in SQLite backups and validated during restore. Start Fresh and demonstration reset remove them; canonical demonstration data does not seed saved views.
 - There is no selective restore, merge UI, encrypted archive format, remote backup provider, or scheduled backup job.
 - Demo reset clears backup metadata in SQLite but does not delete ZIP files already written under `backups/local/`.
