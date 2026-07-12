@@ -154,9 +154,11 @@ const transactionTypeLabels: Record<string, string> = {
   EXPENSE: "Expense",
   TRANSFER_OUT: "Transfer out",
   TRANSFER_IN: "Transfer in",
+  CREDIT_CARD_PAYMENT: "Credit-card payment",
   REFUND: "Refund",
   FEE: "Fee",
   INTEREST: "Interest",
+  OTHER: "Other",
   UNKNOWN: "Needs type",
 };
 
