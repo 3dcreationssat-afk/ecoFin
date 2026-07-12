@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { goalPurposes } from "@/domain/planning/emergency-configuration";
 
 export const goalSchema = z.object({
   householdId: z.string().min(1),
   linkedAccountId: z.string().min(1).nullable().optional(),
   name: z.string().min(1).max(120),
+  purpose: z.enum(goalPurposes).default("GENERAL"),
   targetMinor: z.number().int().min(1),
   currentMinor: z.number().int().min(0).default(0),
   plannedMonthlyMinor: z.number().int().min(0).default(0),

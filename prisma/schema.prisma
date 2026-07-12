@@ -46,6 +46,35 @@ model Household {
   debtPlans             DebtPlan[]
   decisionScenarios     DecisionScenario[]
   auditLogs             AuditLog[]
+  emergencyFundConfiguration EmergencyFundConfiguration?
+}
+
+model EmergencyFundConfiguration {
+  id                    String   @id @default(cuid())
+  householdId           String   @unique
+  enabled               Boolean  @default(false)
+  targetAmountMinor     Int?
+  targetRunwayMonths    Int      @default(3)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  accounts              EmergencyFundAccount[]
+}
+
+model EmergencyFundAccount {
+  id                           String   @id @default(cuid())
+  emergencyFundConfigurationId String
+  accountId                    String   @unique
+  includedAmountMode           String   @default("ENTIRE_BALANCE")
+  fixedProtectedAmountMinor    Int?
+  sortOrder                    Int      @default(0)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+  configuration                EmergencyFundConfiguration @relation(fields: [emergencyFundConfigurationId], references: [id], onDelete: Cascade)
+  account                      Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([emergencyFundConfigurationId, accountId])
+  @@index([emergencyFundConfigurationId, sortOrder])
 }
 
 model DecisionScenario {
@@ -210,6 +239,7 @@ model Account {
   expectedIncomeSchedules ExpectedIncomeSchedule[]
   paymentObligations ScheduledObligation[] @relation("ObligationPaymentAccount")
   debtObligations ScheduledObligation[] @relation("ObligationDebtAccount")
+  emergencyFundLinks EmergencyFundAccount[]
 }
 
 model ReconciliationAdjustment {
@@ -254,6 +284,7 @@ model Goal {
   householdId           String
   linkedAccountId       String?
   name                  String
+  purpose               String   @default("GENERAL")
   targetMinor           Int
   currentMinor          Int      @default(0)
   plannedMonthlyMinor   Int      @default(0)

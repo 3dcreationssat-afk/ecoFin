@@ -422,6 +422,9 @@ export async function startFreshWorkspace(input: unknown) {
         emergencyFundTargetMinor: 0,
         debtStrategy: "AVALANCHE",
         workspaceMode: "EMPTY",
+        emergencyFundConfiguration: {
+          create: { enabled: false, targetAmountMinor: null, targetRunwayMonths: 3 },
+        },
       },
     });
     await auditChange(tx, {

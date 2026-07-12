@@ -20,6 +20,7 @@ export async function getCashFlowInput(asOf = new Date()) {
       importBatches: { orderBy: { createdAt: "desc" }, take: 50 },
       expectedIncomeSchedules: { include: { occurrences: true } },
       scheduledObligations: { include: { occurrences: true } },
+      emergencyFundConfiguration: { include: { accounts: true } },
     },
   });
   if (!household) throw new AppError("Household not found. Run npm run db:seed.", 404);
@@ -28,6 +29,7 @@ export async function getCashFlowInput(asOf = new Date()) {
     financialMonthStart: household.financialMonthStart,
     checkingBufferMinor: household.checkingBufferMinor,
     emergencyFundTargetMinor: household.emergencyFundTargetMinor,
+    emergencyFundConfiguration: household.emergencyFundConfiguration,
     workspaceMode: household.workspaceMode,
     accounts: household.accounts,
     transactions: household.transactions,

@@ -285,6 +285,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         householdId: household.id,
         linkedAccountId: savings.id,
         name: "Emergency Fund",
+        purpose: "EMERGENCY_FUND",
         targetMinor: 1500000,
         currentMinor: 840000,
         plannedMonthlyMinor: 50000,
@@ -302,6 +303,21 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         plannedMonthlyMinor: 40000,
         requiredMonthlyMinor: 56000,
         priority: 20,
+      },
+    });
+    await client.emergencyFundConfiguration.create({
+      data: {
+        householdId: household.id,
+        enabled: true,
+        targetAmountMinor: 1500000,
+        targetRunwayMonths: 3,
+        accounts: {
+          create: {
+            accountId: savings.id,
+            includedAmountMode: "FIXED_AMOUNT",
+            fixedProtectedAmountMinor: 840000,
+          },
+        },
       },
     });
     await client.goal.createMany({
