@@ -830,6 +830,10 @@ export function DecisionsClient({
                     Optional costs, goal contributions, and one-time costs are excluded from the
                     denominator.
                   </p>
+                  <p className="mt-2 text-sm">
+                    Configured runway target:{" "}
+                    {evaluation.scenarioEmergencyRunway.targetRunwayMonths ?? "Missing"} months
+                  </p>
                   <div className="mt-5 grid grid-cols-2 gap-4">
                     <div>
                       <span className="text-sm text-[var(--muted)]">Current</span>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Pill } from "@/components/data-display/primitives";
-import { parseMoneyToMinor, minorToDecimalString } from "@/domain/money/money";
+import { formatMoney, parseMoneyToMinor, minorToDecimalString } from "@/domain/money/money";
 
 type HouseholdDto = {
   id: string;
@@ -75,6 +75,19 @@ type BackupDashboardDto = {
   storageLabel: string;
   encryptionStatus: string;
 };
+type EmergencyFundDto = {
+  configuration: {
+    enabled: boolean;
+    targetAmountMinor: number | null;
+    targetRunwayMonths: number;
+    accounts: {
+      accountId: string;
+      includedAmountMode: string;
+      fixedProtectedAmountMinor: number | null;
+    }[];
+  };
+  eligibleAccounts: { id: string; name: string; type: string; ledgerBalanceMinor: number | null }[];
+};
 
 const incomeScheduleLabels: Record<string, string> = {
   WEEKLY: "Weekly",
@@ -112,11 +125,20 @@ export function SettingsClient({
   categories,
   backup,
   merchantRules,
+  emergencyFund,
+  emergencyRunway,
 }: {
   household: HouseholdDto;
   categories: CategoryDto[];
   backup: BackupDashboardDto;
   merchantRules: MerchantRuleDto[];
+  emergencyFund: EmergencyFundDto;
+  emergencyRunway: {
+    eligibleBalanceMinor: number;
+    runwayBasisPoints: number | null;
+    meetsRunwayTarget: boolean | null;
+    confidence: string;
+  };
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -170,6 +192,15 @@ export function SettingsClient({
     checkingBuffer: minorToDecimalString(household.checkingBufferMinor),
     emergencyFundTarget: minorToDecimalString(household.emergencyFundTargetMinor),
     debtStrategy: household.debtStrategy,
+  });
+  const firstEmergencyAccount = emergencyFund.configuration.accounts[0];
+  const [emergencyForm, setEmergencyForm] = useState({
+    enabled: emergencyFund.configuration.enabled,
+    accountId: firstEmergencyAccount?.accountId ?? "",
+    mode: firstEmergencyAccount?.includedAmountMode ?? "FIXED_AMOUNT",
+    fixedAmount: minorToDecimalString(firstEmergencyAccount?.fixedProtectedAmountMinor ?? 0),
+    targetAmount: minorToDecimalString(emergencyFund.configuration.targetAmountMinor ?? 0),
+    targetRunwayMonths: String(emergencyFund.configuration.targetRunwayMonths),
   });
   const [categoryForm, setCategoryForm] = useState({
     name: "",
@@ -236,6 +267,44 @@ export function SettingsClient({
     if (!response.ok) {
       const body = await response.json();
       setError(body.error ?? "Unable to save household settings.");
+      setStatus("error");
+      return;
+    }
+    setStatus("saved");
+    startTransition(() => router.refresh());
+  }
+
+  async function saveEmergencyFund() {
+    setStatus("saving");
+    setError("");
+    const response = await fetch("/api/emergency-fund", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: emergencyForm.enabled,
+        targetAmountMinor: parseMoneyToMinor(emergencyForm.targetAmount),
+        targetRunwayMonths: Number(emergencyForm.targetRunwayMonths),
+        accounts: emergencyForm.accountId
+          ? [
+              {
+                accountId: emergencyForm.accountId,
+                includedAmountMode: emergencyForm.mode,
+                fixedProtectedAmountMinor:
+                  emergencyForm.mode === "FIXED_AMOUNT"
+                    ? parseMoneyToMinor(emergencyForm.fixedAmount)
+                    : null,
+              },
+            ]
+          : [],
+      }),
+    });
+    if (!response.ok) {
+      const body = await response.json();
+      setError(
+        body.issues?.map((issue: { message: string }) => issue.message).join(" ") ??
+          body.error ??
+          "Unable to save emergency-fund configuration.",
+      );
       setStatus("error");
       return;
     }
@@ -551,66 +620,166 @@ export function SettingsClient({
         </div>
       ) : null}
       {activeTab === "household" ? (
-        <Card className="p-7">
-          <h2 className="text-xl font-semibold">Household Settings</h2>
-          <p className="mb-8 text-[var(--muted)]">
-            Set the defaults used for planning, monthly views, and household-level targets.
-          </p>
-          <div className="grid gap-6 md:grid-cols-2">
-            <Field
-              label="Household name"
-              value={form.name}
-              onChange={(name) => setForm({ ...form, name })}
-            />
-            <Select
-              label="Currency"
-              value={form.currency}
-              onChange={() => setForm({ ...form, currency: "USD" })}
-              options={["USD"]}
-            />
-            <Field
-              label="Financial month start"
-              help="The calendar day that starts your household financial month. Use 1 for calendar months."
-              value={form.financialMonthStart}
-              onChange={(financialMonthStart) => setForm({ ...form, financialMonthStart })}
-            />
-            <Select
-              label="Income schedule"
-              help="How often primary income normally arrives. This helps future cash timing views."
-              value={form.incomeSchedule}
-              onChange={(incomeSchedule) => setForm({ ...form, incomeSchedule })}
-              options={["WEEKLY", "BI_WEEKLY", "SEMI_MONTHLY", "MONTHLY"]}
-              labels={incomeScheduleLabels}
-            />
-            <Field
-              label="Checking buffer"
-              help="The target cushion to keep in checking before moving money elsewhere."
-              value={form.checkingBuffer}
-              onChange={(checkingBuffer) => setForm({ ...form, checkingBuffer })}
-            />
-            <Field
-              label="Emergency fund target"
-              help="The total emergency savings target for the household."
-              value={form.emergencyFundTarget}
-              onChange={(emergencyFundTarget) => setForm({ ...form, emergencyFundTarget })}
-            />
-            <Select
-              label="Debt strategy"
-              help="Avalanche targets highest interest first. Snowball targets smallest balances first."
-              value={form.debtStrategy}
-              onChange={(debtStrategy) => setForm({ ...form, debtStrategy })}
-              options={["AVALANCHE", "SNOWBALL", "CUSTOM"]}
-              labels={debtStrategyLabels}
-            />
+        <div className="space-y-7">
+          <Card className="p-7">
+            <h2 className="text-xl font-semibold">Household Settings</h2>
+            <p className="mb-8 text-[var(--muted)]">
+              Set the defaults used for planning, monthly views, and household-level targets.
+            </p>
+            <div className="grid gap-6 md:grid-cols-2">
+              <Field
+                label="Household name"
+                value={form.name}
+                onChange={(name) => setForm({ ...form, name })}
+              />
+              <Select
+                label="Currency"
+                value={form.currency}
+                onChange={() => setForm({ ...form, currency: "USD" })}
+                options={["USD"]}
+              />
+              <Field
+                label="Financial month start"
+                help="The calendar day that starts your household financial month. Use 1 for calendar months."
+                value={form.financialMonthStart}
+                onChange={(financialMonthStart) => setForm({ ...form, financialMonthStart })}
+              />
+              <Select
+                label="Income schedule"
+                help="How often primary income normally arrives. This helps future cash timing views."
+                value={form.incomeSchedule}
+                onChange={(incomeSchedule) => setForm({ ...form, incomeSchedule })}
+                options={["WEEKLY", "BI_WEEKLY", "SEMI_MONTHLY", "MONTHLY"]}
+                labels={incomeScheduleLabels}
+              />
+              <Field
+                label="Checking buffer"
+                help="The target cushion to keep in checking before moving money elsewhere."
+                value={form.checkingBuffer}
+                onChange={(checkingBuffer) => setForm({ ...form, checkingBuffer })}
+              />
+              <Select
+                label="Debt strategy"
+                help="Avalanche targets highest interest first. Snowball targets smallest balances first."
+                value={form.debtStrategy}
+                onChange={(debtStrategy) => setForm({ ...form, debtStrategy })}
+                options={["AVALANCHE", "SNOWBALL", "CUSTOM"]}
+                labels={debtStrategyLabels}
+              />
+            </div>
+            <button
+              disabled={status === "saving"}
+              onClick={saveHousehold}
+              className="mt-6 h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white"
+            >
+              Save household
+            </button>
+          </Card>
+          <div id="emergency-fund">
+            <Card className="p-7">
+              <h2 className="text-xl font-semibold">Emergency Fund</h2>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                Only deliberately linked liquid accounts are protected. General savings are never
+                included automatically.
+              </p>
+              <label className="mt-5 flex items-center gap-3 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  checked={emergencyForm.enabled}
+                  onChange={(event) =>
+                    setEmergencyForm({ ...emergencyForm, enabled: event.target.checked })
+                  }
+                />
+                Enable emergency-fund protection
+              </label>
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <label>
+                  <span className="text-sm text-[var(--muted)]">Linked emergency account</span>
+                  <select
+                    className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
+                    value={emergencyForm.accountId}
+                    onChange={(event) =>
+                      setEmergencyForm({ ...emergencyForm, accountId: event.target.value })
+                    }
+                  >
+                    <option value="">Select an account</option>
+                    {emergencyFund.eligibleAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} · {account.type.toLowerCase()}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Select
+                  label="Protected amount mode"
+                  help="Entire balance uses the eligible ledger up to the total target. Fixed amount protects a chosen amount capped by the ledger."
+                  value={emergencyForm.mode}
+                  onChange={(mode) => setEmergencyForm({ ...emergencyForm, mode })}
+                  options={["ENTIRE_BALANCE", "FIXED_AMOUNT"]}
+                  labels={{
+                    ENTIRE_BALANCE: "Entire linked balance",
+                    FIXED_AMOUNT: "Fixed protected amount",
+                  }}
+                />
+                {emergencyForm.mode === "FIXED_AMOUNT" ? (
+                  <Field
+                    label="Protected amount"
+                    help="This amount is capped by the selected account's eligible ledger balance."
+                    value={emergencyForm.fixedAmount}
+                    onChange={(fixedAmount) => setEmergencyForm({ ...emergencyForm, fixedAmount })}
+                  />
+                ) : null}
+                <Field
+                  label="Target amount"
+                  help="Caps the combined eligible emergency balance across linked accounts."
+                  value={emergencyForm.targetAmount}
+                  onChange={(targetAmount) => setEmergencyForm({ ...emergencyForm, targetAmount })}
+                />
+                <Field
+                  label="Target runway in months"
+                  help="Used by Cash Flow, Decisions, Overview, and Data Quality. Allowed range: 1–24."
+                  value={emergencyForm.targetRunwayMonths}
+                  onChange={(targetRunwayMonths) =>
+                    setEmergencyForm({ ...emergencyForm, targetRunwayMonths })
+                  }
+                />
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3 text-sm">
+                <div>
+                  <span className="text-[var(--muted)]">Current eligible balance</span>
+                  <strong className="block">
+                    {formatMoney(emergencyRunway.eligibleBalanceMinor)}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)]">Current runway</span>
+                  <strong className="block">
+                    {emergencyRunway.runwayBasisPoints == null
+                      ? "Unavailable"
+                      : `${(emergencyRunway.runwayBasisPoints / 10000).toFixed(1)} months`}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)]">Configuration status</span>
+                  <strong className="block">
+                    {emergencyRunway.confidence === "HIGH"
+                      ? emergencyRunway.meetsRunwayTarget
+                        ? "Target met"
+                        : "Below target"
+                      : "Incomplete"}
+                  </strong>
+                </div>
+              </div>
+              <button
+                disabled={status === "saving"}
+                onClick={saveEmergencyFund}
+                className="mt-6 h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white"
+              >
+                {status === "saving" ? "Saving emergency fund…" : "Save emergency fund"}
+              </button>
+            </Card>
           </div>
-          <button
-            disabled={status === "saving"}
-            onClick={saveHousehold}
-            className="mt-6 h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white"
-          >
-            Save household
-          </button>
-        </Card>
+        </div>
       ) : null}
       {activeTab === "categories" ? (
         <Card className="mt-7 p-7">

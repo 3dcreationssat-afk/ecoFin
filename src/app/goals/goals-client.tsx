@@ -9,6 +9,7 @@ import { goalProgress } from "@/domain/summaries/calculations";
 type GoalDto = {
   id: string;
   name: string;
+  purpose: string;
   targetMinor: number;
   currentMinor: number;
   plannedMonthlyMinor: number;
@@ -144,6 +145,21 @@ export function GoalsClient({
             value={form.name}
             onChange={(name) => setForm({ ...form, name })}
           />
+          <label>
+            <span className="text-sm text-[var(--muted)]">Goal purpose</span>
+            <select
+              className="mt-2 h-11 w-full rounded-md border border-[var(--border)] px-3"
+              value={form.purpose}
+              onChange={(event) => setForm({ ...form, purpose: event.target.value })}
+            >
+              <option value="GENERAL">General savings</option>
+              <option value="EMERGENCY_FUND">Emergency fund</option>
+              <option value="SINKING_FUND">Sinking fund</option>
+              <option value="PURCHASE">Purchase</option>
+              <option value="DEBT_PAYOFF">Debt payoff</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </label>
           <Field
             label="Target"
             value={form.target}
@@ -355,6 +371,7 @@ function goalForm(goal: GoalDto | undefined, householdId: string, fallbackAccoun
   return {
     householdId,
     name: goal?.name ?? "",
+    purpose: goal?.purpose ?? "GENERAL",
     target: minorToDecimalString(goal?.targetMinor ?? 10000),
     current: minorToDecimalString(goal?.currentMinor ?? 0),
     planned: minorToDecimalString(goal?.plannedMonthlyMinor ?? 0),
@@ -369,6 +386,7 @@ function toPayload(form: ReturnType<typeof goalForm>) {
     householdId: form.householdId,
     linkedAccountId: form.linkedAccountId || null,
     name: form.name,
+    purpose: form.purpose,
     targetMinor: parseMoneyToMinor(form.target),
     currentMinor: parseMoneyToMinor(form.current),
     plannedMonthlyMinor: parseMoneyToMinor(form.planned),

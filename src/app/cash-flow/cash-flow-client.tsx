@@ -223,6 +223,15 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
             </Pill>
           </div>
         </div>
+        <p className="mt-3 text-sm">
+          Configured target:{" "}
+          <strong>{projection.emergencyRunway.targetRunwayMonths ?? "Missing"} months</strong>
+          {projection.emergencyRunway.meetsRunwayTarget == null
+            ? " · Status unavailable"
+            : projection.emergencyRunway.meetsRunwayTarget
+              ? " · Target met"
+              : " · Below target"}
+        </p>
         <details className="mt-5 border-t border-[var(--border)] pt-4">
           <summary className="cursor-pointer text-sm font-semibold">
             Explain emergency runway composition
@@ -232,7 +241,7 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
               title="Emergency funds available"
               total={projection.emergencyRunway.eligibleBalanceMinor}
               rows={projection.emergencyRunway.sources.map((source) => ({
-                id: source.goalId,
+                id: source.goalId ?? source.accountId,
                 label: `${source.goalName} · ${source.accountName}`,
                 detail: `Ledger ${formatMoney(source.ledgerBalanceMinor)} · protected ${formatMoney(source.protectedMinor)}`,
                 amount: source.resultingEligibleMinor,
