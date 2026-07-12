@@ -184,7 +184,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
 
   return (
     <>
-      <div className="mb-7 grid gap-4 md:grid-cols-3 2xl:grid-cols-6">
+      <div className="metric-grid mb-7">
         <MetricCard label="Monthly total" value={formatMoney(data.summary.monthlyTotalMinor)} />
         <MetricCard label="Annual total" value={formatMoney(data.summary.annualTotalMinor)} />
         <MetricCard

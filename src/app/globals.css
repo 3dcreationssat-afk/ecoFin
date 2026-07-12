@@ -27,9 +27,75 @@
 
 body {
   min-height: 100vh;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--text);
   font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--teal-soft);
+  color: var(--text);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+}
+
+.numeric,
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+a {
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #8993a3;
+}
+
+table thead {
+  background: var(--surface-muted);
+}
+
+table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+table tbody tr:hover {
+  background: rgb(245 242 237 / 0.65);
 }
 
 button,

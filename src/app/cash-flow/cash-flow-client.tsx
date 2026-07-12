@@ -34,7 +34,7 @@ export function CashFlowClient({ projection }: { projection: CashFlowProjection 
           {projection.workspaceWarning}
         </Card>
       ) : null}
-      <div className="mb-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="metric-grid mb-7">
         <MetricCard
           label="Current Cash Position"
           value={formatMoney(projection.startingUsableLiquidCashMinor)}

@@ -82,7 +82,7 @@ export default async function Home() {
         </Card>
       ) : (
         <>
-          <div className="mb-7 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="metric-grid mb-7">
             {summaryCards.map((card) => (
               <MetricCard key={card.label} {...card} />
             ))}

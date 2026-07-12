@@ -52,12 +52,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] p-3">
+    <div className="min-h-screen bg-[var(--background)] p-0 sm:p-3">
+      <a
+        href="#main-content"
+        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-[var(--teal)] px-4 py-3 font-semibold text-white shadow-lg focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
       <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1900px] items-stretch rounded-lg border border-[var(--border)] bg-[var(--shell)] shadow-[var(--shadow)]">
         <Sidebar collapsed={collapsed} pathname={pathname} onToggle={toggleCollapsed} />
         {mobileOpen ? <MobileNav pathname={pathname} onClose={closeMobileNav} /> : null}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[72px] items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 md:px-6">
+          <header className="flex h-[72px] min-w-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 sm:gap-3 md:px-6">
             <button
               ref={mobileTriggerRef}
               className="grid h-10 w-10 place-items-center rounded-md border border-[var(--border)] bg-white lg:hidden"
@@ -72,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <select className="hidden h-10 rounded-md border-0 bg-transparent px-3 text-sm md:block">
               <option>Our Household</option>
             </select>
-            <div className="relative min-w-[160px] flex-1">
+            <div className="relative min-w-0 flex-1 sm:min-w-[160px]">
               <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
               <input
                 className="h-10 w-full rounded-md border border-transparent bg-[var(--surface-muted)] pl-10 pr-3 text-sm"
@@ -113,7 +119,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <ChevronDown className="hidden h-4 w-4 text-slate-500 lg:block" />
           </header>
-          <main className="min-w-0 flex-1 px-4 py-6 md:px-7 lg:px-8">{children}</main>
+          <main id="main-content" className="min-w-0 flex-1 px-4 py-6 md:px-7 lg:px-8">
+            <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+          </main>
         </div>
       </div>
     </div>

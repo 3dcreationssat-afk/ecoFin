@@ -72,7 +72,7 @@ export default async function ReportsPage() {
             </select>
             <span className="text-[var(--muted)]">Period: current month</span>
           </div>
-          <div className="mb-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="metric-grid mb-7">
             <MetricCard
               label="Income"
               value={formatMoney(period.currentSummary.householdIncomeMinor)}

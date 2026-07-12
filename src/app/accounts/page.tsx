@@ -28,7 +28,7 @@ export default async function AccountsPage() {
           </p>
         </Card>
       ) : (
-        <div className="mb-7 grid gap-4 md:grid-cols-3">
+        <div className="metric-grid mb-7">
           <MetricCard
             label="Total assets"
             value={formatMoney(summary.totalAssetsMinor)}

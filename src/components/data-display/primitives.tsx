@@ -15,9 +15,11 @@ export function PageHeader({
   const badge = workspaceBadges[workspaceState];
   return (
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-      <div>
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-semibold tracking-normal text-[var(--text)]">{title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">
+            {title}
+          </h1>
           <span
             role="status"
             aria-label={`${badge.label}: ${badge.description}`}
@@ -67,7 +69,7 @@ export function Card({
   return (
     <section
       className={cn(
-        "rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow)]",
+        "rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow)]",
         className,
       )}
     >
@@ -89,18 +91,23 @@ export function MetricCard({
   featured?: boolean;
   tone?: "default" | "positive" | "warning" | "critical";
 }) {
+  const isStatus = !/[\d$%]/.test(value);
   return (
     <Card
       className={cn(
-        "min-h-[120px] min-w-0 p-6",
+        "flex min-h-[132px] min-w-0 flex-col p-5 sm:p-6",
         featured && "border-2 border-[rgb(37_139_127_/_0.45)]",
         tone === "warning" && "bg-[var(--amber-soft)]",
       )}
     >
-      <div className="break-words text-sm font-medium text-[var(--muted)]">{label}</div>
+      <div className="text-sm font-medium leading-5 text-[var(--muted)]">{label}</div>
       <div
+        data-metric-value
         className={cn(
-          "mt-3 break-words text-3xl font-semibold text-[var(--text)]",
+          "mt-3 font-semibold tracking-tight text-[var(--text)]",
+          isStatus
+            ? "text-lg leading-6 sm:text-xl"
+            : "whitespace-nowrap text-[clamp(1.5rem,2vw,1.875rem)] leading-none tabular-nums",
           tone === "positive" && "text-[var(--green)]",
           tone === "critical" && "text-[var(--red)]",
           tone === "warning" && "text-[var(--amber)]",
@@ -108,7 +115,9 @@ export function MetricCard({
       >
         {value}
       </div>
-      {detail ? <div className="mt-2 break-words text-sm text-[var(--muted)]">{detail}</div> : null}
+      {detail ? (
+        <div className="mt-auto pt-2 text-sm leading-5 text-[var(--muted)]">{detail}</div>
+      ) : null}
     </Card>
   );
 }
@@ -123,7 +132,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex rounded-full border px-3 py-1 text-xs font-medium",
+        "inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium",
         tone === "neutral" && "border-slate-200 bg-slate-50 text-slate-600",
         tone === "good" && "border-emerald-200 bg-emerald-50 text-emerald-700",
         tone === "warn" && "border-amber-200 bg-amber-50 text-amber-700",
@@ -158,9 +167,10 @@ export function Button({
       title={title}
       onClick={onClick}
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold",
-        variant === "primary" && "bg-[var(--teal)] text-white",
-        variant === "secondary" && "border border-[var(--border)] bg-white text-[var(--text)]",
+        "inline-flex min-h-11 whitespace-nowrap items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-[background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px motion-reduce:transition-none",
+        variant === "primary" && "bg-[var(--teal)] text-white hover:bg-[var(--teal-dark)]",
+        variant === "secondary" &&
+          "border border-[var(--border)] bg-white text-[var(--text)] hover:border-slate-300 hover:bg-[var(--surface-muted)]",
         disabled && "cursor-not-allowed opacity-55",
       )}
     >
@@ -181,7 +191,7 @@ export function PlannedControl({
       disabled
       title="Planned for a later phase"
       className={cn(
-        "inline-flex h-10 cursor-not-allowed items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted)] opacity-70",
+        "inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted)] opacity-70",
         className,
       )}
     >
@@ -190,5 +200,17 @@ export function PlannedControl({
         Planned
       </span>
     </button>
+  );
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        "animate-pulse rounded-lg bg-[var(--surface-muted)] motion-reduce:animate-none",
+        className,
+      )}
+    />
   );
 }

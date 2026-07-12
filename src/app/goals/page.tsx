@@ -27,7 +27,7 @@ export default async function GoalsPage() {
           </p>
         </Card>
       ) : (
-        <div className="mb-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="metric-grid mb-7">
           <MetricCard label="Total saved" value={formatMoney(summary.totalSavedMinor)} />
           <MetricCard label="Total target" value={formatMoney(summary.totalTargetMinor)} />
           <MetricCard label="Monthly planned" value={formatMoney(summary.plannedMonthlyMinor)} />

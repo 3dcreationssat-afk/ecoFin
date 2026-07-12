@@ -56,7 +56,7 @@ export default async function DebtPage() {
         </Card>
       ) : (
         <>
-          <div className="mb-7 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+          <div className="metric-grid mb-7">
             <MetricCard label="Total balance" value={formatMoney(summary.totalDebtsMinor)} />
             <MetricCard label="Monthly minimums" value={formatMoney(monthlyMinimumsMinor)} />
             <MetricCard label="Weighted APR" value={formatApr(weightedAprBasisPoints)} />
@@ -65,11 +65,15 @@ export default async function DebtPage() {
               value={formatApr(highestAprBasisPoints)}
               tone={highestAprBasisPoints > 0 ? "critical" : "default"}
             />
-            <MetricCard label="Est. payoff date" value="Unavailable" detail="Engine planned" />
+            <MetricCard
+              label="Est. payoff date"
+              value="Not yet available"
+              detail="Requires the validated payoff engine"
+            />
             <MetricCard
               label="Est. remaining interest"
-              value="Unavailable"
-              detail="Engine planned"
+              value="Not yet available"
+              detail="Requires the validated payoff engine"
             />
           </div>
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
@@ -102,13 +106,13 @@ export default async function DebtPage() {
                 </button>
               </div>
             </div>
-            <label className="text-[var(--muted)]">
-              Extra monthly payment{" "}
-              <input disabled type="range" defaultValue="0" className="mx-3 align-middle" />{" "}
-              <strong className="text-[var(--text)]">Unavailable</strong>
+            <label className="grid gap-2 text-sm text-[var(--muted)] sm:grid-cols-[auto_minmax(140px,1fr)_auto] sm:items-center">
+              Extra monthly payment
+              <input disabled type="range" defaultValue="0" />
+              <strong className="whitespace-nowrap text-[var(--text)]">Not yet available</strong>
             </label>
           </div>
-          <div className="grid gap-6 xl:grid-cols-[1fr_460px]">
+          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
             <Card className="p-6">
               <h2 className="text-xl font-semibold">Payoff Order</h2>
               <p className="mb-6 text-sm text-[var(--muted)]">
@@ -118,7 +122,7 @@ export default async function DebtPage() {
                 {debtAccounts.map((account, index) => (
                   <div
                     key={account.id}
-                    className="flex items-center gap-4 rounded-lg border border-[var(--border)] p-4"
+                    className="grid items-center gap-3 rounded-lg border border-[var(--border)] p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--teal)] font-semibold text-white">
                       {index + 1}
@@ -131,11 +135,11 @@ export default async function DebtPage() {
                         {formatApr(account.aprBasisPoints ?? 0)} APR
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">
+                    <div className="pl-12 sm:pl-0 sm:text-right">
+                      <div className="whitespace-nowrap font-semibold tabular-nums">
                         {formatMoney(account.ledgerBalanceMinor ?? 0)}
                       </div>
-                      <div className="text-sm text-[var(--muted)]">
+                      <div className="whitespace-nowrap text-sm text-[var(--muted)] tabular-nums">
                         {formatMoney(account.minimumPaymentMinor ?? 0)} min
                       </div>
                     </div>
@@ -148,21 +152,16 @@ export default async function DebtPage() {
             </Card>
             <Card className="p-6">
               <h2 className="text-xl font-semibold">Strategy Impact</h2>
-              <p className="mb-10 text-sm text-[var(--muted)]">
-                Payoff simulation is intentionally unavailable until validated
+              <p className="mb-6 text-sm leading-6 text-[var(--muted)]">
+                Payoff simulation is coming in an upcoming iteration. Current totals remain visible
+                without presenting unvalidated estimates.
               </p>
-              {[
-                ["Est. debt-free date", "Unavailable"],
-                ["Est. total interest", "Unavailable"],
-                ["Interest saved vs. minimums", "Unavailable"],
-                ["Time saved", "Unavailable"],
-                ["Total monthly payment", formatMoney(monthlyMinimumsMinor)],
-              ].map(([a, b]) => (
-                <div key={a} className="flex justify-between border-b border-[var(--border)] py-5">
-                  <span className="text-[var(--muted)]">{a}</span>
-                  <strong>{b}</strong>
-                </div>
-              ))}
+              <div className="flex items-center justify-between gap-4 border-y border-[var(--border)] py-5">
+                <span className="text-[var(--muted)]">Total monthly minimums</span>
+                <strong className="whitespace-nowrap tabular-nums">
+                  {formatMoney(monthlyMinimumsMinor)}
+                </strong>
+              </div>
             </Card>
           </div>
         </>

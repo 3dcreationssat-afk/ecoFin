@@ -43,7 +43,7 @@ export default async function BudgetPage() {
         </Card>
       ) : (
         <>
-          <div className="mb-7 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="metric-grid mb-7">
             <MetricCard label="Budgeted" value={formatMoney(totals.budgetMinor)} />
             <MetricCard label="Actual" value={formatMoney(totals.actualMinor)} />
             <MetricCard label="Forecast" value={formatMoney(totals.forecastMinor)} />
