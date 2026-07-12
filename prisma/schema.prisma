@@ -43,7 +43,35 @@ model Household {
   reconciliationAdjustments ReconciliationAdjustment[]
   transactionSavedViews TransactionSavedView[]
   merchantRules         MerchantRule[]
+  debtPlans             DebtPlan[]
   auditLogs             AuditLog[]
+}
+
+model DebtPlan {
+  id                String   @id @default(cuid())
+  householdId       String
+  strategy          String
+  extraPaymentMinor Int      @default(0)
+  active            Boolean  @default(true)
+  archivedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  order             DebtPlanOrder[]
+
+  @@index([householdId, active, archivedAt])
+}
+
+model DebtPlanOrder {
+  id        String   @id @default(cuid())
+  debtPlanId String
+  accountId String
+  position  Int
+  debtPlan  DebtPlan @relation(fields: [debtPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([debtPlanId, accountId])
+  @@unique([debtPlanId, position])
+  @@index([accountId])
 }
 
 model TransactionSavedView {

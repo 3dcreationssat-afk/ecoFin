@@ -391,6 +391,7 @@ export async function startFreshWorkspace(input: unknown) {
   return prisma.$transaction(async (tx) => {
     const before = await demoResetCounts(tx);
     await tx.auditLog.deleteMany();
+    await tx.debtPlan.deleteMany();
     await tx.transactionSavedView.deleteMany();
     await tx.merchantRule.deleteMany();
     await tx.reconciliationAdjustment.deleteMany();

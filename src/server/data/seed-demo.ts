@@ -8,6 +8,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
   try {
     await client.auditLog.deleteMany();
     await client.backupRecord.deleteMany();
+    await client.debtPlan.deleteMany();
     await client.transactionSavedView.deleteMany();
     await client.merchantRule.deleteMany();
     await client.reconciliationAdjustment.deleteMany();
@@ -128,6 +129,13 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
           lastUpdated: new Date("2026-06-30"),
         },
       ],
+    });
+    await client.debtPlan.create({
+      data: {
+        householdId: household.id,
+        strategy: "AVALANCHE",
+        extraPaymentMinor: 25000,
+      },
     });
 
     const fixed = await client.category.create({
