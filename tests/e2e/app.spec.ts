@@ -786,14 +786,47 @@ test("tablet drawer uses backdrop close without permanent rail", async ({ page }
   await expect(page.getByTestId("mobile-nav")).toBeHidden();
 });
 
-test("shell avoids horizontal overflow at representative widths", async ({ page }) => {
-  for (const width of [1440, 1280, 1024, 768, 390]) {
+test("core pages avoid horizontal overflow and metric wrapping", async ({ page }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "The test sets its own complete viewport matrix.",
+  );
+  const routes = [
+    "/",
+    "/transactions",
+    "/cash-flow",
+    "/budget",
+    "/recurring",
+    "/debt",
+    "/goals",
+    "/reports",
+    "/data-quality",
+    "/accounts",
+    "/settings",
+    "/settings#backup",
+  ];
+  const widths = [390, 430, 768, 1024, 1280, 1440, 1600, 1920, 2560];
+
+  for (const width of widths) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    );
-    expect(overflow).toBe(false);
+    for (const route of routes) {
+      await page.goto(route);
+      const layout = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        wrappedMetrics: [...document.querySelectorAll<HTMLElement>("[data-metric-value]")]
+          .filter((element) => /[$%\d]/.test(element.textContent ?? ""))
+          .filter(
+            (element) =>
+              element.getClientRects().length > 1 || element.scrollWidth > element.clientWidth,
+          )
+          .map((element) => element.textContent),
+      }));
+      expect(layout.scrollWidth, `${route} overflowed at ${width}px`).toBeLessThanOrEqual(
+        layout.clientWidth,
+      );
+      expect(layout.wrappedMetrics, `${route} wrapped a metric at ${width}px`).toEqual([]);
+    }
   }
 });
 
