@@ -1,21 +1,37 @@
 import { cn } from "@/lib/utils";
+import type { WorkspaceState } from "@/domain/workspace/schema";
 
 export function PageHeader({
   title,
   subtitle,
   action,
+  workspaceState = "DEMONSTRATION",
 }: {
   title: string;
   subtitle: string;
   action?: React.ReactNode;
+  workspaceState?: WorkspaceState;
 }) {
+  const badge = workspaceBadges[workspaceState];
   return (
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-semibold tracking-normal text-[var(--text)]">{title}</h1>
-          <span className="rounded-full border border-[#efd9ae] bg-[var(--amber-soft)] px-3 py-1 text-xs font-semibold text-[var(--amber)]">
-            Demonstration data
+          <span
+            role="status"
+            aria-label={`${badge.label}: ${badge.description}`}
+            title={badge.description}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-semibold",
+              workspaceState === "DEMONSTRATION" &&
+                "border-[#efd9ae] bg-[var(--amber-soft)] text-[var(--amber)]",
+              workspaceState === "EMPTY" && "border-sky-200 bg-sky-50 text-sky-700",
+              workspaceState === "USER_DATA" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+              workspaceState === "MIXED" && "border-red-200 bg-red-50 text-red-700",
+            )}
+          >
+            {badge.label}
           </span>
         </div>
         <p className="mt-1 text-base text-[var(--muted)]">{subtitle}</p>
@@ -24,6 +40,25 @@ export function PageHeader({
     </div>
   );
 }
+
+const workspaceBadges: Record<WorkspaceState, { label: string; description: string }> = {
+  DEMONSTRATION: {
+    label: "Demonstration data",
+    description: "Only the canonical sample dataset is present.",
+  },
+  EMPTY: {
+    label: "Empty workspace",
+    description: "No meaningful financial records are present yet.",
+  },
+  USER_DATA: {
+    label: "Your data",
+    description: "User-created or imported records are present without sample data.",
+  },
+  MIXED: {
+    label: "Mixed data",
+    description: "Sample records and user-created or imported records coexist.",
+  },
+};
 
 export function Card({
   children,

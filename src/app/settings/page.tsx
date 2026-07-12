@@ -2,17 +2,25 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { PageHeader } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { backupDashboard } from "@/server/data/backup";
-import { getHousehold } from "@/server/data/repositories";
+import { getHousehold, workspaceState } from "@/server/data/repositories";
 import { SettingsClient } from "./settings-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [household, backup] = await Promise.all([getHousehold(), backupDashboard()]);
+  const [household, backup, state] = await Promise.all([
+    getHousehold(),
+    backupDashboard(),
+    workspaceState(),
+  ]);
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl">
-        <PageHeader title={pageMeta["/settings"].title} subtitle={pageMeta["/settings"].subtitle} />
+        <PageHeader
+          title={pageMeta["/settings"].title}
+          subtitle={pageMeta["/settings"].subtitle}
+          workspaceState={state}
+        />
         <SettingsClient
           household={JSON.parse(JSON.stringify(household))}
           categories={JSON.parse(JSON.stringify(household.categories))}

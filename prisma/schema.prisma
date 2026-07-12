@@ -16,6 +16,7 @@ model Household {
   checkingBufferMinor   Int
   emergencyFundTargetMinor Int
   debtStrategy          String   @default("AVALANCHE")
+  workspaceMode         String   @default("DEMONSTRATION")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   accounts              Account[]

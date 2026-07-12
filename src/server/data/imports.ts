@@ -21,7 +21,7 @@ import {
 import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { AppError } from "./errors";
-import { getHousehold } from "./repositories";
+import { getHousehold, workspaceState } from "./repositories";
 import { scanRecurringExpenses } from "./recurring";
 import { scanTransferCandidates } from "./transfers";
 
@@ -400,6 +400,11 @@ export async function confirmImport(input: unknown) {
     }
     const skippedCount = batch.rows.length - rowsToImport.length;
     const status = skippedCount > 0 ? "PARTIALLY_IMPORTED" : "IMPORTED";
+    const currentState = await workspaceState(tx);
+    await tx.household.update({
+      where: { id: batch.householdId },
+      data: { workspaceMode: currentState === "DEMONSTRATION" ? "MIXED" : "USER_DATA" },
+    });
     const updated = await tx.importBatch.update({
       where: { id: batch.id },
       data: {

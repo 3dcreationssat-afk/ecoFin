@@ -8,6 +8,11 @@ import { DEMO_RESET_CONFIRMATION, demoResetSchema } from "@/domain/demo-reset/sc
 import { goalContributionSchema, goalSchema } from "@/domain/goals/schema";
 import { householdSettingsSchema } from "@/domain/household/schema";
 import { transactionUpdateSchema } from "@/domain/transactions/schema";
+import {
+  START_FRESH_CONFIRMATION,
+  startFreshSchema,
+  type WorkspaceState,
+} from "@/domain/workspace/schema";
 import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { AppError } from "./errors";
@@ -55,7 +60,8 @@ export async function updateHousehold(input: unknown) {
 export async function createAccount(input: unknown) {
   const data = accountSchema.parse(input);
   return prisma.$transaction(async (tx) => {
-    const account = await tx.account.create({ data });
+    const account = await tx.account.create({ data: { ...data, isDemo: false } });
+    await markWorkspaceUserData(tx, account.householdId);
     await auditChange(tx, {
       householdId: account.householdId,
       entityType: "Account",
@@ -131,12 +137,16 @@ export async function validateCategoryParent(
 export async function createCategory(input: unknown) {
   const data = categorySchema.parse(input);
   await validateCategoryParent(prisma, data.householdId, null, data.parentId);
-  const category = await prisma.category.create({ data });
-  await auditChange(prisma, {
-    householdId: category.householdId,
-    entityType: "Category",
-    entityId: category.id,
-    action: "create",
+  const category = await prisma.$transaction(async (tx) => {
+    const created = await tx.category.create({ data: { ...data, isDemo: false } });
+    await markWorkspaceUserData(tx, created.householdId);
+    await auditChange(tx, {
+      householdId: created.householdId,
+      entityType: "Category",
+      entityId: created.id,
+      action: "create",
+    });
+    return created;
   });
   return category;
 }
@@ -179,12 +189,16 @@ export async function setCategoryArchived(id: string, archived: boolean) {
 
 export async function createGoal(input: unknown) {
   const data = goalSchema.parse(input);
-  const goal = await prisma.goal.create({ data });
-  await auditChange(prisma, {
-    householdId: goal.householdId,
-    entityType: "Goal",
-    entityId: goal.id,
-    action: "create",
+  const goal = await prisma.$transaction(async (tx) => {
+    const created = await tx.goal.create({ data: { ...data, isDemo: false } });
+    await markWorkspaceUserData(tx, created.householdId);
+    await auditChange(tx, {
+      householdId: created.householdId,
+      entityType: "Goal",
+      entityId: created.id,
+      action: "create",
+    });
+    return created;
   });
   return goal;
 }
@@ -334,6 +348,66 @@ export async function resetDemoDataWithResult(input: unknown) {
   };
 }
 
+export async function startFreshWorkspace(input: unknown) {
+  const data = startFreshSchema.parse(input);
+  if (data.confirmation !== START_FRESH_CONFIRMATION) {
+    throw new AppError("Type START FRESH to confirm removing the sample workspace.", 422);
+  }
+  if (data.simulateFailure && process.env.NODE_ENV !== "test") {
+    throw new AppError("Start-fresh failure simulation is only available in tests.", 403);
+  }
+  if (data.simulateFailure) throw new AppError("Simulated start-fresh failure.", 500);
+
+  return prisma.$transaction(async (tx) => {
+    const before = await demoResetCounts(tx);
+    await tx.auditLog.deleteMany();
+    await tx.recurringExpenseTransaction.deleteMany();
+    await tx.recurringExpense.deleteMany();
+    await tx.transferMatch.deleteMany();
+    await tx.importRow.deleteMany();
+    await tx.transaction.deleteMany();
+    await tx.importBatch.deleteMany();
+    await tx.importProfile.deleteMany();
+    await tx.goalContribution.deleteMany();
+    await tx.goal.deleteMany();
+    await tx.category.deleteMany();
+    await tx.account.deleteMany();
+    await tx.household.deleteMany();
+    const household = await tx.household.create({
+      data: {
+        name: "My Household",
+        currency: "USD",
+        financialMonthStart: 1,
+        incomeSchedule: "BI_WEEKLY",
+        checkingBufferMinor: 0,
+        emergencyFundTargetMinor: 0,
+        debtStrategy: "AVALANCHE",
+        workspaceMode: "EMPTY",
+      },
+    });
+    await auditChange(tx, {
+      householdId: household.id,
+      entityType: "Household",
+      entityId: household.id,
+      action: "workspace_start_fresh",
+      field: "workspaceMode",
+      newValue: "EMPTY",
+      source: "workspace",
+    });
+    const after = await demoResetCounts(tx);
+    return {
+      ok: true,
+      message: "Fresh workspace is ready.",
+      household,
+      before,
+      after,
+      workspaceState: "EMPTY" as WorkspaceState,
+      database: activeDatabaseDiagnostic(),
+      resetAt: new Date().toISOString(),
+    };
+  });
+}
+
 export async function demoResetCounts(db: Db = prisma) {
   const [
     households,
@@ -373,6 +447,54 @@ export async function demoResetCounts(db: Db = prisma) {
     recurringLinks,
     auditEvents,
   };
+}
+
+export async function workspaceState(db: Db = prisma): Promise<WorkspaceState> {
+  const household = await db.household.findFirst();
+  if (!household) return "EMPTY";
+  const [demoRecords, userRecords, meaningfulRecords] = await Promise.all([
+    countProvenanceRecords(db, true),
+    countProvenanceRecords(db, false),
+    countMeaningfulFinancialRecords(db),
+  ]);
+  if (demoRecords > 0 && userRecords > 0) return "MIXED";
+  if (demoRecords > 0 && userRecords === 0 && household.workspaceMode === "DEMONSTRATION") {
+    return "DEMONSTRATION";
+  }
+  if (meaningfulRecords === 0) return "EMPTY";
+  return "USER_DATA";
+}
+
+async function markWorkspaceUserData(db: Db, householdId: string) {
+  const demoRecords = await countProvenanceRecords(db, true);
+  await db.household.update({
+    where: { id: householdId },
+    data: { workspaceMode: demoRecords > 0 ? "MIXED" : "USER_DATA" },
+  });
+}
+
+async function countProvenanceRecords(db: Db, isDemo: boolean) {
+  const [accounts, categories, goals, transactions] = await Promise.all([
+    db.account.count({ where: { isDemo } }),
+    db.category.count({ where: { isDemo } }),
+    db.goal.count({ where: { isDemo } }),
+    db.transaction.count({ where: { isDemo } }),
+  ]);
+  return accounts + categories + goals + transactions;
+}
+
+async function countMeaningfulFinancialRecords(db: Db) {
+  const [accounts, categories, goals, transactions, imports, transfers, recurring] =
+    await Promise.all([
+      db.account.count(),
+      db.category.count(),
+      db.goal.count(),
+      db.transaction.count(),
+      db.importBatch.count(),
+      db.transferMatch.count(),
+      db.recurringExpense.count(),
+    ]);
+  return accounts + categories + goals + transactions + imports + transfers + recurring;
 }
 
 function activeDatabaseDiagnostic() {

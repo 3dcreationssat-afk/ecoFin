@@ -30,6 +30,7 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
         checkingBufferMinor: 150000,
         emergencyFundTargetMinor: 1500000,
         debtStrategy: "AVALANCHE",
+        workspaceMode: "DEMONSTRATION",
       },
     });
 

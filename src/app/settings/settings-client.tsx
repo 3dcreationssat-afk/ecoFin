@@ -114,6 +114,18 @@ export function SettingsClient({
     filename: string;
     urlHash: string;
   }>(null);
+  const startFreshAlertRef = useRef<HTMLDivElement | null>(null);
+  const [startFreshConfirmation, setStartFreshConfirmation] = useState("");
+  const [startFreshMessage, setStartFreshMessage] = useState("");
+  const [startFreshCounts, setStartFreshCounts] = useState<{
+    before: BackupDashboardDto["counts"];
+    after: BackupDashboardDto["counts"];
+  } | null>(null);
+  const [startFreshDatabase, setStartFreshDatabase] = useState<null | {
+    provider: string;
+    filename: string;
+    urlHash: string;
+  }>(null);
   const [deleteBackupConfirmation, setDeleteBackupConfirmation] = useState("");
   const [restoreConfirmation, setRestoreConfirmation] = useState("");
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
@@ -253,6 +265,40 @@ export function SettingsClient({
     setResetDatabase(body.database ?? null);
     setStatus("saved");
     requestAnimationFrame(() => resetAlertRef.current?.focus());
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
+  async function startFresh() {
+    setStatus("saving");
+    setError("");
+    setStartFreshMessage("");
+    setStartFreshCounts(null);
+    setStartFreshDatabase(null);
+    const response = await fetch("/api/workspace/start-fresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmation: startFreshConfirmation }),
+    });
+    const body = await response.json().catch(() => ({
+      ok: false,
+      message: "Fresh workspace could not be created.",
+    }));
+    if (!response.ok) {
+      setError(body.message ?? body.error ?? "Fresh workspace could not be created.");
+      setStatus("error");
+      requestAnimationFrame(() => startFreshAlertRef.current?.focus());
+      return;
+    }
+    setStartFreshConfirmation("");
+    setStartFreshMessage(body.message ?? "Fresh workspace is ready.");
+    setStartFreshCounts(
+      body.before && body.after ? { before: body.before, after: body.after } : null,
+    );
+    setStartFreshDatabase(body.database ?? null);
+    setStatus("saved");
+    requestAnimationFrame(() => startFreshAlertRef.current?.focus());
     startTransition(() => {
       router.refresh();
     });
@@ -664,61 +710,152 @@ export function SettingsClient({
             ) : null}
           </div>
           <div className="mt-8 border-t border-[var(--border)] pt-6">
-            <h2 className="text-xl font-semibold">Demonstration Data Reset</h2>
-            <p className="text-[var(--muted)]">
-              This resets the single-household synthetic demo dataset and preserves browser
-              preferences such as navigation state.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <input
-                aria-label="Reset confirmation"
-                className="h-10 rounded-md border border-[var(--border)] px-3"
-                value={confirmation}
-                onChange={(event) => {
-                  setConfirmation(event.target.value);
-                  if (error) setError("");
-                }}
-                placeholder="RESET DEMO DATA"
-              />
-              <button
-                className="h-10 rounded-md border border-[var(--red)] px-4 text-sm font-semibold text-[var(--red)]"
-                onClick={resetDemo}
-                disabled={status === "saving" || confirmation !== "RESET DEMO DATA"}
-              >
-                {status === "saving" ? "Resetting..." : "Reset demo data"}
-              </button>
-            </div>
-            {confirmation !== "RESET DEMO DATA" ? (
-              <p className="mt-2 text-sm text-[var(--red)]">
-                Type RESET DEMO DATA to confirm the single-household demo reset.
+            <h2 className="text-xl font-semibold">Workspace</h2>
+            <div className="mt-5 rounded-md border border-[var(--border)] p-5">
+              <h3 className="text-lg font-semibold">Start fresh</h3>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                Removes the sample financial records and creates an empty local workspace for your
+                own data. Browser preferences and backup ZIP files are preserved.
               </p>
-            ) : null}
-            {resetMessage ? (
-              <div
-                ref={resetAlertRef}
-                role="status"
-                tabIndex={-1}
-                className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm outline-none"
-              >
-                <p className="font-semibold">{resetMessage}</p>
-                {resetCounts ? (
-                  <p className="mt-2 text-[var(--muted)]">
-                    Result: {resetCounts.households} household, {resetCounts.accounts} accounts,{" "}
-                    {resetCounts.categories} categories, {resetCounts.goals} goals,{" "}
-                    {resetCounts.transactions} transactions, {resetCounts.importBatches} import
-                    batches, {resetCounts.transferMatches ?? 0} transfer matches,{" "}
-                    {resetCounts.recurringExpenses ?? 0} recurring records, and{" "}
-                    {resetCounts.auditLogs} audit events.
-                  </p>
-                ) : null}
-                {resetDatabase ? (
-                  <p className="mt-2 font-mono text-xs text-[var(--muted)]">
-                    Active database: {resetDatabase.provider}/{resetDatabase.filename} #
-                    {resetDatabase.urlHash}
-                  </p>
-                ) : null}
+              <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
+                <li>All current local demo accounts will be removed.</li>
+                <li>All demo transactions will be removed.</li>
+                <li>All demo goals will be removed.</li>
+                <li>Demo categories are removed; no starter categories are required.</li>
+                <li>
+                  Import history, transfer matches, recurring patterns, and audit records are
+                  cleared.
+                </li>
+                <li>Backup files are not deleted.</li>
+                <li>Navigation and theme preferences are preserved.</li>
+              </ul>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  className="h-10 rounded-md border border-[var(--border)] px-4 text-sm font-semibold"
+                  onClick={createBackup}
+                  disabled={status === "saving"}
+                >
+                  Create backup first
+                </button>
+                <button
+                  className="h-10 rounded-md border border-[var(--border)] px-4 text-sm font-semibold"
+                  onClick={() => {
+                    setStartFreshConfirmation("");
+                    setStartFreshMessage("");
+                    setStartFreshCounts(null);
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
-            ) : null}
+              <div className="mt-4 flex flex-wrap gap-3">
+                <input
+                  aria-label="Start fresh confirmation"
+                  className="h-10 rounded-md border border-[var(--border)] px-3"
+                  value={startFreshConfirmation}
+                  onChange={(event) => {
+                    setStartFreshConfirmation(event.target.value);
+                    if (error) setError("");
+                  }}
+                  placeholder="START FRESH"
+                />
+                <button
+                  className="h-10 rounded-md border border-[var(--red)] px-4 text-sm font-semibold text-[var(--red)]"
+                  onClick={startFresh}
+                  disabled={status === "saving" || startFreshConfirmation !== "START FRESH"}
+                >
+                  {status === "saving" ? "Starting fresh..." : "Start fresh"}
+                </button>
+              </div>
+              {startFreshConfirmation !== "START FRESH" ? (
+                <p className="mt-2 text-sm text-[var(--red)]">
+                  Type START FRESH to confirm removing local sample data.
+                </p>
+              ) : null}
+              {startFreshMessage ? (
+                <div
+                  ref={startFreshAlertRef}
+                  role="status"
+                  tabIndex={-1}
+                  className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm outline-none"
+                >
+                  <p className="font-semibold">{startFreshMessage}</p>
+                  {startFreshCounts ? (
+                    <p className="mt-2 text-[var(--muted)]">
+                      Before: {startFreshCounts.before.accounts} accounts,{" "}
+                      {startFreshCounts.before.categories} categories,{" "}
+                      {startFreshCounts.before.goals} goals, {startFreshCounts.before.transactions}{" "}
+                      transactions. After: {startFreshCounts.after.accounts} accounts,{" "}
+                      {startFreshCounts.after.categories} categories, {startFreshCounts.after.goals}{" "}
+                      goals, {startFreshCounts.after.transactions} transactions.
+                    </p>
+                  ) : null}
+                  {startFreshDatabase ? (
+                    <p className="mt-2 font-mono text-xs text-[var(--muted)]">
+                      Active database: {startFreshDatabase.provider}/{startFreshDatabase.filename} #
+                      {startFreshDatabase.urlHash}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-6 rounded-md border border-[var(--border)] p-5">
+              <h3 className="text-lg font-semibold">Restore demonstration data</h3>
+              <p className="text-[var(--muted)]">
+                Replaces the current workspace with the original sample accounts, transactions,
+                goals, and settings.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <input
+                  aria-label="Reset confirmation"
+                  className="h-10 rounded-md border border-[var(--border)] px-3"
+                  value={confirmation}
+                  onChange={(event) => {
+                    setConfirmation(event.target.value);
+                    if (error) setError("");
+                  }}
+                  placeholder="RESET DEMO DATA"
+                />
+                <button
+                  className="h-10 rounded-md border border-[var(--red)] px-4 text-sm font-semibold text-[var(--red)]"
+                  onClick={resetDemo}
+                  disabled={status === "saving" || confirmation !== "RESET DEMO DATA"}
+                >
+                  {status === "saving" ? "Restoring..." : "Reset to sample data"}
+                </button>
+              </div>
+              {confirmation !== "RESET DEMO DATA" ? (
+                <p className="mt-2 text-sm text-[var(--red)]">
+                  Type RESET DEMO DATA to confirm restoring the single-household sample workspace.
+                </p>
+              ) : null}
+              {resetMessage ? (
+                <div
+                  ref={resetAlertRef}
+                  role="status"
+                  tabIndex={-1}
+                  className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm outline-none"
+                >
+                  <p className="font-semibold">{resetMessage}</p>
+                  {resetCounts ? (
+                    <p className="mt-2 text-[var(--muted)]">
+                      Result: {resetCounts.households} household, {resetCounts.accounts} accounts,{" "}
+                      {resetCounts.categories} categories, {resetCounts.goals} goals,{" "}
+                      {resetCounts.transactions} transactions, {resetCounts.importBatches} import
+                      batches, {resetCounts.transferMatches ?? 0} transfer matches,{" "}
+                      {resetCounts.recurringExpenses ?? 0} recurring records, and{" "}
+                      {resetCounts.auditLogs} audit events.
+                    </p>
+                  ) : null}
+                  {resetDatabase ? (
+                    <p className="mt-2 font-mono text-xs text-[var(--muted)]">
+                      Active database: {resetDatabase.provider}/{resetDatabase.filename} #
+                      {resetDatabase.urlHash}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </Card>
       ) : null}

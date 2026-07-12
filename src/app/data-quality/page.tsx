@@ -4,6 +4,7 @@ import { Card, PageHeader, Pill } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { dataQualityRules } from "@/domain/summaries/calculations";
 import { importDashboard } from "@/server/data/imports";
+import { workspaceState } from "@/server/data/repositories";
 import { recurringDataQuality } from "@/server/data/recurring";
 import { transferDataQuality } from "@/server/data/transfers";
 
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
   const { household, batches } = await importDashboard();
+  const state = await workspaceState();
   const [transferQuality, recurringQuality] = await Promise.all([
     transferDataQuality(),
     recurringDataQuality(),
@@ -188,38 +190,51 @@ export default async function DataQualityPage() {
       <PageHeader
         title={pageMeta["/data-quality"].title}
         subtitle="Deterministic checks from local records"
+        workspaceState={state}
       />
-      <Card className="mb-7 flex flex-wrap items-center justify-between gap-6 p-6">
-        <div className="flex items-center gap-5">
-          <div className="rounded-lg bg-[var(--amber-soft)] p-4">
-            <ShieldCheck className="h-7 w-7 text-[var(--amber)]" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold">
-              Overall confidence: {issueCount ? "Moderate" : "High"}{" "}
-              <Pill tone={issueCount ? "warn" : "good"}>{issueCount} issues</Pill>
-            </h2>
-            <p className="text-[var(--muted)]">
-              These checks do not claim advanced recurring, forecast, or duplicate engines exist.
-            </p>
-          </div>
-        </div>
-      </Card>
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold">Issues Found</h2>
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          {issues.map(([title, count, impact, action]) => (
-            <div key={title} className="rounded-md border border-[var(--border)] p-4">
-              <Pill tone={count ? "warn" : "good"}>{count ? "Review" : "Clear"}</Pill>
-              <p className="mt-3 font-semibold">
-                {count} {title.toLowerCase()}
-              </p>
-              <p className="mt-2 text-sm text-[var(--muted)]">{impact}</p>
-              <p className="mt-2 text-sm font-medium">Action: {action}</p>
+      {state === "EMPTY" ? (
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold">No financial data to assess yet.</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Data quality checks will appear after accounts, transactions, or imports are added.
+          </p>
+        </Card>
+      ) : (
+        <>
+          <Card className="mb-7 flex flex-wrap items-center justify-between gap-6 p-6">
+            <div className="flex items-center gap-5">
+              <div className="rounded-lg bg-[var(--amber-soft)] p-4">
+                <ShieldCheck className="h-7 w-7 text-[var(--amber)]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">
+                  Overall confidence: {issueCount ? "Moderate" : "High"}{" "}
+                  <Pill tone={issueCount ? "warn" : "good"}>{issueCount} issues</Pill>
+                </h2>
+                <p className="text-[var(--muted)]">
+                  These checks do not claim advanced recurring, forecast, or duplicate engines
+                  exist.
+                </p>
+              </div>
             </div>
-          ))}
-        </div>
-      </Card>
+          </Card>
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold">Issues Found</h2>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {issues.map(([title, count, impact, action]) => (
+                <div key={title} className="rounded-md border border-[var(--border)] p-4">
+                  <Pill tone={count ? "warn" : "good"}>{count ? "Review" : "Clear"}</Pill>
+                  <p className="mt-3 font-semibold">
+                    {count} {title.toLowerCase()}
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--muted)]">{impact}</p>
+                  <p className="mt-2 text-sm font-medium">Action: {action}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      )}
     </AppShell>
   );
 }

@@ -139,6 +139,7 @@ export function migrationFingerprint() {
     "20260711220000_phase_2b_backup_restore/migration.sql",
     "20260711233000_phase_2c_transfer_matching/migration.sql",
     "20260712013000_phase_2d_recurring_expenses/migration.sql",
+    "20260712033000_workspace_lifecycle/migration.sql",
   ];
   const hash = createHash("sha256");
   for (const file of migrationFiles) {
