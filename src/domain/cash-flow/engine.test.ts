@@ -102,7 +102,8 @@ describe("cash-flow engine", () => {
     ];
     const result = calculateCashFlow(input);
     expect(result.committedPlannedSavingsMinor).toBe(6000);
-    expect(result.emergencyFundProtectionMinor).toBe(20000);
+    expect(result.emergencyFundProtectionMinor).toBe(30000);
+    expect(result.emergencyFundShortfallMinor).toBe(20000);
   });
   it("creates explicit reserves and never presents a negative surplus as safe", () => {
     const input = base();

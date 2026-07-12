@@ -271,9 +271,10 @@ export function calculateCashFlow(input: CashFlowInput) {
       emergencyProtectedMinor += Math.min(goal.currentMinor, goal.targetMinor);
     }
   }
-  const emergencyFundProtectionMinor = emergencyMapped
+  const emergencyFundShortfallMinor = emergencyMapped
     ? Math.max(0, input.emergencyFundTargetMinor - emergencyProtectedMinor)
-    : 0;
+    : input.emergencyFundTargetMinor;
+  const emergencyFundProtectionMinor = emergencyMapped ? emergencyProtectedMinor : 0;
   if (!emergencyMapped && input.emergencyFundTargetMinor > 0)
     factors.push({
       positive: false,
@@ -394,6 +395,7 @@ export function calculateCashFlow(input: CashFlowInput) {
     checkingBufferTargetMinor: input.checkingBufferMinor,
     checkingCashMinor,
     emergencyFundProtectionMinor,
+    emergencyFundShortfallMinor,
     emergencyFundTargetMinor: input.emergencyFundTargetMinor,
     emergencyProtectedMinor,
     dataQualityReserveMinor,
