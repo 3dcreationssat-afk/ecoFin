@@ -29,6 +29,7 @@ model Household {
   transferMatches       TransferMatch[]
   recurringExpenses     RecurringExpense[]
   transactionSavedViews TransactionSavedView[]
+  merchantRules         MerchantRule[]
   auditLogs             AuditLog[]
 }
 
@@ -46,6 +47,34 @@ model TransactionSavedView {
 
   @@unique([householdId, normalizedName])
   @@index([householdId, isArchived, isDefault])
+}
+
+model MerchantRule {
+  id                 String   @id @default(cuid())
+  householdId        String
+  name               String
+  normalizedName     String
+  priority           Int      @default(100)
+  active             Boolean  @default(true)
+  matchField         String
+  matchType          String
+  pattern            String
+  normalizedPattern  String
+  normalizedMerchant String?
+  categoryId         String?
+  transactionType    String?
+  markReviewed       Boolean  @default(false)
+  notes              String?
+  lastAppliedAt      DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  household          Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category           Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  appliedTransactions Transaction[]
+
+  @@unique([householdId, normalizedName])
+  @@index([householdId, archivedAt, active, priority])
 }
 
 model Account {
@@ -92,6 +121,7 @@ model Category {
   children        Category[] @relation("CategoryHierarchy")
   transactions    Transaction[]
   recurringExpenses RecurringExpense[]
+  merchantRules     MerchantRule[]
 }
 
 model Goal {
@@ -150,6 +180,12 @@ model Transaction {
   excluded              Boolean  @default(false)
   notes                 String?
   possibleDuplicate     Boolean  @default(false)
+  merchantSource        String   @default("IMPORT_DEFAULT")
+  categorySource        String   @default("IMPORT_DEFAULT")
+  typeSource            String   @default("IMPORT_DEFAULT")
+  reviewSource          String   @default("IMPORT_DEFAULT")
+  appliedMerchantRuleId String?
+  ruleAppliedAt         DateTime?
   isDemo                Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -160,10 +196,12 @@ model Transaction {
   outgoingTransferMatches TransferMatch[] @relation("TransferOutgoing")
   incomingTransferMatches TransferMatch[] @relation("TransferIncoming")
   recurringLinks          RecurringExpenseTransaction[]
+  appliedMerchantRule     MerchantRule? @relation(fields: [appliedMerchantRuleId], references: [id], onDelete: SetNull)
 
   @@index([householdId, transactionDate])
   @@index([householdId, reviewStatus, sourceType])
   @@index([householdId, accountId, categoryId])
+  @@index([householdId, appliedMerchantRuleId])
 }
 
 model TransferMatch {

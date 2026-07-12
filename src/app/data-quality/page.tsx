@@ -7,15 +7,17 @@ import { importDashboard } from "@/server/data/imports";
 import { workspaceState } from "@/server/data/repositories";
 import { recurringDataQuality } from "@/server/data/recurring";
 import { transferDataQuality } from "@/server/data/transfers";
+import { merchantRuleDataQuality } from "@/server/data/merchant-rules";
 
 export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
   const { household, batches } = await importDashboard();
   const state = await workspaceState();
-  const [transferQuality, recurringQuality] = await Promise.all([
+  const [transferQuality, recurringQuality, merchantRuleQuality] = await Promise.all([
     transferDataQuality(),
     recurringDataQuality(),
+    merchantRuleDataQuality(),
   ]);
   const quality = dataQualityRules({
     transactions: household.transactions,
@@ -183,6 +185,30 @@ export default async function DataQualityPage() {
       "Inactive records have a future expected charge date.",
       "Reactivate or update the item status.",
     ],
+    [
+      "Conflicting merchant rules",
+      merchantRuleQuality.conflicts,
+      "Different outcomes can match the same text.",
+      "Review rule priorities and disable the unintended rule.",
+    ],
+    [
+      "Merchant rules matching zero records",
+      merchantRuleQuality.zeroMatchRules,
+      "The pattern may be obsolete or too specific.",
+      "Test or archive unused rules in Settings.",
+    ],
+    [
+      "High-volume broad merchant rules",
+      merchantRuleQuality.broadRules,
+      "Broad rules can classify unrelated transactions.",
+      "Narrow the pattern or use a more specific match type.",
+    ],
+    [
+      "Merchant rules skipped for manual overrides",
+      merchantRuleQuality.skippedManualOverrides,
+      "Manual corrections correctly took precedence.",
+      "Review only if you intended to replace those manual values.",
+    ],
   ] as const;
   const issueCount = issues.reduce((total, [, count]) => total + count, 0);
   return (
@@ -249,6 +275,7 @@ export default async function DataQualityPage() {
 }
 
 function qualityHref(title: string) {
+  if (title.includes("merchant rule")) return "/settings#merchant-rules";
   if (title === "Uncategorized transactions") return "/transactions?category=uncategorized";
   if (title === "Transactions lacking review") return "/transactions?status=NEEDS_REVIEW";
   if (title.includes("Duplicate")) return "/transactions?status=FLAGGED";
