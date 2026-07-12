@@ -20,6 +20,7 @@ import {
 } from "@/domain/imports/schema";
 import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
+import { applyRulesToTransaction } from "./merchant-rules";
 import { AppError } from "./errors";
 import { getHousehold, workspaceState } from "./repositories";
 import { scanRecurringExpenses } from "./recurring";
@@ -345,6 +346,14 @@ export async function confirmImport(input: unknown) {
 
   const detail = await prisma.$transaction(async (tx) => {
     const importedIds: string[] = [];
+    const merchantRules = await tx.merchantRule.findMany({
+      where: { householdId: batch.householdId, active: true, archivedAt: null },
+      orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+    });
+    let ruleMatchedCount = 0;
+    let ruleConflictCount = 0;
+    let ruleMerchantNormalizedCount = 0;
+    let ruleCategoryAssignedCount = 0;
     for (const row of rowsToImport) {
       if (
         !row.parsedTransactionDate ||
@@ -383,6 +392,12 @@ export async function confirmImport(input: unknown) {
           isDemo: false,
         },
       });
+      const ruleResult = await applyRulesToTransaction(tx, transaction, merchantRules);
+      if (ruleResult.matched) ruleMatchedCount++;
+      if (ruleResult.conflict) ruleConflictCount++;
+      if (ruleResult.transaction.normalizedMerchant !== transaction.normalizedMerchant)
+        ruleMerchantNormalizedCount++;
+      if (ruleResult.transaction.categoryId !== transaction.categoryId) ruleCategoryAssignedCount++;
       importedIds.push(transaction.id);
       await tx.importRow.update({
         where: { id: row.id },
@@ -417,6 +432,11 @@ export async function confirmImport(input: unknown) {
           importedIds,
           skippedCount,
           invalidCount: batch.rows.filter((row) => row.validationStatus === "INVALID").length,
+          ruleMatchedCount,
+          ruleConflictCount,
+          ruleMerchantNormalizedCount,
+          ruleCategoryAssignedCount,
+          stillNeedsReview: rowsToImport.length - ruleMatchedCount,
         }),
       },
     });
@@ -543,11 +563,14 @@ export async function undoImportBatch(id: string, input: unknown) {
   }
   const changed = batch.transactions.filter((transaction) => {
     return (
-      transaction.reviewStatus !== (transaction.possibleDuplicate ? "FLAGGED" : "NEEDS_REVIEW") ||
       transaction.notes ||
       transaction.excluded ||
-      transaction.categoryId ||
-      transaction.normalizedMerchant !== transaction.originalDescription
+      [
+        transaction.reviewSource,
+        transaction.categorySource,
+        transaction.merchantSource,
+        transaction.typeSource,
+      ].some((source) => source === "USER" || source === "BULK_USER")
     );
   });
   if (changed.length) {
