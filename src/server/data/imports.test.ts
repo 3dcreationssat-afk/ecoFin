@@ -6,6 +6,7 @@ process.env.DATABASE_URL = "file:./vitest-import.db";
 let imports: typeof import("./imports");
 let repositories: typeof import("./repositories");
 let prismaModule: typeof import("@/server/db/prisma");
+let merchantRules: typeof import("./merchant-rules");
 
 const signedCsv =
   "Date,Description,Amount\n07/10/2026,Synthetic Coffee,-4.25\n07/11/2026,Synthetic Payroll,1250.00";
@@ -22,6 +23,7 @@ describe("csv import repositories", () => {
     imports = await import("./imports");
     repositories = await import("./repositories");
     prismaModule = await import("@/server/db/prisma");
+    merchantRules = await import("./merchant-rules");
   }, 120_000);
 
   afterAll(async () => {
@@ -58,6 +60,22 @@ describe("csv import repositories", () => {
   it("previews, validates, imports, detects repeats, and undoes signed amount CSV", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[0];
+    await merchantRules.createMerchantRule(
+      {
+        name: "Synthetic coffee import",
+        priority: 1,
+        active: true,
+        matchField: "ORIGINAL_DESCRIPTION",
+        matchType: "CONTAINS",
+        pattern: "synthetic coffee",
+        normalizedMerchant: "Rule Coffee",
+        categoryId: null,
+        transactionType: "EXPENSE",
+        markReviewed: true,
+        notes: "integration",
+      },
+      false,
+    );
     const preview = await imports.previewImport({
       accountId: account.id,
       filename: "synthetic-signed.csv",
@@ -109,7 +127,10 @@ describe("csv import repositories", () => {
       orderBy: { sourceRowNumber: "asc" },
     });
     expect(created[0].originalDescription).toBe("Synthetic Coffee");
-    expect(created[0].normalizedMerchant).toBe("Synthetic Coffee");
+    expect(created[0].normalizedMerchant).toBe("Rule Coffee");
+    expect(created[0].type).toBe("EXPENSE");
+    expect(created[0].reviewStatus).toBe("REVIEWED");
+    expect(created[0].merchantSource).toBe("MERCHANT_RULE");
     expect(created[0].originalAmountText).toBe("-4.25");
     expect(created[0].sourceType).toBe("CSV_IMPORT");
     const audits = await prismaModule.prisma.auditLog.findMany({

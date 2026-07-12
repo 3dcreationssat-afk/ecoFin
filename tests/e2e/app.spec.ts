@@ -349,6 +349,34 @@ test("advanced transaction filters, history, and saved views work", async ({ pag
   await expect(page).toHaveURL(/excluded=excluded/);
 });
 
+test("current-page selection and safe bulk review work", async ({ page }) => {
+  await page.goto("/transactions?period=ALL");
+  const first = page.getByRole("checkbox", { name: /Select Whole Foods Market/ });
+  await first.check();
+  await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
+  await page.getByLabel("Bulk action").selectOption("MARK_REVIEWED");
+  await page.getByRole("button", { name: "Apply to selected" }).click();
+  await expect(page.getByText(/Bulk action complete/)).toBeAttached();
+  await page.getByRole("checkbox", { name: "Select current page" }).check();
+  await expect(page.getByText(/selected/, { exact: false }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Clear selection" }).click();
+  await expect(page.getByLabel("Bulk action")).not.toBeVisible();
+});
+
+test("merchant rule preview and future-only save work", async ({ page }, testInfo) => {
+  await page.goto("/settings#merchant-rules");
+  const name = `Playwright coffee ${testInfo.project.name}`;
+  await page.getByLabel("Rule name").fill(name);
+  await page.getByLabel("Pattern").fill("Starbucks");
+  await page.getByRole("textbox", { name: "Normalized merchant", exact: true }).fill("Coffee Shop");
+  await page.getByRole("button", { name: "Test and preview" }).click();
+  await expect(page.getByText(/matched/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Save for future only" }).click();
+  await expect(page.getByText(name, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Disable" }).last().click();
+  await expect(page.getByText("Inactive", { exact: true }).last()).toBeVisible();
+});
+
 test("transaction drawer edit persists and original values remain unchanged", async ({ page }) => {
   await page.goto("/transactions");
   await page
