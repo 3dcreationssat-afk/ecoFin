@@ -67,6 +67,10 @@ describe("account ledger", () => {
     const transfer = { affectsLedger: true, affectsIncomeSpendingReports: false };
     expect(transfer).toEqual({ affectsLedger: true, affectsIncomeSpendingReports: false });
   });
+  it("applies refunds and card payments to asset and liability ledgers", () => {
+    expect(ledgerTransactionEffect("CHECKING", 2500)).toBe(2500);
+    expect(ledgerTransactionEffect("CREDIT", 2500)).toBe(-2500);
+  });
   it("calculates explicit adjustments and confidence", () => {
     const result = calculateLedgerBalance(
       "CHECKING",

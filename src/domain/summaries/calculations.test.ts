@@ -59,6 +59,19 @@ describe("summary calculations", () => {
     });
   });
 
+  it("treats refunds as spending reversals without classifying them as income", () => {
+    expect(
+      householdTransactionSummary([
+        { amountMinor: -10000, type: "EXPENSE" },
+        { amountMinor: 2500, type: "REFUND" },
+      ]),
+    ).toMatchObject({
+      householdIncomeMinor: 0,
+      householdSpendingMinor: 7500,
+      netCashFlowMinor: -7500,
+    });
+  });
+
   it("summarizes current and prior periods from dated transactions", () => {
     const result = currentPeriodSummary(
       [

@@ -153,11 +153,15 @@ function summarizeTransactions(included: TransactionSummaryInput[]) {
   const householdIncomeMinor = included
     .filter((transaction) => ["CREDIT", "INCOME"].includes(transaction.type ?? ""))
     .reduce((total, transaction) => total + Math.max(transaction.amountMinor, 0), 0);
-  const householdSpendingMinor = included
+  const ordinarySpendingMinor = included
     .filter((transaction) =>
       ["DEBIT", "EXPENSE", "FEE", "INTEREST"].includes(transaction.type ?? ""),
     )
     .reduce((total, transaction) => total + Math.abs(Math.min(transaction.amountMinor, 0)), 0);
+  const refundMinor = included
+    .filter((transaction) => transaction.type === "REFUND")
+    .reduce((total, transaction) => total + Math.max(transaction.amountMinor, 0), 0);
+  const householdSpendingMinor = Math.max(0, ordinarySpendingMinor - refundMinor);
   const transferMovementMinor = included
     .filter((transaction) => ["TRANSFER_IN", "TRANSFER_OUT"].includes(transaction.type ?? ""))
     .reduce((total, transaction) => total + Math.abs(transaction.amountMinor), 0);
