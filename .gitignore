@@ -27,6 +27,10 @@ coverage/
 playwright-report/
 test-results/
 
+# private UAT evidence
+/uat/**/screens/
+/uat/**/manifest.json
+
 # OS/editor
 .DS_Store
 Thumbs.db
