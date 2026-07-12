@@ -25,6 +25,10 @@ describe("cash-flow repository projection", () => {
     expect(projection.startingUsableLiquidCashMinor).toBeGreaterThan(0);
     expect(projection.debtMinimumPaymentsMinor).toBeGreaterThan(0);
     expect(projection.calculationLines).toHaveLength(8);
+    const overview = service.cashAllocationSummary(projection);
+    expect(overview.recommendedSafeToSaveMinor).toBe(projection.recommendedSafeToSaveMinor);
+    expect(overview.safeToSpendMinor).toBe(projection.safeToSpendMinor);
+    expect(overview.allocatableSurplusMinor).toBe(projection.allocatableSurplusMinor);
   });
 
   it("lowers confidence for unreconciled and mixed repository data", async () => {

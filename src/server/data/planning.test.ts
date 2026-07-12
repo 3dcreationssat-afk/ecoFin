@@ -23,6 +23,19 @@ describe("planning persistence", () => {
     expect(p.remainingEssentialObligationsMinor).toBeGreaterThan(0);
     expect(p.recommendedSafeToSaveMinor).toBeLessThan(p.maximumAvailableSurplusMinor);
     expect(p.safeToSpendMinor).toBeGreaterThan(0);
+    expect(p.cashAfterObligationsAndProtectionsMinor).toBe(1809358);
+    expect(p.retainedSafetyReserveMinor).toBe(175000);
+    expect(p.allocatableSurplusMinor).toBe(1634358);
+    expect(p.recommendedSafeToSaveMinor).toBe(817179);
+    expect(p.conservativeSafeToSaveMinor).toBe(817179);
+    expect(p.safeToSpendMinor).toBe(817179);
+    expect(p.unallocatedSurplusMinor).toBe(0);
+    expect(p.cashAfterObligationsAndProtectionsMinor).toBe(
+      p.retainedSafetyReserveMinor + p.allocatableSurplusMinor,
+    );
+    expect(p.allocatableSurplusMinor).toBe(
+      p.recommendedSafeToSaveMinor + p.safeToSpendMinor + p.unallocatedSurplusMinor,
+    );
   });
   it("creates, edits, pauses, archives, and audits income and obligations", async () => {
     const h = await db.prisma.household.findFirstOrThrow();

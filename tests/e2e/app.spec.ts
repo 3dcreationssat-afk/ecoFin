@@ -39,6 +39,16 @@ test("validated cash flow explains projection, protection, timeline, and confide
   await expect(page.getByText("Starting usable liquid cash")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Buffer and Protection" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Confidence" })).toBeVisible();
+  await expect(page.getByLabel("Cash allocation reconciliation")).toContainText(
+    "Cash after obligations and protections",
+  );
+  await expect(page.getByLabel("Cash allocation reconciliation")).toContainText(
+    "Retained safety reserve",
+  );
+  await expect(page.getByLabel("Cash allocation reconciliation")).toContainText(
+    "Allocatable surplus",
+  );
+  await expect(page.getByText("Retained discretionary cash")).toHaveCount(0);
   const eventList = page.locator('[tabindex="0"]').filter({ hasText: "Current usable cash" });
   await eventList.focus();
   await expect(eventList).toBeFocused();
@@ -54,6 +64,15 @@ test("planning workflows add income and obligations, satisfy bills, and edit pol
   page,
 }, testInfo) => {
   await page.goto("/cash-flow");
+  const recommendedBefore = await page
+    .getByText("Recommended Safe to Save", { exact: true })
+    .locator("..")
+    .textContent();
+  const spendBefore = await page
+    .getByText("Safe to Spend", { exact: true })
+    .last()
+    .locator("..")
+    .textContent();
   await page.getByLabel("Income name").fill("Playwright income " + testInfo.project.name);
   await page.getByLabel("Income amount").fill("125.00");
   await page.getByLabel("Next expected date").fill("2026-07-27");
@@ -69,6 +88,15 @@ test("planning workflows add income and obligations, satisfy bills, and edit pol
   await page.getByLabel("Savings target basis points").fill("4000");
   await page.getByRole("button", { name: "Save savings policy" }).click();
   await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.getByText("Recommended Safe to Save", { exact: true }).locator("..").textContent(),
+    )
+    .not.toBe(recommendedBefore);
+  await expect
+    .poll(() => page.getByText("Safe to Spend", { exact: true }).last().locator("..").textContent())
+    .not.toBe(spendBefore);
+  await expect(page.getByText(/Equals Recommended at High confidence|Reduced by/)).toBeVisible();
 });
 
 test("transactions drawer opens from a transaction row", async ({ page }) => {
@@ -510,7 +538,10 @@ test("data quality exposes transfer review issues", async ({ page }) => {
 test("recurring scan, review, confirm, reject, manual create, and savings work", async ({
   page,
 }, testInfo) => {
-  test.skip(testInfo.project.name === "mobile", "Desktop project owns the destructive recurring workflow.");
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Desktop project owns the destructive recurring workflow.",
+  );
   await page.goto("/recurring");
   await page.getByRole("button", { name: "Run scan" }).click();
   await expect(page.getByText(/Scan complete/)).toBeVisible();
