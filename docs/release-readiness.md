@@ -15,6 +15,7 @@ Date: 2026-07-12
 - Explainable transfer review with scan, confirm, reject, unmatch, eligible manual-match filtering, and validation feedback.
 - Explainable recurring-expense review with scan, confirm, reject, edit, manual creation, cancellation tracking, reactivation, supporting transactions, price-change flags, and savings selection.
 - Local backup creation, validation, restore preview, mandatory pre-restore safety backup, restore confirmation, and backup deletion.
+- Demonstration data reset with exact confirmation, visible pending/success/error feedback, active-database diagnostics, canonical seed counts, and browser preference preservation.
 
 ## Demonstration-only Capabilities
 
@@ -29,6 +30,7 @@ Date: 2026-07-12
 - Curated institutions are stored as account institution text; there is no separate institution table or normalized identifier yet.
 - Goal contribution source account is stored as contribution source text, not a foreign key.
 - Delete-all-data and general export workflows are not implemented.
+- Demo reset is intentionally limited to the synthetic single-household environment and is not a general delete-all-data workflow.
 - CSV import still requires manual mapping choices for many files.
 - Advanced forecasting, bank connectivity, external AI, automated categorization, and automated service cancellation are out of scope.
 
@@ -43,6 +45,8 @@ Date: 2026-07-12
 ## Backup Warning
 
 Backups should be stored only in a secure local or encrypted location. Do not email, commit, or upload backup ZIP files unless the destination is explicitly trusted and protected.
+
+Create a backup before using Demo Reset if the current local synthetic dataset contains changes worth preserving. Demo Reset replaces database records with canonical seed data but does not delete backup ZIP files.
 
 ## Browser Support
 
@@ -94,6 +98,8 @@ Manual release-readiness checks were rerun with synthetic seed data and the corr
 | Recurring scan and review               | Passed | Synthetic recurring charges produce reviewable candidates with evidence.                                           |
 | Recurring confirm/reject/edit           | Passed | Recurring suggestions can be confirmed, rejected, edited, and audited.                                             |
 | Recurring manual creation and savings   | Passed | Manual synthetic recurring item can be created and included in savings calculation.                                |
+| Demo reset observability                | Passed | Reset shows pending, success counts, safe active database identifier, and visible failure errors.                  |
+| Demo reset canonical data               | Passed | User-created synthetic category is removed, canonical categories remain after reload, and nav preference persists. |
 | Persistence after reload                | Passed | Settings, accounts, goals, contributions, imports, filters, and transaction edits persist after reload.            |
 
 ## Validation Snapshot

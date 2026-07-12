@@ -93,7 +93,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 ## Demo Data And Backup Status
 
 - Seed/reset creates one synthetic household with accounts, categories, goals, contribution records, transactions, audit records, and clears import batches/profiles.
-- In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA` and runs through a server-side reset service.
+- In-app demo reset requires the exact confirmation phrase `RESET DEMO DATA`, runs through the active application database connection, replaces the single-household synthetic dataset with canonical seed data, returns resulting record counts, and preserves browser UI preferences.
 - In-app backup creation writes an application-controlled local ZIP package with `database.sqlite`, `manifest.json`, and `README.txt`.
 - Restore requires validation, the exact phrase `RESTORE BACKUP`, and a mandatory pre-restore safety backup.
 - Backup/restore includes transfer and recurring relationships and requires the current schema fingerprint.

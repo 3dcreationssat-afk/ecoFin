@@ -454,19 +454,64 @@ test("mobile transfer review remains usable without document overflow", async ({
   expect(overflow).toBe(false);
 });
 
-test("demo reset requires confirmation and preserves navigation preference", async ({ page }) => {
+test("demo reset is observable, resets canonical data, and preserves navigation preference", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.getByRole("button", { name: "Collapse navigation" }).click();
   await page.goto("/settings");
-  await page.getByRole("button", { name: "Backup & Data" }).click();
-  await page.getByRole("button", { name: "Reset demo data" }).click();
-  await expect(page.getByText(/Type RESET DEMO DATA/)).toBeVisible();
-  await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
-  await page.getByRole("button", { name: "Reset demo data" }).click();
+  await page.getByRole("button", { name: "Categories" }).click();
+  await page.getByLabel("Category name").fill("Reset E2E Category");
+  await page.getByRole("textbox", { name: /Budget/ }).fill("1.23");
+  await page.getByRole("button", { name: "Add category" }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.locator("strong", { hasText: "Reset E2E Category" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Backup & Data" }).click();
+  await expect(page.getByText(/Type RESET DEMO DATA/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reset demo data" })).toBeDisabled();
+  await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
+  await page.route("**/api/demo-reset", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await route.continue();
+  });
+  const resetResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/demo-reset") &&
+      response.request().method() === "POST" &&
+      response.ok(),
+  );
+  await page.getByRole("button", { name: "Reset demo data" }).click();
+  await expect(page.getByRole("button", { name: "Resetting..." })).toBeVisible();
+  await resetResponse;
+  await expect(page.getByText("Demonstration data was reset.")).toBeVisible();
+  await expect(page.getByText(/1 household, 6 accounts, 14 categories/)).toBeVisible();
+  await expect(page.getByLabel("Reset confirmation")).toHaveValue("");
   await page.reload();
   await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+  await page.getByRole("button", { name: "Categories" }).click();
+  await expect(page.locator("strong", { hasText: "Reset E2E Category" })).toHaveCount(0);
+  await expect(page.locator("strong", { hasText: "Groceries" })).toBeVisible();
+});
+
+test("demo reset surfaces server failure", async ({ page }) => {
+  await page.goto("/settings#backup");
+  await page.route("**/api/demo-reset", async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        code: "RESET_FAILED",
+        message: "Demonstration data could not be reset.",
+        details: "Simulated failure",
+      }),
+    });
+  });
+  await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
+  await page.getByRole("button", { name: "Reset demo data" }).click();
+  await expect(page.getByText("Demonstration data could not be reset.")).toBeVisible();
 });
 
 test("desktop navigation collapse preference persists", async ({ page }) => {

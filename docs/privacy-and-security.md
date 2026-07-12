@@ -11,6 +11,7 @@ Financial Compass is local-first.
 - Browser local storage is used only for UI preferences such as navigation state. Household financial settings are stored in SQLite.
 - `npm run db:reset` is restricted to SQLite `file:` URLs under the repository `prisma/` directory.
 - The in-app demonstration reset requires explicit confirmation and runs server-side against the synthetic single-household dataset.
+- Demonstration reset uses the active application database connection, replaces local synthetic database records with canonical seed records, preserves browser UI preferences, does not delete backup ZIP files, and returns only safe database diagnostics such as provider, filename, and a short URL hash.
 - Audit records store field-level values for material manual changes and must not be used for secrets or complete object snapshots.
 - CSV import is local-only. File contents are parsed through the local application server and are not sent to external services.
 - Uploaded CSV file contents are not permanently stored. Import batches store file hash, redacted filename, size, encoding, delimiter, row status, and bounded serialized source fields needed for traceability.

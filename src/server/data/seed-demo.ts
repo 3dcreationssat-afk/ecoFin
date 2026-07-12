@@ -1,24 +1,27 @@
+import type { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
 
-export async function seedDemoData(source = "seed") {
-  const prisma = new PrismaClient();
-  try {
-    await prisma.auditLog.deleteMany();
-    await prisma.backupRecord.deleteMany();
-    await prisma.recurringExpenseTransaction.deleteMany();
-    await prisma.recurringExpense.deleteMany();
-    await prisma.transferMatch.deleteMany();
-    await prisma.importRow.deleteMany();
-    await prisma.transaction.deleteMany();
-    await prisma.importBatch.deleteMany();
-    await prisma.importProfile.deleteMany();
-    await prisma.goalContribution.deleteMany();
-    await prisma.goal.deleteMany();
-    await prisma.category.deleteMany();
-    await prisma.account.deleteMany();
-    await prisma.household.deleteMany();
+type SeedClient = PrismaClient | Prisma.TransactionClient;
 
-    const household = await prisma.household.create({
+export async function seedDemoData(source = "seed", db?: SeedClient) {
+  const client = db ?? new PrismaClient();
+  try {
+    await client.auditLog.deleteMany();
+    await client.backupRecord.deleteMany();
+    await client.recurringExpenseTransaction.deleteMany();
+    await client.recurringExpense.deleteMany();
+    await client.transferMatch.deleteMany();
+    await client.importRow.deleteMany();
+    await client.transaction.deleteMany();
+    await client.importBatch.deleteMany();
+    await client.importProfile.deleteMany();
+    await client.goalContribution.deleteMany();
+    await client.goal.deleteMany();
+    await client.category.deleteMany();
+    await client.account.deleteMany();
+    await client.household.deleteMany();
+
+    const household = await client.household.create({
       data: {
         name: "Our Household",
         currency: "USD",
@@ -30,7 +33,7 @@ export async function seedDemoData(source = "seed") {
       },
     });
 
-    const checking = await prisma.account.create({
+    const checking = await client.account.create({
       data: {
         householdId: household.id,
         name: "Everyday Checking",
@@ -42,7 +45,7 @@ export async function seedDemoData(source = "seed") {
         lastUpdated: new Date("2026-07-09"),
       },
     });
-    const savings = await prisma.account.create({
+    const savings = await client.account.create({
       data: {
         householdId: household.id,
         name: "High-Yield Savings",
@@ -54,7 +57,7 @@ export async function seedDemoData(source = "seed") {
         lastUpdated: new Date("2026-07-09"),
       },
     });
-    const sapphire = await prisma.account.create({
+    const sapphire = await client.account.create({
       data: {
         householdId: household.id,
         name: "Chase Sapphire",
@@ -70,7 +73,7 @@ export async function seedDemoData(source = "seed") {
         lastUpdated: new Date("2026-07-09"),
       },
     });
-    await prisma.account.createMany({
+    await client.account.createMany({
       data: [
         {
           householdId: household.id,
@@ -113,7 +116,7 @@ export async function seedDemoData(source = "seed") {
       ],
     });
 
-    const fixed = await prisma.category.create({
+    const fixed = await client.category.create({
       data: {
         householdId: household.id,
         name: "Fixed",
@@ -123,7 +126,7 @@ export async function seedDemoData(source = "seed") {
         sortOrder: 1,
       },
     });
-    const variable = await prisma.category.create({
+    const variable = await client.category.create({
       data: {
         householdId: household.id,
         name: "Essential Variable",
@@ -133,7 +136,7 @@ export async function seedDemoData(source = "seed") {
         sortOrder: 2,
       },
     });
-    const discretionary = await prisma.category.create({
+    const discretionary = await client.category.create({
       data: {
         householdId: household.id,
         name: "Discretionary",
@@ -143,7 +146,7 @@ export async function seedDemoData(source = "seed") {
         sortOrder: 3,
       },
     });
-    const income = await prisma.category.create({
+    const income = await client.category.create({
       data: {
         householdId: household.id,
         name: "Income",
@@ -153,7 +156,7 @@ export async function seedDemoData(source = "seed") {
         sortOrder: 110,
       },
     });
-    const groceries = await prisma.category.create({
+    const groceries = await client.category.create({
       data: {
         householdId: household.id,
         parentId: variable.id,
@@ -164,7 +167,7 @@ export async function seedDemoData(source = "seed") {
         sortOrder: 70,
       },
     });
-    const dining = await prisma.category.create({
+    const dining = await client.category.create({
       data: {
         householdId: household.id,
         parentId: discretionary.id,
@@ -175,7 +178,7 @@ export async function seedDemoData(source = "seed") {
         sortOrder: 80,
       },
     });
-    const subscriptions = await prisma.category.create({
+    const subscriptions = await client.category.create({
       data: {
         householdId: household.id,
         parentId: discretionary.id,
@@ -186,7 +189,7 @@ export async function seedDemoData(source = "seed") {
         sortOrder: 100,
       },
     });
-    await prisma.category.createMany({
+    await client.category.createMany({
       data: [
         {
           householdId: household.id,
@@ -254,7 +257,7 @@ export async function seedDemoData(source = "seed") {
       ],
     });
 
-    const emergency = await prisma.goal.create({
+    const emergency = await client.goal.create({
       data: {
         householdId: household.id,
         linkedAccountId: savings.id,
@@ -266,7 +269,7 @@ export async function seedDemoData(source = "seed") {
         priority: 10,
       },
     });
-    const vehicle = await prisma.goal.create({
+    const vehicle = await client.goal.create({
       data: {
         householdId: household.id,
         linkedAccountId: savings.id,
@@ -278,7 +281,7 @@ export async function seedDemoData(source = "seed") {
         priority: 20,
       },
     });
-    await prisma.goal.createMany({
+    await client.goal.createMany({
       data: [
         {
           householdId: household.id,
@@ -302,7 +305,7 @@ export async function seedDemoData(source = "seed") {
         },
       ],
     });
-    await prisma.goalContribution.createMany({
+    await client.goalContribution.createMany({
       data: [
         {
           goalId: emergency.id,
@@ -321,7 +324,7 @@ export async function seedDemoData(source = "seed") {
       ],
     });
 
-    await prisma.transaction.createMany({
+    await client.transaction.createMany({
       data: [
         {
           householdId: household.id,
@@ -608,7 +611,7 @@ export async function seedDemoData(source = "seed") {
       ],
     });
 
-    await prisma.auditLog.create({
+    await client.auditLog.create({
       data: {
         householdId: household.id,
         entityType: "Household",
@@ -622,6 +625,6 @@ export async function seedDemoData(source = "seed") {
 
     return household;
   } finally {
-    await prisma.$disconnect();
+    if (!db) await (client as PrismaClient).$disconnect();
   }
 }

@@ -1,6 +1,10 @@
+import { createHash } from "node:crypto";
+import { basename } from "node:path";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { accountSchema } from "@/domain/accounts/schema";
+import { activeSqlitePath } from "@/domain/backup/backup";
 import { categorySchema } from "@/domain/categories/schema";
+import { DEMO_RESET_CONFIRMATION, demoResetSchema } from "@/domain/demo-reset/schema";
 import { goalContributionSchema, goalSchema } from "@/domain/goals/schema";
 import { householdSettingsSchema } from "@/domain/household/schema";
 import { transactionUpdateSchema } from "@/domain/transactions/schema";
@@ -292,6 +296,91 @@ export async function transactionAudit(id: string) {
 }
 
 export async function resetDemoData() {
+  return resetDemoDataWithResult({ confirmation: DEMO_RESET_CONFIRMATION });
+}
+
+export async function resetDemoDataWithResult(input: unknown) {
+  const data = demoResetSchema.parse(input);
+  if (data.confirmation !== DEMO_RESET_CONFIRMATION) {
+    throw new AppError("Type RESET DEMO DATA to confirm the single-household demo reset.", 422);
+  }
+  if (data.simulateFailure && process.env.NODE_ENV !== "test") {
+    throw new AppError("Reset failure simulation is only available in tests.", 403);
+  }
+  if (data.simulateFailure) {
+    throw new AppError("Simulated demo reset failure.", 500);
+  }
   const { seedDemoData } = await import("./seed-demo");
-  return seedDemoData("reset");
+  const result = await prisma.$transaction(async (tx) => {
+    const household = await seedDemoData("reset", tx);
+    await auditChange(tx, {
+      householdId: household.id,
+      entityType: "Household",
+      entityId: household.id,
+      action: "demo_reset",
+      field: "demoData",
+      newValue: "canonical synthetic dataset",
+      source: "reset",
+    });
+    const counts = await demoResetCounts(tx);
+    return { household, counts };
+  });
+  return {
+    ok: true,
+    message: "Demonstration data was reset.",
+    ...result,
+    database: activeDatabaseDiagnostic(),
+    resetAt: new Date().toISOString(),
+  };
+}
+
+export async function demoResetCounts(db: Db = prisma) {
+  const [
+    households,
+    accounts,
+    categories,
+    goals,
+    goalContributions,
+    transactions,
+    importBatches,
+    transferMatches,
+    recurringExpenses,
+    recurringLinks,
+    auditEvents,
+  ] = await Promise.all([
+    db.household.count(),
+    db.account.count(),
+    db.category.count(),
+    db.goal.count(),
+    db.goalContribution.count(),
+    db.transaction.count(),
+    db.importBatch.count(),
+    db.transferMatch.count(),
+    db.recurringExpense.count(),
+    db.recurringExpenseTransaction.count(),
+    db.auditLog.count(),
+  ]);
+  return {
+    households,
+    accounts,
+    categories,
+    goals,
+    goalContributions,
+    transactions,
+    importBatches,
+    transferMatches,
+    recurringExpenses,
+    recurringLinks,
+    auditEvents,
+  };
+}
+
+function activeDatabaseDiagnostic() {
+  const databaseUrl = process.env.DATABASE_URL ?? "file:./dev.db";
+  const path = activeSqlitePath(databaseUrl);
+  return {
+    provider: "sqlite",
+    filename: basename(path),
+    urlHash: createHash("sha256").update(databaseUrl).digest("hex").slice(0, 12),
+  };
 }

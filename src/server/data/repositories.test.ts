@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 process.env.DATABASE_URL = "file:./vitest-integration.db";
 
@@ -105,5 +105,68 @@ describe("persistent repositories", () => {
     const audit = await repositories.transactionAudit(transaction.id);
     expect(audit.some((entry) => entry.field === "normalizedMerchant")).toBe(true);
     expect(audit.some((entry) => entry.field === "excluded")).toBe(true);
+  });
+
+  it("resets the active demo database to canonical seed counts and records reset audit", async () => {
+    const household = await repositories.getHousehold();
+    await repositories.createAccount({
+      householdId: household.id,
+      name: "Reset Test Account",
+      institution: "Local",
+      type: "CHECKING",
+      balanceMinor: 999,
+      availableMinor: 999,
+      lastUpdated: new Date(),
+    });
+    await repositories.createGoal({
+      householdId: household.id,
+      name: "Reset Test Goal",
+      targetMinor: 1000,
+      currentMinor: 0,
+      plannedMonthlyMinor: 100,
+      requiredMonthlyMinor: 100,
+      priority: 999,
+    });
+    const result = await repositories.resetDemoDataWithResult({
+      confirmation: "RESET DEMO DATA",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Demonstration data was reset.");
+    expect(result.database).toMatchObject({
+      provider: "sqlite",
+      filename: "vitest-integration.db",
+    });
+    expect(result.counts).toMatchObject({
+      households: 1,
+      accounts: 6,
+      categories: 14,
+      goals: 4,
+      goalContributions: 2,
+      transactions: 20,
+      importBatches: 0,
+      transferMatches: 0,
+      recurringExpenses: 0,
+      recurringLinks: 0,
+      auditEvents: 2,
+    });
+    expect(await prismaModule.prisma.account.count({ where: { name: "Reset Test Account" } })).toBe(
+      0,
+    );
+    expect(await prismaModule.prisma.goal.count({ where: { name: "Reset Test Goal" } })).toBe(0);
+    expect(
+      await prismaModule.prisma.auditLog.count({
+        where: { action: "demo_reset", source: "reset" },
+      }),
+    ).toBe(1);
+    const repeated = await repositories.resetDemoDataWithResult({
+      confirmation: "RESET DEMO DATA",
+    });
+    expect(repeated.counts).toMatchObject({
+      households: 1,
+      accounts: 6,
+      categories: 14,
+      goals: 4,
+      transactions: 20,
+    });
   });
 });

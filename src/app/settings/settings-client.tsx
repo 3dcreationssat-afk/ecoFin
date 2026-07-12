@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Pill } from "@/components/data-display/primitives";
 import { parseMoneyToMinor, minorToDecimalString } from "@/domain/money/money";
@@ -52,6 +52,8 @@ type BackupDashboardDto = {
     goals: number;
     importBatches: number;
     transferMatches?: number;
+    recurringExpenses?: number;
+    recurringLinks?: number;
     auditLogs: number;
   };
   storageLabel: string;
@@ -103,7 +105,15 @@ export function SettingsClient({
   const [activeTab, setActiveTab] = useState("household");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
+  const resetAlertRef = useRef<HTMLDivElement | null>(null);
   const [confirmation, setConfirmation] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetCounts, setResetCounts] = useState<BackupDashboardDto["counts"] | null>(null);
+  const [resetDatabase, setResetDatabase] = useState<null | {
+    provider: string;
+    filename: string;
+    urlHash: string;
+  }>(null);
   const [deleteBackupConfirmation, setDeleteBackupConfirmation] = useState("");
   const [restoreConfirmation, setRestoreConfirmation] = useState("");
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
@@ -219,20 +229,33 @@ export function SettingsClient({
   async function resetDemo() {
     setStatus("saving");
     setError("");
+    setResetMessage("");
+    setResetCounts(null);
+    setResetDatabase(null);
     const response = await fetch("/api/demo-reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirmation }),
     });
+    const body = await response.json().catch(() => ({
+      ok: false,
+      message: "Demonstration data could not be reset.",
+    }));
     if (!response.ok) {
-      const body = await response.json();
-      setError(body.error ?? "Unable to reset demo data.");
+      setError(body.message ?? body.error ?? "Demonstration data could not be reset.");
       setStatus("error");
+      requestAnimationFrame(() => resetAlertRef.current?.focus());
       return;
     }
     setConfirmation("");
+    setResetMessage(body.message ?? "Demonstration data was reset.");
+    setResetCounts(body.counts ?? null);
+    setResetDatabase(body.database ?? null);
     setStatus("saved");
-    startTransition(() => router.refresh());
+    requestAnimationFrame(() => resetAlertRef.current?.focus());
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   async function createBackup() {
@@ -328,7 +351,9 @@ export function SettingsClient({
       </div>
       {error ? (
         <div
+          ref={resetAlertRef}
           role="alert"
+          tabIndex={-1}
           className="mb-4 rounded-md border border-[var(--red)] bg-[var(--red-soft)] p-3 text-sm"
         >
           {error}
@@ -649,16 +674,51 @@ export function SettingsClient({
                 aria-label="Reset confirmation"
                 className="h-10 rounded-md border border-[var(--border)] px-3"
                 value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
+                onChange={(event) => {
+                  setConfirmation(event.target.value);
+                  if (error) setError("");
+                }}
                 placeholder="RESET DEMO DATA"
               />
               <button
                 className="h-10 rounded-md border border-[var(--red)] px-4 text-sm font-semibold text-[var(--red)]"
                 onClick={resetDemo}
+                disabled={status === "saving" || confirmation !== "RESET DEMO DATA"}
               >
-                Reset demo data
+                {status === "saving" ? "Resetting..." : "Reset demo data"}
               </button>
             </div>
+            {confirmation !== "RESET DEMO DATA" ? (
+              <p className="mt-2 text-sm text-[var(--red)]">
+                Type RESET DEMO DATA to confirm the single-household demo reset.
+              </p>
+            ) : null}
+            {resetMessage ? (
+              <div
+                ref={resetAlertRef}
+                role="status"
+                tabIndex={-1}
+                className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm outline-none"
+              >
+                <p className="font-semibold">{resetMessage}</p>
+                {resetCounts ? (
+                  <p className="mt-2 text-[var(--muted)]">
+                    Result: {resetCounts.households} household, {resetCounts.accounts} accounts,{" "}
+                    {resetCounts.categories} categories, {resetCounts.goals} goals,{" "}
+                    {resetCounts.transactions} transactions, {resetCounts.importBatches} import
+                    batches, {resetCounts.transferMatches ?? 0} transfer matches,{" "}
+                    {resetCounts.recurringExpenses ?? 0} recurring records, and{" "}
+                    {resetCounts.auditLogs} audit events.
+                  </p>
+                ) : null}
+                {resetDatabase ? (
+                  <p className="mt-2 font-mono text-xs text-[var(--muted)]">
+                    Active database: {resetDatabase.provider}/{resetDatabase.filename} #
+                    {resetDatabase.urlHash}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </Card>
       ) : null}
