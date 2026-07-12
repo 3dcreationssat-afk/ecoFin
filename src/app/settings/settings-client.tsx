@@ -26,6 +26,22 @@ type CategoryDto = {
   sortOrder: number;
   archivedAt?: string | null;
 };
+type MerchantRuleDto = {
+  id: string;
+  name: string;
+  priority: number;
+  active: boolean;
+  matchField: string;
+  matchType: string;
+  pattern: string;
+  normalizedMerchant?: string | null;
+  categoryId?: string | null;
+  transactionType?: string | null;
+  markReviewed: boolean;
+  notes?: string | null;
+  lastAppliedAt?: string | null;
+  category?: { name: string } | null;
+};
 
 type BackupRecordDto = {
   id: string;
@@ -95,10 +111,12 @@ export function SettingsClient({
   household,
   categories,
   backup,
+  merchantRules,
 }: {
   household: HouseholdDto;
   categories: CategoryDto[];
   backup: BackupDashboardDto;
+  merchantRules: MerchantRuleDto[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -161,6 +179,31 @@ export function SettingsClient({
     budget: "0.00",
     sortOrder: "120",
   });
+  const emptyRule = {
+    name: "",
+    priority: "100",
+    active: true,
+    matchField: "ORIGINAL_DESCRIPTION",
+    matchType: "CONTAINS",
+    pattern: "",
+    normalizedMerchant: "",
+    categoryId: "",
+    transactionType: "",
+    markReviewed: false,
+    notes: "",
+  };
+  const [ruleForm, setRuleForm] = useState(emptyRule);
+  const [editingRuleId, setEditingRuleId] = useState("");
+  const [ruleSearch, setRuleSearch] = useState("");
+  const [ruleFilter, setRuleFilter] = useState("all");
+  const [rulePreview, setRulePreview] = useState<null | {
+    matchedCount: number;
+    eligibleCount: number;
+    protectedCount: number;
+    conflict: boolean;
+    conflictingRuleNames: string[];
+    samples: { id: string; merchant: string; type: string; protections: string[] }[];
+  }>(null);
 
   useEffect(() => {
     const readHash = () => setActiveTab(window.location.hash.replace("#", "") || "household");
@@ -374,12 +417,114 @@ export function SettingsClient({
     startTransition(() => router.refresh());
   }
 
+  function rulePayload() {
+    return {
+      name: ruleForm.name,
+      priority: Number(ruleForm.priority),
+      active: ruleForm.active,
+      matchField: ruleForm.matchField,
+      matchType: ruleForm.matchType,
+      pattern: ruleForm.pattern,
+      normalizedMerchant: ruleForm.normalizedMerchant || null,
+      categoryId: ruleForm.categoryId || null,
+      transactionType: ruleForm.transactionType || null,
+      markReviewed: ruleForm.markReviewed,
+      notes: ruleForm.notes || null,
+    };
+  }
+  async function previewRule() {
+    setStatus("saving");
+    setError("");
+    const response = await fetch("/api/merchant-rules", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rulePayload()),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "Rule preview failed.");
+      setStatus("error");
+      return;
+    }
+    setRulePreview(body);
+    setStatus("saved");
+  }
+  async function saveRule(applyExisting: boolean) {
+    if (
+      applyExisting &&
+      !window.confirm(
+        "Apply this rule to all eligible matching historical transactions? Protected manual, transfer, and recurring values will be skipped.",
+      )
+    )
+      return;
+    setStatus("saving");
+    setError("");
+    const response = await fetch(
+      editingRuleId ? `/api/merchant-rules/${editingRuleId}` : "/api/merchant-rules",
+      {
+        method: editingRuleId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule: rulePayload(), applyExisting }),
+      },
+    );
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "Rule could not be saved.");
+      setStatus("error");
+      return;
+    }
+    setRuleForm(emptyRule);
+    setEditingRuleId("");
+    setRulePreview(null);
+    setStatus("saved");
+    startTransition(() => router.refresh());
+  }
+  async function ruleAction(id: string, action: "disable" | "enable" | "archive") {
+    if (
+      action === "archive" &&
+      !window.confirm("Archive this merchant rule? It will no longer apply to future imports.")
+    )
+      return;
+    setStatus("saving");
+    const response = await fetch(`/api/merchant-rules/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "Rule action failed.");
+      setStatus("error");
+      return;
+    }
+    setStatus("saved");
+    startTransition(() => router.refresh());
+  }
+  function editRule(rule: MerchantRuleDto) {
+    setEditingRuleId(rule.id);
+    setRuleForm({
+      name: rule.name,
+      priority: String(rule.priority),
+      active: rule.active,
+      matchField: rule.matchField,
+      matchType: rule.matchType,
+      pattern: rule.pattern,
+      normalizedMerchant: rule.normalizedMerchant ?? "",
+      categoryId: rule.categoryId ?? "",
+      transactionType: rule.transactionType ?? "",
+      markReviewed: rule.markReviewed,
+      notes: rule.notes ?? "",
+    });
+    setRulePreview(null);
+  }
+
   return (
     <>
       <div className="mb-7 flex flex-wrap items-center gap-3">
         {[
           ["household", "Household"],
           ["categories", "Categories"],
+          ["merchant-rules", "Merchant Rules"],
           ["backup", "Backup & Data"],
           ["privacy", "Privacy"],
         ].map(([tab, label]) => (
@@ -547,6 +692,263 @@ export function SettingsClient({
             ))}
           </div>
         </Card>
+      ) : null}
+      {activeTab === "merchant-rules" ? (
+        <div className="mt-7 grid gap-6">
+          <Card className="p-7">
+            <h2 className="text-xl font-semibold">
+              {editingRuleId ? "Edit Merchant Rule" : "Create Merchant Rule"}
+            </h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Rules use normalized, case-insensitive text matching. Lower priority numbers win;
+              exact matches outrank starts/ends-with, then contains. Saving alone affects future
+              imports. Historical changes always require a separate confirmation.
+            </p>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <Field
+                label="Rule name"
+                value={ruleForm.name}
+                onChange={(name) => setRuleForm({ ...ruleForm, name })}
+              />
+              <Field
+                label="Priority"
+                help="Lower numbers run first."
+                value={ruleForm.priority}
+                onChange={(priority) => setRuleForm({ ...ruleForm, priority })}
+              />
+              <Select
+                label="Match field"
+                help="Choose the immutable original description, current merchant, or either."
+                value={ruleForm.matchField}
+                onChange={(matchField) => setRuleForm({ ...ruleForm, matchField })}
+                options={["ORIGINAL_DESCRIPTION", "NORMALIZED_MERCHANT", "EITHER"]}
+                labels={{
+                  ORIGINAL_DESCRIPTION: "Original description",
+                  NORMALIZED_MERCHANT: "Normalized merchant",
+                  EITHER: "Description or merchant",
+                }}
+              />
+              <Select
+                label="Match type"
+                help="Matching ignores case and repeated whitespace. Regular expressions are intentionally unsupported."
+                value={ruleForm.matchType}
+                onChange={(matchType) => setRuleForm({ ...ruleForm, matchType })}
+                options={["EXACT", "CONTAINS", "STARTS_WITH", "ENDS_WITH"]}
+                labels={{
+                  EXACT: "Exact",
+                  CONTAINS: "Contains",
+                  STARTS_WITH: "Starts with",
+                  ENDS_WITH: "Ends with",
+                }}
+              />
+              <Field
+                label="Pattern"
+                help="Required text, limited to 160 characters."
+                value={ruleForm.pattern}
+                onChange={(pattern) => setRuleForm({ ...ruleForm, pattern })}
+              />
+              <Field
+                label="Normalized merchant"
+                value={ruleForm.normalizedMerchant}
+                onChange={(normalizedMerchant) => setRuleForm({ ...ruleForm, normalizedMerchant })}
+              />
+              <Select
+                label="Category"
+                value={ruleForm.categoryId}
+                onChange={(categoryId) => setRuleForm({ ...ruleForm, categoryId })}
+                options={[
+                  "",
+                  ...categories
+                    .filter((category) => !category.archivedAt)
+                    .map((category) => category.id),
+                ]}
+                labels={{
+                  "": "Do not change",
+                  ...Object.fromEntries(categories.map((category) => [category.id, category.name])),
+                }}
+              />
+              <Select
+                label="Transaction type"
+                help="Transfer types are excluded; rules cannot confirm transfers."
+                value={ruleForm.transactionType}
+                onChange={(transactionType) => setRuleForm({ ...ruleForm, transactionType })}
+                options={[
+                  "",
+                  "DEBIT",
+                  "CREDIT",
+                  "INCOME",
+                  "EXPENSE",
+                  "REFUND",
+                  "FEE",
+                  "INTEREST",
+                  "UNKNOWN",
+                  "OTHER",
+                ]}
+                labels={{
+                  "": "Do not change",
+                  DEBIT: "Money out",
+                  CREDIT: "Money in",
+                  INCOME: "Income",
+                  EXPENSE: "Expense",
+                  REFUND: "Refund",
+                  FEE: "Fee",
+                  INTEREST: "Interest",
+                  UNKNOWN: "Other / unknown",
+                  OTHER: "Other",
+                }}
+              />
+              <Field
+                label="Notes"
+                value={ruleForm.notes}
+                onChange={(notes) => setRuleForm({ ...ruleForm, notes })}
+              />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={ruleForm.markReviewed}
+                  onChange={(event) =>
+                    setRuleForm({ ...ruleForm, markReviewed: event.target.checked })
+                  }
+                />{" "}
+                Mark matching transactions reviewed
+              </label>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                className="h-10 rounded-md border border-[var(--border)] px-4 text-sm font-semibold"
+                onClick={previewRule}
+              >
+                Test and preview
+              </button>
+              <button
+                className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white"
+                onClick={() => saveRule(false)}
+              >
+                Save for future only
+              </button>
+              <button
+                className="h-10 rounded-md border border-[var(--teal)] px-4 text-sm font-semibold text-[var(--teal)]"
+                onClick={() => saveRule(true)}
+              >
+                Save and apply eligible history
+              </button>
+              {editingRuleId ? (
+                <button
+                  className="h-10 rounded-md border border-[var(--border)] px-4 text-sm"
+                  onClick={() => {
+                    setEditingRuleId("");
+                    setRuleForm(emptyRule);
+                  }}
+                >
+                  Cancel edit
+                </button>
+              ) : null}
+            </div>
+            {rulePreview ? (
+              <div className="mt-5 rounded-md border border-[var(--border)] p-4" aria-live="polite">
+                <div className="flex flex-wrap gap-2">
+                  <Pill tone="info">{rulePreview.matchedCount} matched</Pill>
+                  <Pill tone="good">{rulePreview.eligibleCount} eligible</Pill>
+                  <Pill tone={rulePreview.protectedCount ? "warn" : "neutral"}>
+                    {rulePreview.protectedCount} protected
+                  </Pill>
+                  {rulePreview.conflict ? (
+                    <Pill tone="bad">Conflict: {rulePreview.conflictingRuleNames.join(", ")}</Pill>
+                  ) : null}
+                </div>
+                <div className="mt-3 space-y-2">
+                  {rulePreview.samples.map((sample) => (
+                    <div key={sample.id} className="text-sm">
+                      <strong>{sample.merchant}</strong> · {sample.type}
+                      {sample.protections.length
+                        ? ` · Protected: ${sample.protections.join(", ")}`
+                        : " · Eligible"}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </Card>
+          <Card className="p-7">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Merchant Rules</h2>
+                <p className="text-sm text-[var(--muted)]">
+                  Deterministic future-import normalization and categorization.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Field label="Search rules" value={ruleSearch} onChange={setRuleSearch} />
+                <Select
+                  label="Status"
+                  value={ruleFilter}
+                  onChange={setRuleFilter}
+                  options={["all", "active", "inactive"]}
+                  labels={{ all: "All", active: "Active", inactive: "Inactive" }}
+                />
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
+              {merchantRules
+                .filter(
+                  (rule) =>
+                    (!ruleSearch ||
+                      `${rule.name} ${rule.pattern}`
+                        .toLocaleLowerCase()
+                        .includes(ruleSearch.toLocaleLowerCase())) &&
+                    (ruleFilter === "all" || (ruleFilter === "active") === rule.active),
+                )
+                .map((rule) => (
+                  <div key={rule.id} className="rounded-md border border-[var(--border)] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <strong>{rule.name}</strong>{" "}
+                        <Pill tone={rule.active ? "good" : "neutral"}>
+                          {rule.active ? "Active" : "Inactive"}
+                        </Pill>
+                        <p className="text-sm text-[var(--muted)]">
+                          Priority {rule.priority} ·{" "}
+                          {rule.matchField.replaceAll("_", " ").toLocaleLowerCase()}{" "}
+                          {rule.matchType.replaceAll("_", " ").toLocaleLowerCase()} “{rule.pattern}”
+                          →{" "}
+                          {rule.normalizedMerchant ??
+                            rule.category?.name ??
+                            rule.transactionType ??
+                            "Reviewed"}
+                        </p>
+                        <p className="text-xs text-[var(--muted)]">
+                          Last applied:{" "}
+                          {rule.lastAppliedAt
+                            ? new Date(rule.lastAppliedAt).toLocaleString()
+                            : "Never"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          className="rounded-md border px-3 py-2 text-sm"
+                          onClick={() => editRule(rule)}
+                        >
+                          Edit / test
+                        </button>
+                        <button
+                          className="rounded-md border px-3 py-2 text-sm"
+                          onClick={() => ruleAction(rule.id, rule.active ? "disable" : "enable")}
+                        >
+                          {rule.active ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          className="rounded-md border border-[var(--red)] px-3 py-2 text-sm text-[var(--red)]"
+                          onClick={() => ruleAction(rule.id, "archive")}
+                        >
+                          Archive
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </Card>
+        </div>
       ) : null}
       {activeTab === "backup" ? (
         <Card className="mt-7 p-7">
