@@ -37,6 +37,30 @@ describe("decision scenario persistence and isolation", () => {
     expect(await realCounts()).toEqual(before);
   });
 
+  it("reconciles canonical runway scenarios with the shared Cash Flow baseline", async () => {
+    const dashboard = await scenarios.decisionSimulatorDashboard();
+    const expected = {
+      "Add childcare cost": [840_000, 375_000, 22_400],
+      "Increase debt payment": [840_000, 255_000, 32_941],
+      "Cancel selected subscription": [840_000, 255_000, 32_941],
+      "Add vehicle payment": [640_000, 319_000, 20_063],
+    } as const;
+    for (const scenario of dashboard.scenarios.filter((item) => !item.archivedAt)) {
+      const evaluation = (await scenarios.decisionSimulatorDashboard(scenario.id)).evaluation!;
+      expect(evaluation.baselineEmergencyRunway).toMatchObject({
+        eligibleBalanceMinor: 840_000,
+        essentialMonthlyMinor: 255_000,
+        runwayBasisPoints: 32_941,
+      });
+      const [balance, denominator, runway] = expected[scenario.name as keyof typeof expected];
+      expect(evaluation.scenarioEmergencyRunway).toMatchObject({
+        eligibleBalanceMinor: balance,
+        essentialMonthlyMinor: denominator,
+        runwayBasisPoints: runway,
+      });
+    }
+  });
+
   it("creates, renames, duplicates, archives, restores, and deletes scenarios with audit", async () => {
     const created = await scenarios.createDecisionScenario({ name: "Synthetic scenario" });
     await scenarios.updateDecisionScenario(created.id, {

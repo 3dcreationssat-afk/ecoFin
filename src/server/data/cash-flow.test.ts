@@ -25,6 +25,15 @@ describe("cash-flow repository projection", () => {
     expect(projection.startingUsableLiquidCashMinor).toBeGreaterThan(0);
     expect(projection.debtMinimumPaymentsMinor).toBeGreaterThan(0);
     expect(projection.calculationLines).toHaveLength(8);
+    expect(projection.emergencyRunway).toMatchObject({
+      eligibleBalanceMinor: 840_000,
+      essentialMonthlyMinor: 255_000,
+      runwayBasisPoints: 32_941,
+      confidence: "HIGH",
+    });
+    expect(projection.emergencyRunway.obligations.map((item) => item.label)).not.toContain(
+      "Northstar Payroll",
+    );
     const overview = service.cashAllocationSummary(projection);
     expect(overview.recommendedSafeToSaveMinor).toBe(projection.recommendedSafeToSaveMinor);
     expect(overview.safeToSpendMinor).toBe(projection.safeToSpendMinor);

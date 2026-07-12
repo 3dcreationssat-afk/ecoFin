@@ -39,6 +39,11 @@ test("validated cash flow explains projection, protection, timeline, and confide
   await expect(page.getByText("Starting usable liquid cash")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Buffer and Protection" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Confidence" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Emergency runway" })).toBeVisible();
+  await page.getByText("Explain emergency runway composition", { exact: true }).click();
+  await expect(page.getByText("Emergency Fund · High-Yield Savings")).toBeVisible();
+  await expect(page.getByText("Essential monthly obligations", { exact: true })).toBeVisible();
+  await expect(page.getByText("Mortgage", { exact: true }).last()).toBeVisible();
   await expect(page.getByLabel("Cash allocation reconciliation")).toContainText(
     "Cash after obligations and protections",
   );
@@ -201,6 +206,9 @@ test("decision simulator persists isolated components and comparisons", async ({
     page.getByText(/Immediate linked emergency-fund balance divided by average monthly essential/),
   ).toBeVisible();
   await expect(page.getByText(/planned contribution is fixed/).first()).toBeVisible();
+  await page.getByText("Explain scenario runway composition", { exact: true }).click();
+  await expect(page.getByText(/scenario withdrawal \$2,000\.00/)).toBeVisible();
+  await expect(page.getByText("Essential monthly obligations", { exact: true })).toBeVisible();
   const scenarioName = `Playwright decision ${testInfo.project.name}`;
   await page.getByLabel("New scenario name").fill(scenarioName);
   await page.getByRole("button", { name: "New scenario" }).click();
