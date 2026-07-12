@@ -16,6 +16,14 @@ model Household {
   checkingBufferMinor   Int
   emergencyFundTargetMinor Int
   debtStrategy          String   @default("AVALANCHE")
+  savingsRecommendationMode String @default("BALANCED")
+  savingsTargetBps      Int      @default(5000)
+  minimumDiscretionaryReserveMinor Int @default(100000)
+  extraSafetyReserveMinor Int @default(0)
+  minimumCashRetainedMinor Int @default(0)
+  includeGoalContributionsInSafeToSave Boolean @default(true)
+  emergencyShortfallIncreasesRecommendation Boolean @default(false)
+  conservativeConfidenceAdjustmentBps Int @default(2000)
   workspaceMode         String   @default("DEMONSTRATION")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -28,6 +36,10 @@ model Household {
   backupRecords         BackupRecord[]
   transferMatches       TransferMatch[]
   recurringExpenses     RecurringExpense[]
+  expectedIncomeSchedules ExpectedIncomeSchedule[]
+  scheduledObligations ScheduledObligation[]
+  expectedIncomeOccurrences ExpectedIncomeOccurrence[]
+  obligationOccurrences ObligationOccurrence[]
   reconciliationAdjustments ReconciliationAdjustment[]
   transactionSavedViews TransactionSavedView[]
   merchantRules         MerchantRule[]
@@ -114,6 +126,9 @@ model Account {
   transactions        Transaction[]
   importBatches       ImportBatch[]
   reconciliationAdjustments ReconciliationAdjustment[]
+  expectedIncomeSchedules ExpectedIncomeSchedule[]
+  paymentObligations ScheduledObligation[] @relation("ObligationPaymentAccount")
+  debtObligations ScheduledObligation[] @relation("ObligationDebtAccount")
 }
 
 model ReconciliationAdjustment {
@@ -150,6 +165,7 @@ model Category {
   transactions    Transaction[]
   recurringExpenses RecurringExpense[]
   merchantRules     MerchantRule[]
+  scheduledObligations ScheduledObligation[]
 }
 
 model Goal {
@@ -172,6 +188,7 @@ model Goal {
   household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   linkedAccount         Account? @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
   contributions         GoalContribution[]
+  scheduledObligations ScheduledObligation[]
 }
 
 model GoalContribution {
@@ -228,6 +245,8 @@ model Transaction {
   incomingTransferMatches TransferMatch[] @relation("TransferIncoming")
   recurringLinks          RecurringExpenseTransaction[]
   appliedMerchantRule     MerchantRule? @relation(fields: [appliedMerchantRuleId], references: [id], onDelete: SetNull)
+  incomeOccurrence        ExpectedIncomeOccurrence? @relation("IncomeOccurrenceTransaction")
+  obligationOccurrence    ObligationOccurrence? @relation("ObligationOccurrenceTransaction")
 
   @@index([householdId, transactionDate])
   @@index([householdId, reviewStatus, sourceType])
@@ -308,11 +327,114 @@ model RecurringExpense {
   household                  Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   category                   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   transactions               RecurringExpenseTransaction[]
+  expectedIncomeSchedules    ExpectedIncomeSchedule[]
+  scheduledObligations       ScheduledObligation[]
 
   @@unique([householdId, merchantKey, frequency])
   @@index([householdId, status, confidence])
   @@index([householdId, classification, recommendation])
   @@index([nextExpectedDate])
+}
+
+model ExpectedIncomeSchedule {
+  id String @id @default(cuid())
+  householdId String
+  name String
+  amountMinor Int
+  frequency String
+  nextExpectedDate DateTime
+  endDate DateTime?
+  twiceMonthlyDay1 Int?
+  twiceMonthlyDay2 Int?
+  accountId String?
+  recurringExpenseId String?
+  sourceType String @default("USER_ENTERED")
+  confidence String @default("HIGH")
+  active Boolean @default(true)
+  notes String?
+  archivedAt DateTime?
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  occurrences ExpectedIncomeOccurrence[]
+  @@index([householdId, active, archivedAt])
+  @@index([nextExpectedDate])
+}
+
+model ExpectedIncomeOccurrence {
+  id String @id @default(cuid())
+  householdId String
+  scheduleId String
+  expectedDate DateTime
+  expectedAmountMinor Int
+  status String @default("UPCOMING")
+  satisfiedDate DateTime?
+  satisfiedTransactionId String? @unique
+  amountDifferenceMinor Int @default(0)
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  schedule ExpectedIncomeSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  satisfiedTransaction Transaction? @relation("IncomeOccurrenceTransaction", fields: [satisfiedTransactionId], references: [id], onDelete: SetNull)
+  @@unique([scheduleId, expectedDate])
+  @@index([householdId, status, expectedDate])
+}
+
+model ScheduledObligation {
+  id String @id @default(cuid())
+  householdId String
+  name String
+  amountMinor Int
+  dueDate DateTime
+  frequency String
+  accountId String?
+  categoryId String?
+  obligationType String
+  sourceType String @default("USER_ENTERED")
+  recurringExpenseId String?
+  debtAccountId String?
+  goalId String?
+  essentiality String @default("ESSENTIAL")
+  confidence String @default("HIGH")
+  active Boolean @default(true)
+  notes String?
+  archivedAt DateTime?
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account Account? @relation("ObligationPaymentAccount", fields: [accountId], references: [id], onDelete: SetNull)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  debtAccount Account? @relation("ObligationDebtAccount", fields: [debtAccountId], references: [id], onDelete: SetNull)
+  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  occurrences ObligationOccurrence[]
+  @@index([householdId, active, archivedAt])
+  @@index([dueDate])
+}
+
+model ObligationOccurrence {
+  id String @id @default(cuid())
+  householdId String
+  obligationId String
+  expectedDate DateTime
+  expectedAmountMinor Int
+  status String @default("UPCOMING")
+  satisfiedDate DateTime?
+  satisfiedTransactionId String? @unique
+  amountDifferenceMinor Int @default(0)
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  obligation ScheduledObligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  satisfiedTransaction Transaction? @relation("ObligationOccurrenceTransaction", fields: [satisfiedTransactionId], references: [id], onDelete: SetNull)
+  @@unique([obligationId, expectedDate])
+  @@index([householdId, status, expectedDate])
 }
 
 model RecurringExpenseTransaction {

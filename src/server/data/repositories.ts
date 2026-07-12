@@ -394,6 +394,10 @@ export async function startFreshWorkspace(input: unknown) {
     await tx.transactionSavedView.deleteMany();
     await tx.merchantRule.deleteMany();
     await tx.reconciliationAdjustment.deleteMany();
+    await tx.expectedIncomeOccurrence.deleteMany();
+    await tx.obligationOccurrence.deleteMany();
+    await tx.expectedIncomeSchedule.deleteMany();
+    await tx.scheduledObligation.deleteMany();
     await tx.recurringExpenseTransaction.deleteMany();
     await tx.recurringExpense.deleteMany();
     await tx.transferMatch.deleteMany();
