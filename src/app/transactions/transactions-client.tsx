@@ -223,6 +223,10 @@ export function TransactionsClient({
   const [transferNote, setTransferNote] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [transferError, setTransferError] = useState("");
+  const [pendingTransferActionId, setPendingTransferActionId] = useState("");
+  const [transferStatusOverrides, setTransferStatusOverrides] = useState<Record<string, string>>(
+    {},
+  );
   const [filters, setFilters] = useState({
     q: searchParams.get("q") ?? "",
     accountId: searchParams.get("account") ?? "",
@@ -241,6 +245,14 @@ export function TransactionsClient({
     excluded: false,
     notes: "",
   });
+  const displayedTransferMatches = useMemo(
+    () =>
+      transferMatches.map((match) => ({
+        ...match,
+        status: transferStatusOverrides[match.id] ?? match.status,
+      })),
+    [transferMatches, transferStatusOverrides],
+  );
 
   const filteredTransactions = useMemo(() => {
     const query = filters.q.trim().toLowerCase();
@@ -333,6 +345,7 @@ export function TransactionsClient({
 
   async function scanTransfers() {
     setStatus("saving");
+    setTransferStatusOverrides({});
     const response = await fetch("/api/transfers", { method: "POST" });
     setStatus(response.ok ? "saved" : "error");
     setAnnouncement(response.ok ? "Transfer scan complete." : "Transfer scan failed.");
@@ -343,9 +356,11 @@ export function TransactionsClient({
     url: string,
     body: Record<string, unknown>,
     successMessage: string,
+    localStatus?: { id: string; status: string },
   ) {
     setStatus("saving");
     setTransferError("");
+    setPendingTransferActionId(localStatus?.id ?? "manual-transfer");
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -356,9 +371,16 @@ export function TransactionsClient({
     const message = response.ok
       ? successMessage
       : (payload.error ?? "Transfer action failed. Check the selected transactions and try again.");
+    if (response.ok && localStatus) {
+      setTransferStatusOverrides((current) => ({
+        ...current,
+        [localStatus.id]: localStatus.status,
+      }));
+    }
     setAnnouncement(message);
     setTransferError(response.ok ? "" : message);
     setTransferNote("");
+    setPendingTransferActionId("");
     startTransition(() => router.refresh());
     if (selected) open(selected);
   }
@@ -403,7 +425,7 @@ export function TransactionsClient({
       </div>
       <ImportHistory batches={batches} onUndo={undoBatch} />
       <TransferReviewPanel
-        matches={transferMatches}
+        matches={displayedTransferMatches}
         transactions={transactions}
         onScan={scanTransfers}
         onOpen={(id) => {
@@ -415,6 +437,7 @@ export function TransactionsClient({
             `/api/transfers/${id}/confirm`,
             { confirmation: "CONFIRM TRANSFER", notes: transferNote || undefined },
             "Transfer confirmed.",
+            { id, status: "CONFIRMED" },
           )
         }
         onReject={(id) =>
@@ -422,6 +445,7 @@ export function TransactionsClient({
             `/api/transfers/${id}/reject`,
             { confirmation: "REJECT TRANSFER", notes: transferNote || undefined },
             "Transfer suggestion rejected.",
+            { id, status: "REJECTED" },
           )
         }
         onManual={(outgoingTransactionId, incomingTransactionId) =>
@@ -437,6 +461,7 @@ export function TransactionsClient({
           )
         }
         error={transferError}
+        pendingMatchId={pendingTransferActionId}
       />
       <div aria-live="polite" className="sr-only">
         {announcement}
@@ -449,7 +474,7 @@ export function TransactionsClient({
       />
       <TransactionTable
         transactions={visibleTransactions}
-        transferMatches={transferMatches}
+        transferMatches={displayedTransferMatches}
         open={open}
         totalCount={transactions.length}
         filteredCount={filteredTransactions.length}
@@ -484,6 +509,7 @@ export function TransactionsClient({
               `/api/transfers/${id}/confirm`,
               { confirmation: "CONFIRM TRANSFER", notes: transferNote || undefined },
               "Transfer confirmed.",
+              { id, status: "CONFIRMED" },
             )
           }
           onReject={(id) =>
@@ -491,6 +517,7 @@ export function TransactionsClient({
               `/api/transfers/${id}/reject`,
               { confirmation: "REJECT TRANSFER", notes: transferNote || undefined },
               "Transfer suggestion rejected.",
+              { id, status: "REJECTED" },
             )
           }
           onUnmatch={(id) =>
@@ -498,11 +525,13 @@ export function TransactionsClient({
               `/api/transfers/${id}/unmatch`,
               { confirmation: "UNMATCH TRANSFER", notes: transferNote || undefined },
               "Transfer unmatched.",
+              { id, status: "UNMATCHED" },
             )
           }
           setSelected={setSelected}
           setForm={setForm}
           save={save}
+          pendingTransferActionId={pendingTransferActionId}
         />
       ) : null}
     </>
@@ -581,6 +610,7 @@ function TransferReviewPanel({
   onReject,
   onManual,
   error,
+  pendingMatchId,
 }: {
   matches: TransferMatchDto[];
   transactions: TransactionDto[];
@@ -590,6 +620,7 @@ function TransferReviewPanel({
   onReject: (id: string) => void;
   onManual: (outgoingTransactionId: string, incomingTransactionId: string) => void;
   error: string;
+  pendingMatchId: string;
 }) {
   const suggestions = matches.filter((match) => match.status === "SUGGESTED");
   const confirmed = matches.filter((match) => match.status === "CONFIRMED");
@@ -689,16 +720,18 @@ function TransferReviewPanel({
                         Open outgoing
                       </button>
                       <button
-                        className="rounded-md border px-3 py-1"
+                        className="rounded-md border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={pendingMatchId === match.id}
                         onClick={() => onConfirm(match.id)}
                       >
-                        Confirm transfer
+                        {pendingMatchId === match.id ? "Working..." : "Confirm transfer"}
                       </button>
                       <button
-                        className="rounded-md border px-3 py-1 text-[var(--red)]"
+                        className="rounded-md border px-3 py-1 text-[var(--red)] disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={pendingMatchId === match.id}
                         onClick={() => onReject(match.id)}
                       >
-                        Reject suggestion
+                        {pendingMatchId === match.id ? "Working..." : "Reject suggestion"}
                       </button>
                     </div>
                   </td>
@@ -758,11 +791,11 @@ function TransferReviewPanel({
             ))}
           </select>
           <button
-            className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white disabled:opacity-60"
-            disabled={!manualEligible}
+            className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!manualEligible || Boolean(pendingMatchId)}
             onClick={() => onManual(manualOut, manualIn)}
           >
-            Create manual match
+            {pendingMatchId ? "Working..." : "Create manual match"}
           </button>
         </div>
         {selectedOut && !eligibleIncoming.length ? (
@@ -1682,6 +1715,7 @@ function TransactionDrawer({
   setSelected,
   setForm,
   save,
+  pendingTransferActionId,
 }: {
   selected: TransactionDto;
   form: {
@@ -1710,6 +1744,7 @@ function TransactionDrawer({
     notes: string;
   }) => void;
   save: () => void;
+  pendingTransferActionId: string;
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setSelected(null)}>
@@ -1841,6 +1876,7 @@ function TransactionDrawer({
           onConfirm={onConfirm}
           onReject={onReject}
           onUnmatch={onUnmatch}
+          pendingMatchId={pendingTransferActionId}
         />
         <Section
           title="Audit History"
@@ -1866,6 +1902,7 @@ function TransferDrawerSection({
   onConfirm,
   onReject,
   onUnmatch,
+  pendingMatchId,
 }: {
   selected: TransactionDto;
   transfers: TransferMatchDto[];
@@ -1874,6 +1911,7 @@ function TransferDrawerSection({
   onConfirm: (id: string) => void;
   onReject: (id: string) => void;
   onUnmatch: (id: string) => void;
+  pendingMatchId: string;
 }) {
   const confirmed = transfers.find((match) => match.status === "CONFIRMED");
   const suggestions = transfers.filter((match) => match.status === "SUGGESTED");
@@ -1902,10 +1940,11 @@ function TransferDrawerSection({
             />
           </label>
           <button
-            className="mt-3 rounded-md border border-[var(--red)] px-3 py-2 text-sm font-semibold text-[var(--red)]"
+            className="mt-3 rounded-md border border-[var(--red)] px-3 py-2 text-sm font-semibold text-[var(--red)] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={pendingMatchId === confirmed.id}
             onClick={() => onUnmatch(confirmed.id)}
           >
-            Unmatch transfer
+            {pendingMatchId === confirmed.id ? "Working..." : "Unmatch transfer"}
           </button>
         </div>
       ) : suggestions.length ? (
@@ -1940,16 +1979,18 @@ function TransferDrawerSection({
                 </label>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    className="rounded-md bg-[var(--teal)] px-3 py-2 text-sm font-semibold text-white"
+                    className="rounded-md bg-[var(--teal)] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={pendingMatchId === match.id}
                     onClick={() => onConfirm(match.id)}
                   >
-                    Confirm transfer
+                    {pendingMatchId === match.id ? "Working..." : "Confirm transfer"}
                   </button>
                   <button
-                    className="rounded-md border border-[var(--red)] px-3 py-2 text-sm font-semibold text-[var(--red)]"
+                    className="rounded-md border border-[var(--red)] px-3 py-2 text-sm font-semibold text-[var(--red)] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={pendingMatchId === match.id}
                     onClick={() => onReject(match.id)}
                   >
-                    Reject suggestion
+                    {pendingMatchId === match.id ? "Working..." : "Reject suggestion"}
                   </button>
                 </div>
               </div>
