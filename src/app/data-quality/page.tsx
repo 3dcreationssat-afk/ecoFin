@@ -4,19 +4,24 @@ import { Card, PageHeader, Pill } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { dataQualityRules } from "@/domain/summaries/calculations";
 import { importDashboard } from "@/server/data/imports";
+import { recurringDataQuality } from "@/server/data/recurring";
 import { transferDataQuality } from "@/server/data/transfers";
 
 export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
   const { household, batches } = await importDashboard();
-  const transferQuality = await transferDataQuality();
+  const [transferQuality, recurringQuality] = await Promise.all([
+    transferDataQuality(),
+    recurringDataQuality(),
+  ]);
   const quality = dataQualityRules({
     transactions: household.transactions,
     accounts: household.accounts,
     goals: household.goals,
     importBatches: batches,
     transfers: transferQuality,
+    recurring: recurringQuality,
     asOf: new Date("2026-07-11"),
   });
   const issues = [
@@ -121,6 +126,60 @@ export default async function DataQualityPage() {
       quality.excludedTransferCandidates,
       "Excluded transactions require explicit review before transfer matching.",
       "Unexclude the transaction or leave the suggestion unresolved.",
+    ],
+    [
+      "Unconfirmed recurring candidates",
+      quality.unconfirmedRecurringCandidates,
+      "Detected patterns are not treated as confirmed recurring expenses yet.",
+      "Open Recurring and confirm, edit, or reject each suggestion.",
+    ],
+    [
+      "Low-confidence recurring candidates",
+      quality.lowConfidenceRecurringCandidates,
+      "Weak patterns may be normal one-off spending.",
+      "Review supporting transactions before confirming them.",
+    ],
+    [
+      "Recurring items without category",
+      quality.recurringWithoutCategory,
+      "Recurring totals may not align with category reporting.",
+      "Edit the recurring item or its supporting transactions with a category.",
+    ],
+    [
+      "Recurring price increases",
+      quality.recurringPriceIncreases,
+      "Recent charges are higher than the previous pattern.",
+      "Review whether the new amount is expected before relying on monthly totals.",
+    ],
+    [
+      "Canceled recurring items with recent charges",
+      quality.recurringChargesAfterCanceled,
+      "A canceled item appears to have charged recently.",
+      "Review the item and reactivate it if the charge is valid.",
+    ],
+    [
+      "Missing expected recurring charges",
+      quality.recurringMissingExpectedCharge,
+      "Confirmed items are past their expected charge date.",
+      "Check whether the service was canceled, delayed, or imported late.",
+    ],
+    [
+      "Duplicate recurring services",
+      quality.duplicateRecurringServices,
+      "Multiple records share the same service name.",
+      "Reject duplicates or clarify service names.",
+    ],
+    [
+      "Unlinked recurring-like transactions",
+      quality.unlinkedRecurringExpenseTransactions,
+      "Some expense transactions are not linked to a detected recurring item.",
+      "Run recurring detection or mark one-off transactions as reviewed.",
+    ],
+    [
+      "Inactive recurring still expected",
+      quality.inactiveRecurringStillExpected,
+      "Inactive records have a future expected charge date.",
+      "Reactivate or update the item status.",
     ],
   ] as const;
   const issueCount = issues.reduce((total, [, count]) => total + count, 0);
