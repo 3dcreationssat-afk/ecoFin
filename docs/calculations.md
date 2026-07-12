@@ -42,3 +42,7 @@
 ## Planned
 
 - Validated calculation modules will be added before any screen values are presented as financially authoritative.
+
+# Classification automation
+
+Merchant rules are deterministic text classification, not financial calculations or AI. They do not change money, dates, transfer confirmation, recurring calculations, or source values. Conflicts resolve by documented priority and specificity.

@@ -24,10 +24,11 @@ Implemented:
 - Workspace state badges for Demonstration data, Empty workspace, Your data, and Mixed data.
 - Repository-derived overview action queue, upcoming obligations, category spending, goal statuses, debt recommendation, cash-flow, budget, reports, accounts, transactions, goals, settings, and data-quality values where deterministic local inputs exist.
 - Server-paginated transaction search, advanced URL filters, sorting, durable saved views, and household default-view precedence.
+- Explicit current-page transaction selection, audited bulk review actions, and deterministic merchant rules with preview, manual-override protection, and CSV import application.
 
 Still planned:
 
-- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, automatic merchant rules, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
+- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
 - Production-grade safe-to-save, scheduled cash-flow, budget forecasting, debt payoff, report export, and decision scenario engines.
 
 ## Local Setup

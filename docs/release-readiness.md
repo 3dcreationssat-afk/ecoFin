@@ -13,6 +13,7 @@ Date: 2026-07-12
 - CSV import preview, mapping, validation, repeated-file blocking, duplicate review, confirmation, and undo.
 - Transaction search, account/category/type/status/source filters, URL state, result counts, pagination, and bounded table scrolling.
 - Advanced date/period, amount, excluded, transfer, and recurring-link filters plus durable saved/default views and server-side pagination.
+- Explicit current-page bulk review and merchant rules with preview, confirmed relationship protections, manual provenance, import application, and audit trails.
 - Explainable transfer review with scan, confirm, reject, unmatch, eligible manual-match filtering, and validation feedback.
 - Explainable recurring-expense review with scan, confirm, reject, edit, manual creation, cancellation tracking, reactivation, supporting transactions, price-change flags, and savings selection.
 - Local backup creation, validation, restore preview, mandatory pre-restore safety backup, restore confirmation, and backup deletion.

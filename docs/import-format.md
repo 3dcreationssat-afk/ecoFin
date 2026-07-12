@@ -2,7 +2,7 @@
 
 Phase 2A supports local CSV transaction import only.
 
-Unsupported formats: OFX, QFX, QBO, PDF statements, OCR, direct bank connections, provider APIs, background sync, webhooks, automatic merchant rules, automatic transfer confirmation, and AI categorization.
+Unsupported formats: OFX, QFX, QBO, PDF statements, OCR, direct bank connections, provider APIs, background sync, webhooks, automatic transfer confirmation, and AI categorization. Active deterministic merchant rules are supported for CSV normalization.
 
 ## Supported Files
 
@@ -17,6 +17,8 @@ Unsupported formats: OFX, QFX, QBO, PDF statements, OCR, direct bank connections
 Uploaded CSV file contents are parsed locally and are not stored permanently. Import batches store file hash, redacted filename, file size, encoding, delimiter, row status, and safely serialized source fields required to explain imported transactions.
 
 ## Workflow
+
+After immutable source preservation, active merchant rules run by priority/specificity before transfer and recurring scans. Import summaries record rule matches/conflicts and remaining review needs. Rules cannot confirm transfers or overwrite manual values.
 
 1. Select an active account.
 2. Select a CSV file.

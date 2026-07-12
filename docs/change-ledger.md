@@ -32,3 +32,8 @@
 - Added validated URL-authoritative advanced filtering, financial-period bounds, sorting, and server-side pagination.
 - Added durable archived `TransactionSavedView` records, case-insensitive household naming, default precedence, CRUD routes, compact UI, and lifecycle/backup integration.
 - Added Overview/Data Quality drill-down parameters, query and repository tests, indexes, and `docs/transaction-views.md`.
+
+# 2026-07-12 — Transaction bulk review and merchant rules
+
+- Added explicit page-scoped selection and audited all-or-nothing bulk category, review, reporting, safe-type, merchant, and rule-reapply actions.
+- Added durable merchant rules, deterministic matching/conflicts, preview, field provenance/manual locks, Settings management, import application, lifecycle/backup integration, and data-quality signals.

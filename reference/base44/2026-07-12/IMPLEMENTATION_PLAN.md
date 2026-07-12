@@ -126,4 +126,8 @@ Do not push from this recovery pass.
 
 # Completed increment: transaction filters and saved views (2026-07-12)
 
-Advanced URL filters, server-side pagination, durable saved views/default precedence, and Overview/Data Quality drill-down compatibility are implemented. Bulk actions, merchant rules, splits, and new imports remain deferred.
+Advanced URL filters, server-side pagination, durable saved views/default precedence, and Overview/Data Quality drill-down compatibility are implemented. Splits and new import formats remain deferred.
+
+## Completed increment: bulk review and merchant rules (2026-07-12)
+
+Explicit page-scoped bulk review, deterministic merchant rule persistence/preview/Settings management, manual override provenance, CSV application, audit, backup, reset, and data-quality integration are implemented. Transaction splitting and non-CSV formats remain deferred.
