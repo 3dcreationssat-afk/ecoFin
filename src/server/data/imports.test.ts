@@ -304,7 +304,12 @@ describe("csv import repositories", () => {
     const examples = [
       ["AplPay ALIMENTACION MADRID ES", "6.88", "'320261740038905040"],
       ["AplPay FARMACIA HERNMADRID ES", "22.29", "'320261740038905041"],
-      ["FOREIGN TRANSACTION FEE", "0.03", "'820261740019432634"],
+      ["AplPay HM LA GAVIA EMADRID ES", "51.88", "'320261740038905042"],
+      ["AplPay UNHCR DEN HAAG NL", "1.15", "'320261740038905043"],
+      ["FOREIGN TRANSACTION FEE 1", "0.03", "'820261740019432634"],
+      ["FOREIGN TRANSACTION FEE 2", "0.18", "'820261740019432635"],
+      ["FOREIGN TRANSACTION FEE 3", "0.60", "'820261740019432636"],
+      ["FOREIGN TRANSACTION FEE 4", "1.40", "'820261740019432637"],
     ];
     const rows = Array.from({ length: 28 }, (_, index) => {
       const example = examples[index] ?? [
@@ -370,7 +375,9 @@ describe("csv import repositories", () => {
       rejectedRowCount: 0,
       duplicateCandidateCount: 0,
     });
-    expect(validated.rows.map((row) => row.parsedAmountMinor).slice(0, 3)).toEqual([688, 2229, 3]);
+    expect(validated.rows.map((row) => row.parsedAmountMinor).slice(0, 8)).toEqual([
+      688, 2229, 5188, 115, 3, 18, 60, 140,
+    ]);
     const firstSource = JSON.parse(validated.rows[0].sourceFieldsJson) as Record<string, string>;
     expect(firstSource["Account #"]).toBe("-92002");
     expect(firstSource.Reference).toBe("'320261740038905040");
