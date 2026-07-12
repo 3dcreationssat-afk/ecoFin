@@ -1,5 +1,9 @@
 # Architecture
 
+Debt payoff follows the domain/service boundary: `src/domain/debt/payoff.ts` is a pure deterministic
+integer calculation; `src/server/data/debt-plans.ts` owns Prisma persistence and audit; and the route
+handler validates saved-plan writes. Generated schedules are reproducible and are not persisted.
+
 Planning schemas and recurrence/policy rules live in `src/domain/planning`; audited orchestration and match suggestions live in `src/server/data/planning.ts`.
 
 Financial-period and Cash Flow calculations live in `src/domain/cash-flow`. `src/server/data/cash-flow.ts` maps SQLite records into the pure engine; server pages pass its serializable result to focused visualization.

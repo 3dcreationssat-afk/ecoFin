@@ -2,6 +2,10 @@
 
 ## Implemented
 
+- Debt payoff uses positive liability ledgers, integer monthly interest rounding, payments after
+  interest, exact final-payment caps, a 600-month horizon, minimum-only comparison, strategy rollover,
+  and deterministic confidence as documented in `debt-payoff-engine.md`.
+
 - Expected-income and obligation occurrences satisfy explicit schedules without mutating definitions; explicit links precede debt, recurring, and goal fallbacks.
 - Cash allocation reconciles exactly: cash after obligations/protections minus retained safety reserve equals allocatable surplus; allocatable surplus equals recommended saving plus Safe to Spend plus explicit unallocated surplus.
 
@@ -42,8 +46,7 @@
 
 ## Preliminary or Unavailable
 
-- Debt payoff and decision simulator values are not production engines yet.
-- Debt payoff date, remaining interest, and strategy impact are intentionally unavailable until a validated payoff engine is implemented.
+- The general decision simulator remains unavailable.
 - Overview reserved status is limited to `Planned`, `Not specifically reserved`, or `Unknown`; there is no reservation engine.
 
 ## Planned

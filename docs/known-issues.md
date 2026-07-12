@@ -5,11 +5,13 @@
 
 - Cash Flow does not invent expected income from a schedule label or isolated history; explicit expected-income CRUD and a general scheduled-obligation model remain future work. Safe to Spend is zero when the full surplus is allocated to Recommended Safe to Save.
 
-- Validated financial recommendation engines are not implemented.
-- Safe-to-save, safe-to-spend, scheduled cash-flow projection, debt payoff, and decision scenario outputs remain preliminary or unavailable.
+- Debt payoff is a validated deterministic monthly approximation; variable/promotional rates,
+  balloon payments, irregular schedules, fees, and lender-specific daily interest remain unsupported.
+- Saved debt-plan extra payments intentionally do not affect Cash Flow; that integration is deferred.
 - Overview, Cash Flow, Budget, Debt, and Reports now use repository-derived values where deterministic local inputs exist, but cash-flow month-end and budget forecast values are still planning signals rather than validated recommendations.
 - Overview category links use the existing Transactions category/status filters. Dedicated period filters and saved transaction views are still deferred.
-- Overview Custom debt strategy cannot recommend a next debt because no custom payoff order is persisted.
+- An old Custom plan becomes incomplete when the eligible debt set changes and must be reviewed; it
+  never silently falls back to Avalanche.
 - CSV transaction import is implemented for Phase 2A. OFX, QFX, QBO, PDF parsing, OCR, bank connectivity, provider APIs, automatic transfer confirmation, merchant rules, and AI categorization are not implemented.
 - Import duplicate detection is conservative candidate review, not an automatic deduplication engine.
 - Import undo is blocked after material edits and does not provide a merge/review UI for edited imported transactions yet.

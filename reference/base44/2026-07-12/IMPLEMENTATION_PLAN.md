@@ -56,7 +56,7 @@ Dependencies:
 
 ## Increment 3: Transaction Management Parity
 
-Status: Cash Flow and Safe to Save complete; debt payoff and decision scenarios deferred
+Status: Cash Flow, Safe to Save, and validated debt payoff complete; decision scenarios deferred
 
 Scope:
 
@@ -80,7 +80,8 @@ Scope:
 
 - Explainable Safe to Save and Safe to Spend.
 - Scheduled cash-flow projection with recurring obligations and buffers.
-- Debt payoff simulator with avalanche, snowball, custom order, extra payments, interest, payoff date, and six-month schedule.
+- Completed: debt payoff with minimum-only, Avalanche, Snowball, persisted Custom order, explicit
+  extra payments, rollover, interest/date comparisons, bounded monthly schedule, confidence, and audit.
 - Isolated decision scenario engine.
 
 Dependencies:

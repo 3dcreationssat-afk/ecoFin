@@ -1,5 +1,8 @@
 # Privacy And Security
 
+Debt plans and custom account order remain in local SQLite and local backups. The payoff engine makes
+no network requests and sends no financial data to lenders, analytics, AI, or external services.
+
 Planning schedules, occurrences, transaction links, and policy preferences remain in local SQLite and local unencrypted backups.
 
 Financial Compass is local-first.

@@ -21,6 +21,10 @@
 
 ## 2026-07-12
 
+- Added the validated deterministic Debt Payoff Engine, minimum-only/Avalanche/Snowball/Custom
+  comparisons, saved audited plans, extra-payment simulation, schedules, confidence and remediation,
+  Debt Planner UI, Overview summary integration, lifecycle/backup support, and tests.
+
 - Standardized adaptive metric grids, non-wrapping tabular financial values, card and control
   geometry, table states, keyboard skip navigation, route skeletons, and responsive shell spacing;
   refined Debt placeholders and verified core pages from 390px through 2560px.

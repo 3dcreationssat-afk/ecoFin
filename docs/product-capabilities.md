@@ -15,6 +15,8 @@
 - Advanced server-side transaction filters, URL state, sorting, pagination, saved-view CRUD, and one household default saved view.
 - Current-page explicit selection, audited bulk classification/review actions, and deterministic merchant-rule CRUD, preview, historical application, and CSV integration.
 - Transaction-derived account ledgers with explicit opening anchors, positive-liability convention, reported snapshots, reconciliation, adjustments, and confidence.
+- Validated repository-derived debt payoff planning with saved Avalanche, Snowball, and Custom plans,
+  temporary extra-payment scenarios, monthly schedules, comparisons, and data-quality remediation.
 
 ## Preliminary Signals
 
@@ -25,5 +27,5 @@
 
 ## Demonstration or Unavailable Capabilities
 
-- Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, decision simulation, report export, merchant rules, and debt payoff simulation are not implemented.
+- Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, decision simulation, and report export are not implemented.
 - Disabled controls remain visible only when they identify a planned capability and do not silently perform no action.

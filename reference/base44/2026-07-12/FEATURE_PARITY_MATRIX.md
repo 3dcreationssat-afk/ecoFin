@@ -1,5 +1,9 @@
 # Feature Parity Matrix
 
+Debt rows below retain the original audit evidence. As of 2026-07-12, the validated follow-up is
+complete: repository-derived summary, strategy selection, precise extra payment, persisted accessible
+custom order, payoff impact, milestones, and bounded monthly schedule are implemented and tested.
+
 Planning status: expected income, obligations, occurrences, policy recommendations, and retained Safe to Spend are implemented; complex split matching is deferred.
 
 Cash allocation audit: retained reserve, allocatable surplus, recommendation, Safe to Spend, and zero unallocated remainder now reconcile explicitly.

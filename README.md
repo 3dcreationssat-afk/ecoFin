@@ -1,6 +1,6 @@
 # Financial Compass
 
-Validated repository-derived Cash Flow and explainable Safe to Save/Safe to Spend are documented in `docs/cash-flow-engine.md` and `docs/safe-to-save.md`.
+Validated repository-derived Cash Flow, Safe to Save/Safe to Spend, and deterministic debt payoff are documented in `docs/cash-flow-engine.md`, `docs/safe-to-save.md`, and `docs/debt-payoff-engine.md`.
 
 Financial Compass is a private, local-first personal finance decision-support application for one household.
 
@@ -29,11 +29,13 @@ Implemented:
 - Explicit current-page transaction selection, audited bulk review actions, and deterministic merchant rules with preview, manual-override protection, and CSV import application.
 - Explicit account opening anchors, transaction-derived asset/liability ledgers, institution-reported snapshots, reconciliation, adjustments, and balance confidence.
 - Durable expected-income and obligation schedules, occurrence satisfaction/matching, and configurable savings recommendation policy.
+- Deterministic minimum-only, Avalanche, Snowball, and custom debt payoff estimates with saved plans,
+  extra-payment simulation, rollover milestones, monthly schedules, confidence, and audit history.
 
 Still planned:
 
 - OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
-- Production-grade safe-to-save, scheduled cash-flow, budget forecasting, debt payoff, report export, and decision scenario engines.
+- Production-grade budget forecasting, report export, and decision scenario engines.
 
 ## Local Setup
 
