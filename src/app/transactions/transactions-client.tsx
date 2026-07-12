@@ -2,7 +2,15 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, Plus, RotateCcw, SlidersHorizontal, Upload } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Link2,
+  Plus,
+  RotateCcw,
+  SlidersHorizontal,
+  Upload,
+} from "lucide-react";
 import { Button, Card, Pill, PlannedControl } from "@/components/data-display/primitives";
 import { formatMoney } from "@/domain/money/money";
 
@@ -27,6 +35,19 @@ type TransactionDto = {
   categoryId?: string | null;
   account: { name: string };
   category?: { name: string } | null;
+};
+type TransferMatchDto = {
+  id: string;
+  status: string;
+  source: string;
+  confidence: string;
+  score: number;
+  reasons: string[];
+  notes?: string | null;
+  outgoingTransactionId: string;
+  incomingTransactionId: string;
+  outgoingTransaction: TransactionDto & { account: AccountDto };
+  incomingTransaction: TransactionDto & { account: AccountDto };
 };
 type AuditDto = {
   id: string;
@@ -127,12 +148,14 @@ export function TransactionsClient({
   accounts,
   profiles,
   batches,
+  transferMatches,
 }: {
   transactions: TransactionDto[];
   categories: CategoryDto[];
   accounts: AccountDto[];
   profiles: ProfileDto[];
   batches: BatchDto[];
+  transferMatches: TransferMatchDto[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -140,6 +163,9 @@ export function TransactionsClient({
   const [audit, setAudit] = useState<AuditDto[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [importOpen, setImportOpen] = useState(false);
+  const [drawerTransfers, setDrawerTransfers] = useState<TransferMatchDto[]>([]);
+  const [transferNote, setTransferNote] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const [form, setForm] = useState({
     normalizedMerchant: "",
     categoryId: "",
@@ -171,6 +197,35 @@ export function TransactionsClient({
     const response = await fetch(`/api/transactions/${transaction.id}/audit`);
     const body = await response.json();
     setAudit(body.audit ?? []);
+    const transferResponse = await fetch(`/api/transactions/${transaction.id}/transfers`);
+    const transferBody = await transferResponse.json();
+    setDrawerTransfers(transferBody.matches ?? []);
+  }
+
+  async function scanTransfers() {
+    setStatus("saving");
+    const response = await fetch("/api/transfers", { method: "POST" });
+    setStatus(response.ok ? "saved" : "error");
+    setAnnouncement(response.ok ? "Transfer scan complete." : "Transfer scan failed.");
+    startTransition(() => router.refresh());
+  }
+
+  async function transferAction(
+    url: string,
+    body: Record<string, unknown>,
+    successMessage: string,
+  ) {
+    setStatus("saving");
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setStatus(response.ok ? "saved" : "error");
+    setAnnouncement(response.ok ? successMessage : "Transfer action failed.");
+    setTransferNote("");
+    startTransition(() => router.refresh());
+    if (selected) open(selected);
   }
 
   async function save() {
@@ -212,7 +267,45 @@ export function TransactionsClient({
         {status === "error" ? <Pill tone="bad">Action failed</Pill> : null}
       </div>
       <ImportHistory batches={batches} onUndo={undoBatch} />
-      <TransactionTable transactions={transactions} open={open} />
+      <TransferReviewPanel
+        matches={transferMatches}
+        transactions={transactions}
+        onScan={scanTransfers}
+        onOpen={(id) => {
+          const transaction = transactions.find((item) => item.id === id);
+          if (transaction) open(transaction);
+        }}
+        onConfirm={(id) =>
+          transferAction(
+            `/api/transfers/${id}/confirm`,
+            { confirmation: "CONFIRM TRANSFER", notes: transferNote || undefined },
+            "Transfer confirmed.",
+          )
+        }
+        onReject={(id) =>
+          transferAction(
+            `/api/transfers/${id}/reject`,
+            { confirmation: "REJECT TRANSFER", notes: transferNote || undefined },
+            "Transfer suggestion rejected.",
+          )
+        }
+        onManual={(outgoingTransactionId, incomingTransactionId) =>
+          transferAction(
+            "/api/transfers/manual",
+            {
+              outgoingTransactionId,
+              incomingTransactionId,
+              confirmation: "CONFIRM TRANSFER",
+              notes: transferNote || undefined,
+            },
+            "Manual transfer created.",
+          )
+        }
+      />
+      <div aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+      <TransactionTable transactions={transactions} transferMatches={transferMatches} open={open} />
       {importOpen ? (
         <ImportDialog
           accounts={accounts}
@@ -230,6 +323,30 @@ export function TransactionsClient({
           form={form}
           categories={categories}
           audit={audit}
+          transfers={drawerTransfers}
+          transferNote={transferNote}
+          setTransferNote={setTransferNote}
+          onConfirm={(id) =>
+            transferAction(
+              `/api/transfers/${id}/confirm`,
+              { confirmation: "CONFIRM TRANSFER", notes: transferNote || undefined },
+              "Transfer confirmed.",
+            )
+          }
+          onReject={(id) =>
+            transferAction(
+              `/api/transfers/${id}/reject`,
+              { confirmation: "REJECT TRANSFER", notes: transferNote || undefined },
+              "Transfer suggestion rejected.",
+            )
+          }
+          onUnmatch={(id) =>
+            transferAction(
+              `/api/transfers/${id}/unmatch`,
+              { confirmation: "UNMATCH TRANSFER", notes: transferNote || undefined },
+              "Transfer unmatched.",
+            )
+          }
           setSelected={setSelected}
           setForm={setForm}
           save={save}
@@ -242,7 +359,7 @@ export function TransactionsClient({
 function ImportHistory({ batches, onUndo }: { batches: BatchDto[]; onUndo: (id: string) => void }) {
   if (!batches.length) return null;
   return (
-    <Card className="mb-4 p-5">
+    <Card className="mb-4 min-w-0 overflow-hidden p-5">
       <div className="mb-3 flex items-center gap-2">
         <FileText className="h-4 w-4 text-[var(--teal)]" />
         <h2 className="text-lg font-semibold">Import Batch History</h2>
@@ -297,6 +414,174 @@ function ImportHistory({ batches, onUndo }: { batches: BatchDto[]; onUndo: (id: 
             ))}
           </tbody>
         </table>
+      </div>
+    </Card>
+  );
+}
+
+function TransferReviewPanel({
+  matches,
+  transactions,
+  onScan,
+  onOpen,
+  onConfirm,
+  onReject,
+  onManual,
+}: {
+  matches: TransferMatchDto[];
+  transactions: TransactionDto[];
+  onScan: () => void;
+  onOpen: (id: string) => void;
+  onConfirm: (id: string) => void;
+  onReject: (id: string) => void;
+  onManual: (outgoingTransactionId: string, incomingTransactionId: string) => void;
+}) {
+  const suggestions = matches.filter((match) => match.status === "SUGGESTED");
+  const confirmed = matches.filter((match) => match.status === "CONFIRMED");
+  const [manualOut, setManualOut] = useState("");
+  const [manualIn, setManualIn] = useState("");
+  const candidates = transactions.filter((transaction) => transaction.amountMinor !== 0);
+  return (
+    <Card className="mb-4 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-[var(--teal)]" />
+            <h2 className="text-lg font-semibold">Transfer Review</h2>
+          </div>
+          <p className="text-sm text-[var(--muted)]">
+            Review internal movements before they affect household income or spending.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={onScan}>
+          Scan transfers
+        </Button>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <SummaryLine label="Suggested" value={String(suggestions.length)} />
+        <SummaryLine label="Confirmed" value={String(confirmed.length)} />
+        <SummaryLine
+          label="Credit-card payment candidates"
+          value={String(
+            suggestions.filter((match) => match.incomingTransaction.account.type === "CREDIT")
+              .length,
+          )}
+        />
+      </div>
+      {suggestions.length ? (
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-sm">
+            <thead className="text-[var(--muted)]">
+              <tr>
+                {["Confidence", "Amount", "Accounts", "Dates", "Reasons", "Actions"].map((head) => (
+                  <th key={head} className="py-3 pr-4">
+                    {head}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {suggestions.map((match) => (
+                <tr key={match.id} className="border-t border-[var(--border)]">
+                  <td className="py-3 pr-4">
+                    <Pill tone={match.confidence === "HIGH" ? "good" : "warn"}>
+                      {match.confidence} {match.score}
+                    </Pill>
+                  </td>
+                  <td className="py-3 pr-4 font-semibold">
+                    {formatMoney(Math.abs(match.outgoingTransaction.amountMinor))}
+                  </td>
+                  <td className="py-3 pr-4">
+                    {match.outgoingTransaction.account.name} to{" "}
+                    {match.incomingTransaction.account.name}
+                    {match.incomingTransaction.account.type === "CREDIT" ? (
+                      <div className="text-xs font-semibold text-[var(--blue)]">
+                        Credit-card payment candidate
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="py-3 pr-4">
+                    {shortDate(match.outgoingTransaction.transactionDate)} /{" "}
+                    {shortDate(match.incomingTransaction.transactionDate)}
+                  </td>
+                  <td className="py-3 pr-4 text-xs text-[var(--muted)]">
+                    {match.reasons.slice(0, 3).join("; ")}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="rounded-md border px-3 py-1"
+                        onClick={() => onOpen(match.outgoingTransactionId)}
+                      >
+                        Open outgoing
+                      </button>
+                      <button
+                        className="rounded-md border px-3 py-1"
+                        onClick={() => onConfirm(match.id)}
+                      >
+                        Confirm transfer
+                      </button>
+                      <button
+                        className="rounded-md border px-3 py-1 text-[var(--red)]"
+                        onClick={() => onReject(match.id)}
+                      >
+                        Reject suggestion
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mt-5 rounded-md border border-[var(--border)] p-4 text-sm text-[var(--muted)]">
+          No suggested transfer pairs. Run a scan after importing or editing transactions.
+        </p>
+      )}
+      <div className="mt-6 border-t border-[var(--border)] pt-5">
+        <h3 className="font-semibold">Manual match</h3>
+        <div className="mt-3 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <select
+            aria-label="Manual outgoing transaction"
+            className="h-10 min-w-0 max-w-full rounded-md border border-[var(--border)] px-3"
+            value={manualOut}
+            onChange={(event) => setManualOut(event.target.value)}
+          >
+            <option value="">Outgoing transaction</option>
+            {candidates
+              .filter((transaction) => transaction.amountMinor < 0)
+              .map((transaction) => (
+                <option key={transaction.id} value={transaction.id}>
+                  {shortDate(transaction.transactionDate)} {transaction.account.name}{" "}
+                  {formatMoney(transaction.amountMinor)} {transaction.normalizedMerchant}
+                </option>
+              ))}
+          </select>
+          <select
+            aria-label="Manual incoming transaction"
+            className="h-10 min-w-0 max-w-full rounded-md border border-[var(--border)] px-3"
+            value={manualIn}
+            onChange={(event) => setManualIn(event.target.value)}
+          >
+            <option value="">Incoming transaction</option>
+            {candidates
+              .filter((transaction) => transaction.amountMinor > 0)
+              .map((transaction) => (
+                <option key={transaction.id} value={transaction.id}>
+                  {shortDate(transaction.transactionDate)} {transaction.account.name}{" "}
+                  {formatMoney(transaction.amountMinor)} {transaction.normalizedMerchant}
+                </option>
+              ))}
+          </select>
+          <button
+            className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white disabled:opacity-60"
+            disabled={!manualOut || !manualIn}
+            onClick={() => onManual(manualOut, manualIn)}
+          >
+            Create manual match
+          </button>
+        </div>
       </div>
     </Card>
   );
@@ -797,11 +1082,19 @@ function ImportDialog({
 
 function TransactionTable({
   transactions,
+  transferMatches,
   open,
 }: {
   transactions: TransactionDto[];
+  transferMatches: TransferMatchDto[];
   open: (transaction: TransactionDto) => void;
 }) {
+  const transferByTransaction = new Map<string, TransferMatchDto[]>();
+  transferMatches.forEach((match) => {
+    for (const id of [match.outgoingTransactionId, match.incomingTransactionId]) {
+      transferByTransaction.set(id, [...(transferByTransaction.get(id) ?? []), match]);
+    }
+  });
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -843,6 +1136,15 @@ function TransactionTable({
                   <div className="text-xs text-[var(--muted)]">
                     {transaction.originalDescription}
                   </div>
+                  {transferByTransaction.get(transaction.id)?.length ? (
+                    <div className="mt-1 text-xs font-semibold text-[var(--blue)]">
+                      {transferByTransaction
+                        .get(transaction.id)
+                        ?.some((match) => match.status === "CONFIRMED")
+                        ? "Internal transfer"
+                        : "Transfer suggestion"}
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-4 py-3 text-[var(--muted)]">{transaction.account.name}</td>
                 <td className="px-4 py-3">
@@ -862,14 +1164,18 @@ function TransactionTable({
                 <td className="px-4 py-3">
                   <Pill
                     tone={
-                      transaction.reviewStatus === "REVIEWED"
-                        ? "good"
-                        : transaction.reviewStatus === "FLAGGED"
-                          ? "bad"
-                          : "warn"
+                      transaction.type === "TRANSFER_IN" || transaction.type === "TRANSFER_OUT"
+                        ? "info"
+                        : transaction.reviewStatus === "REVIEWED"
+                          ? "good"
+                          : transaction.reviewStatus === "FLAGGED"
+                            ? "bad"
+                            : "warn"
                     }
                   >
-                    {transaction.reviewStatus}
+                    {transaction.type === "TRANSFER_IN" || transaction.type === "TRANSFER_OUT"
+                      ? transaction.type
+                      : transaction.reviewStatus}
                   </Pill>
                 </td>
                 <td className="px-4 py-3 text-[var(--muted)]">
@@ -1027,6 +1333,12 @@ function TransactionDrawer({
   form,
   categories,
   audit,
+  transfers,
+  transferNote,
+  setTransferNote,
+  onConfirm,
+  onReject,
+  onUnmatch,
   setSelected,
   setForm,
   save,
@@ -1042,6 +1354,12 @@ function TransactionDrawer({
   };
   categories: CategoryDto[];
   audit: AuditDto[];
+  transfers: TransferMatchDto[];
+  transferNote: string;
+  setTransferNote: (value: string) => void;
+  onConfirm: (id: string) => void;
+  onReject: (id: string) => void;
+  onUnmatch: (id: string) => void;
   setSelected: (value: TransactionDto | null) => void;
   setForm: (value: {
     normalizedMerchant: string;
@@ -1123,7 +1441,18 @@ function TransactionDrawer({
               value={form.type}
               onChange={(event) => setForm({ ...form, type: event.target.value })}
             >
-              {["DEBIT", "CREDIT", "TRANSFER", "PAYMENT", "REFUND"].map((type) => (
+              {[
+                "DEBIT",
+                "CREDIT",
+                "INCOME",
+                "EXPENSE",
+                "TRANSFER_OUT",
+                "TRANSFER_IN",
+                "REFUND",
+                "FEE",
+                "INTEREST",
+                "UNKNOWN",
+              ].map((type) => (
                 <option key={type}>{type}</option>
               ))}
             </select>
@@ -1160,6 +1489,15 @@ function TransactionDrawer({
         >
           Save transaction
         </button>
+        <TransferDrawerSection
+          selected={selected}
+          transfers={transfers}
+          note={transferNote}
+          setNote={setTransferNote}
+          onConfirm={onConfirm}
+          onReject={onReject}
+          onUnmatch={onUnmatch}
+        />
         <Section
           title="Audit History"
           rows={
@@ -1172,6 +1510,113 @@ function TransactionDrawer({
           }
         />
       </aside>
+    </div>
+  );
+}
+
+function TransferDrawerSection({
+  selected,
+  transfers,
+  note,
+  setNote,
+  onConfirm,
+  onReject,
+  onUnmatch,
+}: {
+  selected: TransactionDto;
+  transfers: TransferMatchDto[];
+  note: string;
+  setNote: (value: string) => void;
+  onConfirm: (id: string) => void;
+  onReject: (id: string) => void;
+  onUnmatch: (id: string) => void;
+}) {
+  const confirmed = transfers.find((match) => match.status === "CONFIRMED");
+  const suggestions = transfers.filter((match) => match.status === "SUGGESTED");
+  return (
+    <div className="mt-8 rounded-md border border-[var(--border)] p-4">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+        Transfer Matching
+      </h3>
+      {confirmed ? (
+        <div className="mt-4">
+          <Pill tone="good">Confirmed internal transfer</Pill>
+          <p className="mt-3 text-sm">
+            Counterpart: {counterpart(selected.id, confirmed).normalizedMerchant} on{" "}
+            {counterpart(selected.id, confirmed).account.name}.
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            This pair is excluded from household income and spending while remaining visible in
+            account activity.
+          </p>
+          <label className="mt-3 block text-sm text-[var(--muted)]">
+            Unmatch note
+            <input
+              className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+            />
+          </label>
+          <button
+            className="mt-3 rounded-md border border-[var(--red)] px-3 py-2 text-sm font-semibold text-[var(--red)]"
+            onClick={() => onUnmatch(confirmed.id)}
+          >
+            Unmatch transfer
+          </button>
+        </div>
+      ) : suggestions.length ? (
+        <div className="mt-4 space-y-4">
+          {suggestions.map((match) => {
+            const other = counterpart(selected.id, match);
+            return (
+              <div key={match.id} className="rounded-md bg-[var(--surface-muted)] p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Pill tone={match.confidence === "HIGH" ? "good" : "warn"}>
+                    {match.confidence} {match.score}
+                  </Pill>
+                  <span className="text-sm font-semibold">{other.account.name}</span>
+                  <span className="text-sm">{formatMoney(other.amountMinor)}</span>
+                </div>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[var(--muted)]">
+                  {match.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-sm font-medium">
+                  This will classify both transactions as an internal transfer and exclude them from
+                  income and spending totals.
+                </p>
+                <label className="mt-3 block text-sm text-[var(--muted)]">
+                  Transfer note
+                  <input
+                    className="mt-2 h-10 w-full rounded-md border border-[var(--border)] px-3 text-[var(--text)]"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                  />
+                </label>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className="rounded-md bg-[var(--teal)] px-3 py-2 text-sm font-semibold text-white"
+                    onClick={() => onConfirm(match.id)}
+                  >
+                    Confirm transfer
+                  </button>
+                  <button
+                    className="rounded-md border border-[var(--red)] px-3 py-2 text-sm font-semibold text-[var(--red)]"
+                    onClick={() => onReject(match.id)}
+                  >
+                    Reject suggestion
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          No active transfer suggestion for this transaction.
+        </p>
+      )}
     </div>
   );
 }
@@ -1316,6 +1761,16 @@ function parseErrors(row: ImportRowDto) {
 
 function displayDelimiter(delimiter: string) {
   return delimiter === "\t" ? "tab" : delimiter;
+}
+
+function shortDate(value: string) {
+  return new Date(value).toLocaleDateString();
+}
+
+function counterpart(transactionId: string, match: TransferMatchDto) {
+  return match.outgoingTransactionId === transactionId
+    ? match.incomingTransaction
+    : match.outgoingTransaction;
 }
 
 function findHeader(headers: string[], candidates: string[]) {

@@ -2,12 +2,14 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { PageHeader } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { importDashboard } from "@/server/data/imports";
+import { transferReviewQueue } from "@/server/data/transfers";
 import { TransactionsClient } from "./transactions-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function TransactionsPage() {
   const { household, accounts, categories, profiles, batches } = await importDashboard();
+  const transferQueue = await transferReviewQueue();
   return (
     <AppShell>
       <PageHeader
@@ -20,6 +22,7 @@ export default async function TransactionsPage() {
         accounts={JSON.parse(JSON.stringify(accounts))}
         profiles={JSON.parse(JSON.stringify(profiles))}
         batches={JSON.parse(JSON.stringify(batches))}
+        transferMatches={JSON.parse(JSON.stringify(transferQueue.matches))}
       />
     </AppShell>
   );

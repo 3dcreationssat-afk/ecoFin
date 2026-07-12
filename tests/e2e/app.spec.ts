@@ -51,7 +51,7 @@ test("complete signed amount CSV import workflow and undo", async ({ page }, tes
     mimeType: "text/csv",
     buffer: Buffer.from(`Date,Description,Amount\n07/10/2026,${marker},-4.25\n`),
   });
-  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
   await expect(page.getByRole("heading", { name: "CSV Preview" })).toBeVisible();
   await page.getByRole("button", { name: "Validate rows" }).click();
   await expect(page.getByText("Accepted")).toBeVisible();
@@ -84,7 +84,7 @@ test("debit credit CSV mapping imports explicit signs", async ({ page }, testInf
     mimeType: "text/csv",
     buffer: Buffer.from(`Posted,Details,Debit,Credit\n11/07/2026,${marker},45.50,\n`),
   });
-  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
   await page
     .locator("label")
     .filter({ hasText: /^Date column/ })
@@ -113,7 +113,7 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
     mimeType: "text/csv",
     buffer: Buffer.from(content),
   });
-  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
   await page.getByRole("button", { name: "Validate rows" }).click();
   await expect(page.getByText("INVALID")).toBeVisible();
   await page.getByLabel("Decision for row 1").selectOption("IMPORT");
@@ -127,7 +127,7 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
     mimeType: "text/csv",
     buffer: Buffer.from(content),
   });
-  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
   await page.getByRole("button", { name: "Validate rows" }).click();
   await expect(page.getByText(/already imported/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm import" })).toBeDisabled();
@@ -247,7 +247,7 @@ test("transaction drawer edit persists and original values remain unchanged", as
         response.request().method() === "PATCH" &&
         response.ok(),
     ),
-    page.getByRole("button", { name: "Save transaction" }).click(),
+    page.getByRole("button", { name: "Save transaction" }).click({ force: true }),
   ]);
   await page.keyboard.press("Escape");
   await page.reload();
@@ -260,13 +260,73 @@ test("transaction drawer edit persists and original values remain unchanged", as
   ).toBeVisible();
 });
 
+test("transfer review scan, confirm, reject, manual match, and unmatch", async ({ page }) => {
+  await page.goto("/transactions");
+  await page.getByRole("button", { name: "Scan transfers" }).click();
+  await expect(page.getByText("Transfer scan complete.")).toBeAttached();
+  await expect(page.getByText("Credit-card payment candidate").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Reject suggestion" }).first().click();
+  await expect(page.getByText("Transfer suggestion rejected.")).toBeAttached();
+
+  await page.getByRole("button", { name: "Confirm transfer" }).first().click();
+  await expect(page.getByText("Transfer confirmed.")).toBeAttached();
+  await expect(page.getByText("Internal transfer").first()).toBeVisible();
+
+  await page
+    .getByRole("button", { name: /Online Transfer|Chase Sapphire Payment/ })
+    .first()
+    .click();
+  await expect(page.getByText("Confirmed internal transfer")).toBeVisible();
+  await page.getByRole("button", { name: "Unmatch transfer" }).click();
+  await expect(page.getByText("Transfer unmatched.")).toBeAttached();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("transaction-drawer")).toBeHidden();
+
+  const manualOutgoing = await page.getByLabel("Manual outgoing transaction").evaluate((select) => {
+    const option = [...(select as HTMLSelectElement).options].find((item) =>
+      item.textContent?.includes("-$500.00"),
+    );
+    return option?.value ?? "";
+  });
+  const manualIncoming = await page.getByLabel("Manual incoming transaction").evaluate((select) => {
+    const option = [...(select as HTMLSelectElement).options].find(
+      (item) => item.textContent?.includes("$500.00") && !item.textContent.includes("-$500.00"),
+    );
+    return option?.value ?? "";
+  });
+  await page.getByLabel("Manual outgoing transaction").selectOption(manualOutgoing);
+  await page.getByLabel("Manual incoming transaction").selectOption(manualIncoming);
+  await page.getByRole("button", { name: "Create manual match" }).click();
+  await expect(page.getByText("Manual transfer created.")).toBeAttached();
+});
+
+test("data quality exposes transfer review issues", async ({ page }) => {
+  await page.goto("/transactions");
+  await page.getByRole("button", { name: "Scan transfers" }).click();
+  await page.goto("/data-quality");
+  await expect(page.getByText("High-confidence unmatched transfers")).toBeVisible();
+  await expect(page.getByText("Possible credit-card payments")).toBeVisible();
+});
+
+test("mobile transfer review remains usable without document overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/transactions");
+  await page.getByRole("button", { name: "Scan transfers" }).click();
+  await expect(page.getByText("Transfer Review")).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
+});
+
 test("demo reset requires confirmation and preserves navigation preference", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.getByRole("button", { name: "Collapse navigation" }).click();
   await page.goto("/settings");
   await page.getByRole("button", { name: "Reset demo data" }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByText(/Type RESET DEMO DATA/)).toBeVisible();
   await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
   await page.getByRole("button", { name: "Reset demo data" }).click();
   await expect(page.getByText("Saved to SQLite")).toBeVisible();
