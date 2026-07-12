@@ -16,15 +16,21 @@ test("transactions drawer opens from a transaction row", async ({ page }) => {
   await expect(page.getByTestId("transaction-drawer")).toBeHidden();
 });
 
-test("settings persist through sqlite after reload", async ({ page }) => {
+test("settings tabs, privacy, and household persistence work after reload", async ({ page }) => {
   await page.goto("/settings");
   const household = page.getByLabel("Household name");
-  await household.fill("SQLite Household");
+  await household.fill("Local Household");
   await page.getByRole("button", { name: "Save household" }).click();
-  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Privacy" }).click();
+  await expect(page).toHaveURL(/#privacy/);
+  await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
+  await expect(page.getByText("No telemetry")).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Household name")).toHaveValue("SQLite Household");
-  await expect(page.getByText("SQLite is the source of truth")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
+  await page.getByRole("button", { name: "Household" }).click();
+  await expect(page.getByLabel("Household name")).toHaveValue("Local Household");
+  await expect(page.getByText("Info: The calendar day")).toBeVisible();
 });
 
 test("mobile navigation reaches accounts", async ({ page }) => {
@@ -115,7 +121,7 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
   });
   await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
   await page.getByRole("button", { name: "Validate rows" }).click();
-  await expect(page.getByText("INVALID")).toBeVisible();
+  await expect(page.getByText("Invalid")).toBeVisible();
   await page.getByLabel("Decision for row 1").selectOption("IMPORT");
   await page.getByRole("button", { name: "Confirm import" }).click();
   await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
@@ -129,23 +135,36 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
   });
   await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
   await page.getByRole("button", { name: "Validate rows" }).click();
-  await expect(page.getByText(/already imported/)).toBeVisible();
+  await expect(page.getByText(/Exact file repeat warning/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm import" })).toBeDisabled();
 });
 
-test("account creation, archive, and restore persist after reload", async ({ page }, testInfo) => {
+test("account creation, conditional fields, archive, and restore persist after reload", async ({
+  page,
+}, testInfo) => {
   const accountName = `Playwright Checking ${testInfo.project.name}`;
   await page.goto("/accounts");
-  await page.getByLabel("Name").fill(accountName);
-  await page.getByLabel("Institution").fill("Test Bank");
-  await page.getByLabel("Balance").fill("123.45");
-  await page.getByRole("button", { name: "Create as new" }).click();
-  await expect(page.getByText("Saved")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Add Account" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill(accountName);
+  await page.getByLabel("Institution", { exact: true }).selectOption("Other institution");
+  await page.getByLabel("Other institution name").fill("Test Bank");
+  await expect(page.getByLabel("Available balance")).toBeVisible();
+  await page.getByLabel("Type").selectOption("CREDIT");
+  await expect(page.getByLabel("Credit limit")).toBeVisible();
+  await expect(page.getByLabel("Available balance")).toHaveCount(0);
+  await page.getByLabel("Type").selectOption("CHECKING");
+  await page.getByLabel("Current balance", { exact: true }).fill("123.45");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: accountName })).toBeVisible();
+  await page.getByRole("button", { name: accountName }).click();
+  await expect(page.getByRole("heading", { name: "Edit Account" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel edit" }).click();
+  await expect(page.getByRole("heading", { name: "Add Account" })).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: accountName });
   await row.getByRole("button", { name: "Archive" }).click();
-  await expect(page.getByText("Saved")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole("row").filter({ hasText: accountName }).getByText("Archived"),
@@ -155,7 +174,7 @@ test("account creation, archive, and restore persist after reload", async ({ pag
     .filter({ hasText: accountName })
     .getByRole("button", { name: "Restore" })
     .click();
-  await expect(page.getByText("Saved")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole("row").filter({ hasText: accountName }).getByText("Active"),
@@ -167,10 +186,12 @@ test("category creation persists and validation errors are accessible", async ({
 }, testInfo) => {
   const categoryName = `Playwright Category ${testInfo.project.name}`;
   await page.goto("/settings");
+  await page.getByRole("button", { name: "Categories" }).click();
+  await expect(page.getByText("Info: The label used on transactions")).toBeVisible();
   await page.getByLabel("Category name").fill(categoryName);
   await page.getByLabel("Budget").fill("12.34");
   await page.getByRole("button", { name: "Add category" }).click();
-  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.locator("strong", { hasText: categoryName })).toBeVisible();
   await page.getByLabel("Category name").fill("");
@@ -180,8 +201,9 @@ test("category creation persists and validation errors are accessible", async ({
 
 test("settings backup creation, download, deletion, and restore flow", async ({ page }) => {
   await page.goto("/settings");
+  await page.getByRole("button", { name: "Backup & Data" }).click();
   await page.getByRole("button", { name: "Create backup" }).click();
-  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   const latestDownload = page.getByRole("link", { name: "Download" }).first();
   await expect(latestDownload).toBeVisible();
 
@@ -193,7 +215,7 @@ test("settings backup creation, download, deletion, and restore flow", async ({ 
 
   await page.getByLabel("Delete backup confirmation").fill("DELETE BACKUP");
   await page.getByRole("button", { name: "Delete", exact: true }).first().click();
-  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
   await page.getByLabel("Restore backup file").setInputFiles({
     name: "financial-compass-ui-backup.zip",
@@ -201,14 +223,15 @@ test("settings backup creation, download, deletion, and restore flow", async ({ 
     buffer: backupBuffer,
   });
   await page.getByRole("button", { name: "Validate restore package" }).click();
-  await expect(page.getByText("SUPPORTED_SAME_SCHEMA")).toBeVisible();
+  await expect(page.getByText("Compatible backup")).toBeVisible();
   await page.getByLabel("Restore confirmation").fill("RESTORE BACKUP");
   await page.getByRole("button", { name: "Restore backup", exact: true }).click();
-  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 });
 
 test("settings restore rejects invalid backup package", async ({ page }) => {
   await page.goto("/settings");
+  await page.getByRole("button", { name: "Backup & Data" }).click();
   await page.getByLabel("Restore backup file").setInputFiles({
     name: "not-a-backup.zip",
     mimeType: "application/zip",
@@ -218,14 +241,57 @@ test("settings restore rejects invalid backup package", async ({ page }) => {
   await expect(page.getByText("Backup archive is corrupt or unreadable.")).toBeVisible();
 });
 
-test("goal contribution persists with traceable history", async ({ page }) => {
+test("add/edit goal separation and contribution history persist", async ({ page }, testInfo) => {
+  const goalName = `Playwright Goal ${testInfo.project.name}`;
   await page.goto("/goals");
-  await page.getByRole("button", { name: "Emergency Fund" }).click();
-  await page.getByLabel("Contribution amount").fill("10.00");
-  await page.getByRole("button", { name: "Record contribution" }).click();
-  await expect(page.getByText("Saved")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Add Goal" })).toBeVisible();
+  await page.getByLabel("Goal name").fill(goalName);
+  await page.getByLabel("Target").fill("500.00");
+  await page.getByRole("button", { name: "Create goal" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByText(/contribution records/).first()).toBeVisible();
+  await page.getByRole("button", { name: goalName }).click();
+  await expect(page.getByRole("heading", { name: "Edit Goal" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel edit" }).click();
+  await expect(page.getByRole("heading", { name: "Add Goal" })).toBeVisible();
+  await page.getByRole("button", { name: "Emergency Fund" }).click();
+  await page.getByLabel("Contribution goal").selectOption({ label: "Emergency Fund" });
+  await page.getByLabel("Contribution amount").fill("10.00");
+  await page.getByLabel("Contribution note").fill("Playwright contribution");
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/goals/") &&
+        response.url().includes("/contributions") &&
+        response.request().method() === "POST" &&
+        response.ok(),
+    ),
+    page.getByRole("button", { name: "Record contribution" }).click(),
+  ]);
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByLabel("Contribution goal").selectOption({ label: "Emergency Fund" });
+  await expect(page.getByText("Playwright contribution")).toBeVisible();
+});
+
+test("transaction pagination, filters, search, and URL state work", async ({ page }) => {
+  await page.goto("/transactions");
+  await expect(page.getByText(/Showing/)).toBeVisible();
+  await page
+    .getByPlaceholder("Merchant, original text, account, category, or file")
+    .fill("Whole Foods");
+  await expect(page).toHaveURL(/q=Whole\+Foods|q=Whole%20Foods/);
+  await expect(page.getByRole("button", { name: "Whole Foods Market" })).toBeVisible();
+  await page.getByLabel("Rows", { exact: true }).selectOption("50");
+  await expect(page).toHaveURL(/pageSize=50/);
+  await page.getByLabel("Type").selectOption("DEBIT");
+  await expect(page).toHaveURL(/type=DEBIT/);
+  await page.reload();
+  await expect(
+    page.getByPlaceholder("Merchant, original text, account, category, or file"),
+  ).toHaveValue("Whole Foods");
+  await expect(page.getByLabel("Rows", { exact: true })).toHaveValue("50");
+  await expect(page.getByLabel("Type")).toHaveValue("DEBIT");
 });
 
 test("transaction drawer edit persists and original values remain unchanged", async ({ page }) => {
@@ -260,7 +326,13 @@ test("transaction drawer edit persists and original values remain unchanged", as
   ).toBeVisible();
 });
 
-test("transfer review scan, confirm, reject, manual match, and unmatch", async ({ page }) => {
+test("transfer review scan, confirm, reject, manual match, and unmatch", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Desktop project owns the destructive transfer workflow.",
+  );
   await page.goto("/transactions");
   await page.getByRole("button", { name: "Scan transfers" }).click();
   await expect(page.getByText("Transfer scan complete.")).toBeAttached();
@@ -289,13 +361,13 @@ test("transfer review scan, confirm, reject, manual match, and unmatch", async (
     );
     return option?.value ?? "";
   });
+  await page.getByLabel("Manual outgoing transaction").selectOption(manualOutgoing);
   const manualIncoming = await page.getByLabel("Manual incoming transaction").evaluate((select) => {
     const option = [...(select as HTMLSelectElement).options].find(
       (item) => item.textContent?.includes("$500.00") && !item.textContent.includes("-$500.00"),
     );
     return option?.value ?? "";
   });
-  await page.getByLabel("Manual outgoing transaction").selectOption(manualOutgoing);
   await page.getByLabel("Manual incoming transaction").selectOption(manualIncoming);
   await page.getByRole("button", { name: "Create manual match" }).click();
   await expect(page.getByText("Manual transfer created.")).toBeAttached();
@@ -325,11 +397,12 @@ test("demo reset requires confirmation and preserves navigation preference", asy
   await page.goto("/");
   await page.getByRole("button", { name: "Collapse navigation" }).click();
   await page.goto("/settings");
+  await page.getByRole("button", { name: "Backup & Data" }).click();
   await page.getByRole("button", { name: "Reset demo data" }).click();
   await expect(page.getByText(/Type RESET DEMO DATA/)).toBeVisible();
   await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
   await page.getByRole("button", { name: "Reset demo data" }).click();
-  await expect(page.getByText("Saved to SQLite")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
 });
