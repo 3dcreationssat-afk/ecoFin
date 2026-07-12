@@ -62,6 +62,8 @@ export type CashFlowRecurring = {
   userConfirmed: boolean;
   recurringType: string;
   confidence: string;
+  classification?: string | null;
+  monthlyEquivalentMinor?: number;
 };
 export type CashFlowGoal = {
   id: string;
@@ -102,6 +104,9 @@ export type CashFlowInput = {
     recurringExpenseId: string | null;
     debtAccountId: string | null;
     goalId: string | null;
+    amountMinor?: number;
+    frequency?: string;
+    essentiality?: string;
     occurrences: {
       id: string;
       expectedDate: Date;

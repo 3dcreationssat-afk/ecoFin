@@ -10,6 +10,8 @@ import {
   type PayoffResult,
 } from "@/domain/debt/payoff";
 import { monthDifference, projectGoalCompletion } from "@/domain/goals/projection";
+import { financialPeriod } from "@/domain/cash-flow/period";
+import { normalizeRecurringAmount, type Frequency } from "@/domain/recurring/detection";
 import type { ScenarioComponentInput } from "./schema";
 
 export type ScenarioComponent = ScenarioComponentInput & { id: string };
@@ -29,6 +31,33 @@ export type ScenarioMetric = {
   explanation: string;
 };
 
+export type ScenarioComponentImpact = {
+  componentId: string;
+  name: string;
+  type: ScenarioComponent["type"];
+  oneTimeMinor: number;
+  ongoingMonthlyMinor: number;
+  currentPeriodMinor: number;
+  firstYearMinor: number;
+  boundedLongTermMinor: number | null;
+  currentPeriodOccurrences: number;
+  firstYearOccurrences: number;
+  boundedOccurrences: number | null;
+  explanation: string;
+};
+
+export type ScenarioImpactHorizons = {
+  oneTimeMinor: number;
+  ongoingMonthlyMinor: number;
+  currentPeriodMinor: number;
+  firstYearMinor: number;
+  boundedLongTermMinor: number | null;
+  currentPeriodOneTimeMinor: number;
+  currentPeriodRecurringMinor: number;
+  currentPeriodInteractionMinor: number;
+  components: ScenarioComponentImpact[];
+};
+
 export type ScenarioEvaluation = {
   baseline: CashFlowProjection;
   scenario: CashFlowProjection;
@@ -44,11 +73,20 @@ export type ScenarioEvaluation = {
     differenceMonths: number | null;
     currentMonthlyMinor: number;
     scenarioMonthlyMinor: number;
+    mode: "FIXED" | "SCENARIO_ADJUSTED";
+    affordable: boolean;
+    explanation: string;
   }[];
   baselineDebt: PayoffResult;
   scenarioDebt: ReturnType<typeof compareStrategy>;
   baselineEmergencyRunwayBps: number | null;
   scenarioEmergencyRunwayBps: number | null;
+  baselineEmergencyBalanceMinor: number;
+  scenarioEmergencyBalanceMinor: number;
+  baselineEssentialMonthlyMinor: number;
+  scenarioEssentialMonthlyMinor: number;
+  impacts: ScenarioImpactHorizons;
+  interpretations: string[];
   validation: string[];
 };
 
@@ -63,24 +101,49 @@ export function evaluateScenario(input: {
   const baselineInput = cloneCashFlowInput(input.cashFlowInput);
   const overlay = cloneCashFlowInput(input.cashFlowInput);
   const validation: string[] = [];
+  if (new Set(input.components.map((component) => component.id)).size !== input.components.length)
+    validation.push("A scenario component appears more than once.");
   let scenarioDebtExtraMinor = input.debtExtraPaymentMinor;
+  const modeledImpacts = buildImpactHorizons(input.cashFlowInput, input.components);
+  const currentPeriod = financialPeriod(overlay.asOf, overlay.financialMonthStart);
 
   for (const component of input.components) {
     if (!componentIsActive(component, overlay.asOf)) continue;
-    const date = component.startDate ?? overlay.asOf;
+    const start = component.startDate ?? overlay.asOf;
+    if (start >= currentPeriod.end) continue;
+    const recurring = !["ONE_TIME_EXPENSE", "ONE_TIME_INCOME"].includes(component.type);
+    const date = recurring ? firstMonthlyOccurrence(start, overlay.asOf) : start;
     const id = `scenario-${component.id}`;
     if (component.type === "CANCEL_RECURRING") {
       const found = overlay.recurring.find((item) => item.id === component.linkedRecurringId);
       if (!found || found.status !== "CONFIRMED")
         validation.push(`${component.name}: linked recurring item is unavailable.`);
+      const effective = component.startDate ?? overlay.asOf;
       overlay.recurring = overlay.recurring.filter(
-        (item) => item.id !== component.linkedRecurringId,
+        (item) =>
+          item.id !== component.linkedRecurringId ||
+          !item.nextExpectedDate ||
+          item.nextExpectedDate < effective,
       );
-      overlay.scheduledObligations = overlay.scheduledObligations?.filter(
-        (item) => item.recurringExpenseId !== component.linkedRecurringId,
+      overlay.scheduledObligations = overlay.scheduledObligations?.map((item) =>
+        item.recurringExpenseId === component.linkedRecurringId
+          ? {
+              ...item,
+              occurrences: item.occurrences.filter(
+                (occurrence) => occurrence.expectedDate < effective,
+              ),
+            }
+          : item,
       );
-      overlay.expectedIncomeSchedules = overlay.expectedIncomeSchedules?.filter(
-        (item) => item.recurringExpenseId !== component.linkedRecurringId,
+      overlay.expectedIncomeSchedules = overlay.expectedIncomeSchedules?.map((item) =>
+        item.recurringExpenseId === component.linkedRecurringId
+          ? {
+              ...item,
+              occurrences: item.occurrences.filter(
+                (occurrence) => occurrence.expectedDate < effective,
+              ),
+            }
+          : item,
       );
       continue;
     }
@@ -140,19 +203,32 @@ export function evaluateScenario(input: {
         (component.insuranceIncreaseMinor ?? 0) +
         (component.operatingIncreaseMinor ?? 0);
       addObligation(overlay, id, component.name, monthly, date);
-      const oneTime = Math.max(
-        0,
-        (component.secondaryAmountMinor ?? 0) - (component.tradeInMinor ?? 0),
-      );
-      if (oneTime)
-        addObligation(overlay, `${id}-down`, `${component.name} down payment`, oneTime, date);
+      const upfront = (component.tradeInMinor ?? 0) - (component.secondaryAmountMinor ?? 0);
+      if (upfront < 0 && start >= overlay.asOf)
+        addObligation(
+          overlay,
+          `${id}-down`,
+          `${component.name} net upfront cost`,
+          Math.abs(upfront),
+          start,
+        );
+      if (upfront > 0 && start >= overlay.asOf)
+        addIncome(
+          overlay,
+          `${id}-trade`,
+          `${component.name} net trade-in proceeds`,
+          upfront,
+          start,
+        );
       continue;
     }
     if (component.type === "RECURRING_EXPENSE" || component.type === "ONE_TIME_EXPENSE") {
+      if (component.type === "ONE_TIME_EXPENSE" && start < overlay.asOf) continue;
       addObligation(overlay, id, component.name, Math.abs(component.amountMinor ?? 0), date);
       continue;
     }
     if (component.type === "ONE_TIME_INCOME" || component.type === "RECURRING_INCOME_CHANGE") {
+      if (component.type === "ONE_TIME_INCOME" && start < overlay.asOf) continue;
       const amount = component.amountMinor ?? 0;
       if (amount >= 0) addIncome(overlay, id, component.name, amount, date);
       else addObligation(overlay, id, `${component.name} reduction`, Math.abs(amount), date);
@@ -161,6 +237,15 @@ export function evaluateScenario(input: {
 
   const baseline = calculateCashFlow(baselineInput);
   const scenario = calculateCashFlow(overlay);
+  const currentPeriodMinor = scenario.projectedMonthEndMinor - baseline.projectedMonthEndMinor;
+  const impacts: ScenarioImpactHorizons = {
+    ...modeledImpacts,
+    currentPeriodMinor,
+    currentPeriodInteractionMinor:
+      currentPeriodMinor -
+      modeledImpacts.currentPeriodOneTimeMinor -
+      modeledImpacts.currentPeriodRecurringMinor,
+  };
   const baselineDebt = calculatePayoff({
     debts: input.debtInputs,
     strategy: input.debtStrategy,
@@ -176,12 +261,18 @@ export function evaluateScenario(input: {
     asOf: overlay.asOf,
   });
   const scenarioDebt = compareStrategy(scenarioDebtRaw, baselineDebt);
+  const fixedCapacityMinor = Math.max(
+    0,
+    scenario.cashAfterObligationsAndProtectionsMinor + scenario.committedPlannedSavingsMinor,
+  );
+  const allFixedAffordable = scenario.committedPlannedSavingsMinor <= fixedCapacityMinor;
   const goalImpacts = baselineInput.goals
     .filter((goal) => !goal.archivedAt)
     .map((goal) => {
       const changed = overlay.goals.find((item) => item.id === goal.id) ?? goal;
       const currentDate = projectGoalCompletion(goal, overlay.asOf);
       const scenarioDate = projectGoalCompletion(changed, overlay.asOf);
+      const adjusted = changed.plannedMonthlyMinor !== goal.plannedMonthlyMinor;
       return {
         id: goal.id,
         name: goal.name,
@@ -190,10 +281,49 @@ export function evaluateScenario(input: {
         differenceMonths: monthDifference(currentDate, scenarioDate),
         currentMonthlyMinor: goal.plannedMonthlyMinor,
         scenarioMonthlyMinor: changed.plannedMonthlyMinor,
+        mode: adjusted ? ("SCENARIO_ADJUSTED" as const) : ("FIXED" as const),
+        affordable: adjusted || allFixedAffordable,
+        explanation: adjusted
+          ? "This scenario explicitly changes the goal contribution, so its projected date is recalculated."
+          : allFixedAffordable
+            ? "This scenario does not change the goal date because its planned contribution is fixed."
+            : "The contribution remains fixed, but it exceeds available planning capacity; the goal plan is at risk.",
       };
     });
-  const baselineRunway = emergencyRunwayBps(baseline);
-  const scenarioRunway = emergencyRunwayBps(scenario);
+  const baselineEmergencyBalanceMinor = baseline.emergencyProtectedMinor;
+  const emergencyAccountIds = new Set(
+    baselineInput.goals
+      .filter((goal) => /emergency/i.test(goal.name) && goal.linkedAccountId)
+      .map((goal) => goal.linkedAccountId!),
+  );
+  const emergencyFundedOneTimeMinor = impacts.components
+    .filter(
+      (impact) =>
+        impact.oneTimeMinor < 0 &&
+        emergencyAccountIds.has(
+          input.components.find((component) => component.id === impact.componentId)
+            ?.linkedAccountId ?? "",
+        ),
+    )
+    .reduce((sum, impact) => sum + Math.abs(impact.oneTimeMinor), 0);
+  const scenarioEmergencyBalanceMinor = Math.max(
+    0,
+    baselineEmergencyBalanceMinor - emergencyFundedOneTimeMinor,
+  );
+  const baselineEssentialMonthlyMinor = essentialMonthlyMinor(baselineInput);
+  const scenarioEssentialMonthlyMinor = Math.max(
+    0,
+    baselineEssentialMonthlyMinor +
+      essentialScenarioMonthlyDelta(input.cashFlowInput, input.components),
+  );
+  const baselineRunway = emergencyRunwayBps(
+    baselineEmergencyBalanceMinor,
+    baselineEssentialMonthlyMinor,
+  );
+  const scenarioRunway = emergencyRunwayBps(
+    scenarioEmergencyBalanceMinor,
+    scenarioEssentialMonthlyMinor,
+  );
   const metrics = buildMetrics(baseline, scenario);
   const risks = buildRisks({
     baseline,
@@ -203,6 +333,7 @@ export function evaluateScenario(input: {
     goalImpacts,
     scenarioDebt,
     validation,
+    impacts,
   });
   const confidence =
     validation.length || scenario.confidence === "LIMITED"
@@ -227,6 +358,18 @@ export function evaluateScenario(input: {
     scenarioDebt,
     baselineEmergencyRunwayBps: baselineRunway,
     scenarioEmergencyRunwayBps: scenarioRunway,
+    baselineEmergencyBalanceMinor,
+    scenarioEmergencyBalanceMinor,
+    baselineEssentialMonthlyMinor,
+    scenarioEssentialMonthlyMinor,
+    impacts,
+    interpretations: buildInterpretations({
+      impacts,
+      goalImpacts,
+      scenarioDebt,
+      baselineRunway,
+      scenarioRunway,
+    }),
     validation,
   };
 }
@@ -308,14 +451,206 @@ function addIncome(
   });
 }
 
+function buildImpactHorizons(
+  input: CashFlowInput,
+  components: ScenarioComponent[],
+): Omit<ScenarioImpactHorizons, "currentPeriodMinor" | "currentPeriodInteractionMinor"> {
+  const period = financialPeriod(input.asOf, input.financialMonthStart);
+  const yearEnd = addUtcMonths(input.asOf, 12);
+  const impacts = components.map((component) => {
+    const { oneTimeMinor, monthlyMinor, explanation } = componentCashAmounts(input, component);
+    const start = componentImpactStart(input, component);
+    const componentEnd = componentEndDate(component);
+    const oneTimeInPeriod =
+      oneTimeMinor !== 0 && start >= input.asOf && start < period.end ? oneTimeMinor : 0;
+    const oneTimeInYear =
+      oneTimeMinor !== 0 && start >= input.asOf && start < yearEnd ? oneTimeMinor : 0;
+    const currentPeriodOccurrences =
+      monthlyMinor === 0 ? 0 : countMonthlyOccurrences(start, input.asOf, period.end, componentEnd);
+    const firstYearOccurrences =
+      monthlyMinor === 0 ? 0 : countMonthlyOccurrences(start, input.asOf, yearEnd, componentEnd);
+    const bounded = boundedOccurrenceCount(component, input.asOf);
+    return {
+      componentId: component.id,
+      name: component.name,
+      type: component.type,
+      oneTimeMinor,
+      ongoingMonthlyMinor: monthlyMinor,
+      currentPeriodMinor: oneTimeInPeriod + monthlyMinor * currentPeriodOccurrences,
+      firstYearMinor: oneTimeInYear + monthlyMinor * firstYearOccurrences,
+      boundedLongTermMinor:
+        bounded == null
+          ? oneTimeMinor !== 0 && monthlyMinor === 0
+            ? oneTimeMinor
+            : null
+          : (start >= input.asOf ? oneTimeMinor : 0) + monthlyMinor * bounded,
+      currentPeriodOccurrences,
+      firstYearOccurrences,
+      boundedOccurrences: bounded,
+      explanation,
+    };
+  });
+  const oneTimeMinor = impacts.reduce((sum, impact) => sum + impact.oneTimeMinor, 0);
+  const ongoingMonthlyMinor = impacts.reduce((sum, impact) => sum + impact.ongoingMonthlyMinor, 0);
+  const currentPeriodOneTimeMinor = impacts.reduce(
+    (sum, impact) =>
+      sum +
+      (impact.currentPeriodMinor - impact.ongoingMonthlyMinor * impact.currentPeriodOccurrences),
+    0,
+  );
+  const currentPeriodRecurringMinor = impacts.reduce(
+    (sum, impact) => sum + impact.ongoingMonthlyMinor * impact.currentPeriodOccurrences,
+    0,
+  );
+  const boundedValues = impacts.map((impact) => impact.boundedLongTermMinor);
+  return {
+    oneTimeMinor,
+    ongoingMonthlyMinor,
+    currentPeriodOneTimeMinor,
+    currentPeriodRecurringMinor,
+    firstYearMinor: impacts.reduce((sum, impact) => sum + impact.firstYearMinor, 0),
+    boundedLongTermMinor: boundedValues.every((value) => value != null)
+      ? boundedValues.reduce<number>((sum, value) => sum + (value ?? 0), 0)
+      : null,
+    components: impacts,
+  };
+}
+
+function componentImpactStart(input: CashFlowInput, component: ScenarioComponent) {
+  const effective = component.startDate ?? input.asOf;
+  if (component.type !== "CANCEL_RECURRING") return effective;
+  const recurring = input.recurring.find((item) => item.id === component.linkedRecurringId);
+  if (!recurring?.nextExpectedDate) return effective;
+  return firstMonthlyOccurrence(recurring.nextExpectedDate, effective);
+}
+
+function componentCashAmounts(input: CashFlowInput, component: ScenarioComponent) {
+  switch (component.type) {
+    case "ONE_TIME_EXPENSE":
+      return {
+        oneTimeMinor: -Math.abs(component.amountMinor ?? 0),
+        monthlyMinor: 0,
+        explanation: "One-time purchase or obligation.",
+      };
+    case "ONE_TIME_INCOME":
+      return {
+        oneTimeMinor: Math.abs(component.amountMinor ?? 0),
+        monthlyMinor: 0,
+        explanation: "One-time net income assumption.",
+      };
+    case "RECURRING_EXPENSE":
+      return {
+        oneTimeMinor: 0,
+        monthlyMinor: -Math.abs(component.amountMinor ?? 0),
+        explanation: "Ongoing monthly expense.",
+      };
+    case "RECURRING_INCOME_CHANGE":
+      return {
+        oneTimeMinor: 0,
+        monthlyMinor: component.amountMinor ?? 0,
+        explanation: "Ongoing net monthly income change; no gross-to-net conversion.",
+      };
+    case "DEBT_EXTRA_PAYMENT":
+      return {
+        oneTimeMinor: 0,
+        monthlyMinor: -Math.abs(component.amountMinor ?? 0),
+        explanation:
+          "Additional monthly debt payment; interest savings remain a separate long-term debt result.",
+      };
+    case "SAVINGS_CHANGE":
+      return {
+        oneTimeMinor: 0,
+        monthlyMinor: -(component.amountMinor ?? 0),
+        explanation: "Change to a fixed monthly goal contribution.",
+      };
+    case "VEHICLE_PAYMENT": {
+      const down = Math.abs(component.secondaryAmountMinor ?? 0);
+      const trade = Math.abs(component.tradeInMinor ?? 0);
+      const monthly =
+        Math.abs(component.amountMinor ?? 0) +
+        Math.abs(component.insuranceIncreaseMinor ?? 0) +
+        Math.abs(component.operatingIncreaseMinor ?? 0);
+      return {
+        oneTimeMinor: trade - down,
+        monthlyMinor: -monthly,
+        explanation: `Vehicle: down payment ${down}, trade-in ${trade}, monthly payment ${Math.abs(component.amountMinor ?? 0)}, insurance ${Math.abs(component.insuranceIncreaseMinor ?? 0)}, operating ${Math.abs(component.operatingIncreaseMinor ?? 0)} minor units.`,
+      };
+    }
+    case "CANCEL_RECURRING": {
+      const recurring = input.recurring.find((item) => item.id === component.linkedRecurringId);
+      const monthly =
+        recurring?.monthlyEquivalentMinor ?? Math.abs(recurring?.typicalAmountMinor ?? 0);
+      return {
+        oneTimeMinor: 0,
+        monthlyMinor: monthly,
+        explanation: "Monthly savings after the effective date; historical charges are unchanged.",
+      };
+    }
+    default:
+      return {
+        oneTimeMinor: 0,
+        monthlyMinor: 0,
+        explanation:
+          "Policy or reserve override; effects appear through the shared Cash Flow allocation.",
+      };
+  }
+}
+
+function componentEndDate(component: ScenarioComponent): Date | null {
+  const durationEnd =
+    component.durationMonths && component.startDate
+      ? addUtcMonths(component.startDate, component.durationMonths)
+      : null;
+  if (component.endDate && durationEnd)
+    return component.endDate < durationEnd ? component.endDate : durationEnd;
+  return component.endDate ?? durationEnd;
+}
+
+function countMonthlyOccurrences(start: Date, rangeStart: Date, rangeEnd: Date, end: Date | null) {
+  let occurrence = firstMonthlyOccurrence(start, rangeStart);
+  let count = 0;
+  while (occurrence < rangeEnd && (!end || occurrence < end)) {
+    count += 1;
+    occurrence = addUtcMonths(occurrence, 1);
+  }
+  return count;
+}
+
+function boundedOccurrenceCount(component: ScenarioComponent, asOf: Date): number | null {
+  const end = componentEndDate(component);
+  if (!end || !component.startDate) return null;
+  return countMonthlyOccurrences(component.startDate, asOf, end, end);
+}
+
+function firstMonthlyOccurrence(start: Date, rangeStart: Date) {
+  if (start >= rangeStart) return start;
+  const months =
+    (rangeStart.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    rangeStart.getUTCMonth() -
+    start.getUTCMonth();
+  let candidate = addUtcMonths(start, Math.max(0, months));
+  if (candidate < rangeStart) candidate = addUtcMonths(candidate, 1);
+  return candidate;
+}
+
+function addUtcMonths(date: Date, months: number) {
+  const day = date.getUTCDate();
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+  const lastDay = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return target;
+}
+
 function buildMetrics(current: CashFlowProjection, scenario: CashFlowProjection): ScenarioMetric[] {
   return [
     metric(
-      "monthlyNet",
-      "Monthly net cash flow",
+      "periodNet",
+      "Current-period net cash flow",
       current.projectedMonthEndMinor - current.startingUsableLiquidCashMinor,
       scenario.projectedMonthEndMinor - scenario.startingUsableLiquidCashMinor,
-      "Expected income less obligations, debt minimums, and planned savings.",
+      "Expected income less obligations, debt minimums, and planned savings in the selected financial period.",
     ),
     metric(
       "cashAfter",
@@ -390,12 +725,79 @@ function metric(
   };
 }
 
-function emergencyRunwayBps(projection: CashFlowProjection): number | null {
-  const essential =
-    projection.remainingEssentialObligationsMinor + projection.debtMinimumPaymentsMinor;
-  return essential > 0
-    ? Math.round((projection.emergencyProtectedMinor * 10_000) / essential)
+function emergencyRunwayBps(balanceMinor: number, essentialMonthlyMinor: number): number | null {
+  return essentialMonthlyMinor > 0
+    ? Math.round((balanceMinor * 10_000) / essentialMonthlyMinor)
     : null;
+}
+
+function essentialMonthlyMinor(input: CashFlowInput) {
+  const linkedRecurring = new Set(
+    (input.scheduledObligations ?? []).map((item) => item.recurringExpenseId).filter(Boolean),
+  );
+  const scheduled = (input.scheduledObligations ?? [])
+    .filter(
+      (item) =>
+        item.active &&
+        !item.archivedAt &&
+        item.essentiality === "ESSENTIAL" &&
+        item.frequency !== "ONE_TIME",
+    )
+    .reduce(
+      (sum, item) =>
+        sum +
+        monthlyEquivalent(
+          item.amountMinor ?? item.occurrences[0]?.expectedAmountMinor ?? 0,
+          item.frequency,
+        ),
+      0,
+    );
+  const recurring = input.recurring
+    .filter(
+      (item) =>
+        item.status === "CONFIRMED" &&
+        item.classification === "ESSENTIAL" &&
+        !linkedRecurring.has(item.id),
+    )
+    .reduce(
+      (sum, item) => sum + (item.monthlyEquivalentMinor ?? Math.abs(item.typicalAmountMinor)),
+      0,
+    );
+  const debtMinimums = input.accounts
+    .filter(
+      (account) =>
+        !account.archivedAt &&
+        ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type) &&
+        (account.ledgerBalanceMinor ?? 0) > 0,
+    )
+    .reduce(
+      (sum, account) =>
+        sum + Math.min(account.minimumPaymentMinor ?? 0, account.ledgerBalanceMinor ?? 0),
+      0,
+    );
+  return scheduled + recurring + debtMinimums;
+}
+
+function monthlyEquivalent(amountMinor: number, frequency?: string) {
+  if (!frequency || frequency === "MONTHLY") return amountMinor;
+  if (frequency === "ONE_TIME") return 0;
+  return normalizeRecurringAmount(amountMinor, frequency as Frequency).monthlyEquivalentMinor;
+}
+
+function essentialScenarioMonthlyDelta(input: CashFlowInput, components: ScenarioComponent[]) {
+  return components.reduce((sum, component) => {
+    if (
+      (component.type === "RECURRING_EXPENSE" || component.type === "VEHICLE_PAYMENT") &&
+      component.essentiality === "ESSENTIAL"
+    )
+      return sum + Math.abs(componentCashAmounts(input, component).monthlyMinor);
+    if (component.type === "CANCEL_RECURRING") {
+      const recurring = input.recurring.find((item) => item.id === component.linkedRecurringId);
+      if (recurring?.classification === "ESSENTIAL")
+        return sum - Math.abs(componentCashAmounts(input, component).monthlyMinor);
+    }
+    return sum;
+  }, 0);
 }
 
 function buildRisks(input: {
@@ -406,6 +808,7 @@ function buildRisks(input: {
   goalImpacts: ScenarioEvaluation["goalImpacts"];
   scenarioDebt: ScenarioEvaluation["scenarioDebt"];
   validation: string[];
+  impacts: ScenarioImpactHorizons;
 }): ScenarioRisk[] {
   const risks: ScenarioRisk[] = input.validation.map((explanation) => ({
     level: "CRITICAL",
@@ -442,6 +845,14 @@ function buildRisks(input: {
       explanation:
         "At least one goal completion estimate moves later under the scenario contribution plan.",
     });
+  if (input.goalImpacts.some((goal) => !goal.affordable))
+    risks.push({
+      level: "CRITICAL",
+      code: "FIXED_GOAL_UNAFFORDABLE",
+      title: "A fixed goal contribution exceeds available planning capacity",
+      explanation:
+        "The goal is not automatically changed, but its current contribution plan is at risk.",
+    });
   if ((input.scenarioDebt.interestSavedMinor ?? 0) > 0)
     risks.push({
       level: "POSITIVE",
@@ -457,4 +868,49 @@ function buildRisks(input: {
       explanation: "Review the before-and-after metrics and assumptions before deciding.",
     });
   return risks;
+}
+
+function buildInterpretations(input: {
+  impacts: ScenarioImpactHorizons;
+  goalImpacts: ScenarioEvaluation["goalImpacts"];
+  scenarioDebt: ScenarioEvaluation["scenarioDebt"];
+  baselineRunway: number | null;
+  scenarioRunway: number | null;
+}) {
+  const items: string[] = [];
+  if (input.impacts.oneTimeMinor)
+    items.push(
+      `This scenario has ${cashDirection(input.impacts.oneTimeMinor)} upfront impact of ${formatMinor(Math.abs(input.impacts.oneTimeMinor))}.`,
+    );
+  if (input.impacts.ongoingMonthlyMinor)
+    items.push(
+      `It ${input.impacts.ongoingMonthlyMinor < 0 ? "adds" : "removes"} ${formatMinor(Math.abs(input.impacts.ongoingMonthlyMinor))} per month.`,
+    );
+  if (input.impacts.currentPeriodOneTimeMinor && input.impacts.currentPeriodRecurringMinor)
+    items.push("The current financial period includes both an upfront event and recurring impact.");
+  const fixed = input.goalImpacts.find((goal) => goal.mode === "FIXED");
+  if (fixed) items.push(fixed.explanation);
+  if (
+    input.baselineRunway != null &&
+    input.scenarioRunway != null &&
+    input.scenarioRunway < input.baselineRunway
+  )
+    items.push(
+      "Emergency runway falls because emergency cash or ongoing essential obligations worsen.",
+    );
+  if ((input.scenarioDebt.interestSavedMinor ?? 0) > 0)
+    items.push(
+      "Debt payoff improves, but interest savings are long-term savings—not current cash.",
+    );
+  return items;
+}
+
+function cashDirection(value: number) {
+  return value < 0 ? "a cash reduction" : "a cash increase";
+}
+
+function formatMinor(value: number) {
+  const dollars = Math.floor(value / 100);
+  const cents = String(value % 100).padStart(2, "0");
+  return `$${dollars.toLocaleString("en-US")}.${cents}`;
 }
