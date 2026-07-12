@@ -1,5 +1,7 @@
 # Privacy And Security
 
+Planning schedules, occurrences, transaction links, and policy preferences remain in local SQLite and local unencrypted backups.
+
 Financial Compass is local-first.
 
 ## Implemented

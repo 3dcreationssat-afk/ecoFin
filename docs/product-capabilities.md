@@ -1,5 +1,7 @@
 # Product Capabilities
 
+- Expected income, obligations, occurrence satisfaction, explicit match confirmation, and household savings policy are persisted and audited.
+
 - Deterministic financial-month projection, explainable Safe to Save/Safe to Spend, protection reserves, running timeline, and confidence remediation are implemented from SQLite records.
 
 ## Implemented Local Capabilities

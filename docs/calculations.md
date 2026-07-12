@@ -2,6 +2,8 @@
 
 ## Implemented
 
+- Expected-income and obligation occurrences satisfy explicit schedules without mutating definitions; explicit links precede debt, recurring, and goal fallbacks.
+
 - Validated Cash Flow, projected month-end, Recommended and Conservative Safe to Save, Safe to Spend, explicit uncertainty reserves, and deterministic confidence follow `cash-flow-engine.md` and `safe-to-save.md`.
 
 - Account ledger balance equals the explicit opening balance plus cleared, nonduplicate, ledger-affecting transaction effects after the anchor plus explicit reconciliation adjustments. Assets are positive owned amounts; liabilities are positive amounts owed.

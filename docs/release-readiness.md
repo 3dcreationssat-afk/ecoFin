@@ -1,5 +1,7 @@
 # Release Readiness
 
+- Planning schedules, satisfaction, and savings policy are durable, audited, backup/reset-safe, and tested.
+
 - Cash Flow and Safe to Save are repository-derived and explainable. Expected-income and general scheduled-obligation CRUD remain documented limitations rather than fabricated projections.
 
 Date: 2026-07-12

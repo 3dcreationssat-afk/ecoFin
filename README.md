@@ -28,6 +28,7 @@ Implemented:
 - Server-paginated transaction search, advanced URL filters, sorting, durable saved views, and household default-view precedence.
 - Explicit current-page transaction selection, audited bulk review actions, and deterministic merchant rules with preview, manual-override protection, and CSV import application.
 - Explicit account opening anchors, transaction-derived asset/liability ledgers, institution-reported snapshots, reconciliation, adjustments, and balance confidence.
+- Durable expected-income and obligation schedules, occurrence satisfaction/matching, and configurable savings recommendation policy.
 
 Still planned:
 

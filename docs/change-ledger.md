@@ -21,6 +21,8 @@
 
 ## 2026-07-12
 
+- Added expected-income and obligation schedules, satisfaction occurrences, deterministic matching, precedence, policy-based recommendations, demo inputs, lifecycle/backup support, and workflows.
+
 - Added validated deterministic Cash Flow with financial-month boundaries, conservative liquidity, confirmed forecasts, debt/goal obligations, explicit reserves, Safe to Save/Safe to Spend, timeline, confidence remediation, Overview integration, and tests.
 
 - Implemented Phase 2D recurring-expense detection with deterministic merchant normalization, cadence and amount scoring, confidence reasons, price-change flags, review/confirm/reject/edit/cancel/reactivate workflows, manual records, savings selection, import/edit refresh, data-quality signals, backup compatibility, and tests.

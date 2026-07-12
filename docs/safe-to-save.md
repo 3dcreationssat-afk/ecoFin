@@ -1,5 +1,7 @@
 # Safe to Save and Safe to Spend
 
+Maximum surplus and policy recommendation are distinct. The recommendation is capped by the configured target after retained discretionary and safety reserves; it is not automatically the full surplus.
+
 All money uses integer minor units:
 
 `usable liquid cash + confirmed remaining income - confirmed obligations - debt minimums - remaining planned savings - checking-buffer shortfall - protected mapped emergency funds - explicit data-quality reserve = maximum available surplus`

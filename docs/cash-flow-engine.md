@@ -1,5 +1,7 @@
 # Cash Flow Engine
 
+Explicit expected-income and obligation occurrences are authoritative future inputs. Paid/skipped occurrences are excluded; linked schedules suppress recurring, debt, and goal fallbacks.
+
 Cash Flow is a deterministic repository projection for the configured financial month. UTC period boundaries honor `financialMonthStart`, clamp short months, and support leap years and year transitions.
 
 Usable liquid cash includes active checking, savings, and cash accounts with anchored current ledgers. A reported balance is never substituted for a ledger. A reported available balance no more than seven days old may conservatively cap liquidity when lower than the ledger. Liabilities, credit limits, available credit, mortgages, loans, and unsupported investments are excluded.

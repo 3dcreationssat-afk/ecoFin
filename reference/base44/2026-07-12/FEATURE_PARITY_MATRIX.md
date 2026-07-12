@@ -1,5 +1,7 @@
 # Feature Parity Matrix
 
+Planning status: expected income, obligations, occurrences, policy recommendations, and retained Safe to Spend are implemented; complex split matching is deferred.
+
 Validated Cash Flow status (2026-07-12): Projected Month-End, Safe to Save, Safe to Spend, confidence, calculation links, timeline, and protection breakdown are implemented from repository inputs. Explicit expected-income CRUD remains deferred.
 
 Priority definitions:

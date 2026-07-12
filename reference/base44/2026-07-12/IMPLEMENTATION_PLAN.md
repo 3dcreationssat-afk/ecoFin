@@ -1,5 +1,7 @@
 # Base44 Product-Parity Implementation Plan
 
+Expected-income schedules, obligation occurrences, satisfaction matching, and configurable savings policy are complete within the Cash Flow boundary.
+
 Date: 2026-07-12
 
 This plan follows the parity matrix in this directory. The Base44 screenshots define product direction, but implementation must preserve Financial Compass's local-first architecture, SQLite source of truth, workspace lifecycle, auditability, and existing CSV import, transfer, recurring, backup, restore, and start-fresh workflows.

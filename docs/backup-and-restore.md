@@ -1,5 +1,7 @@
 # Backup And Restore
 
+Manifests and validation include planning schedules and occurrences; household policy fields travel with the SQLite household record.
+
 Financial Compass Phase 2B implements local backup and restore for the active SQLite database.
 
 ## Backup Behavior
