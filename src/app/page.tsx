@@ -3,7 +3,11 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { Button, Card, MetricCard, PageHeader, Pill } from "@/components/data-display/primitives";
 import { cashBars, overviewComparison, pageMeta } from "@/data/demo";
 import { formatMoney } from "@/domain/money/money";
-import { accountSummaries, dataQualityRules, goalSummaries } from "@/domain/summaries/calculations";
+import {
+  accountSummaries,
+  dataQualityRules,
+  householdTransactionSummary,
+} from "@/domain/summaries/calculations";
 import { getHousehold } from "@/server/data/repositories";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +16,7 @@ export default async function Home() {
   const meta = pageMeta["/"];
   const household = await getHousehold();
   const accountSummary = accountSummaries(household.accounts);
-  const goalSummary = goalSummaries(household.goals);
+  const transactionSummary = householdTransactionSummary(household.transactions);
   const quality = dataQualityRules({
     transactions: household.transactions,
     accounts: household.accounts,
@@ -38,9 +42,14 @@ export default async function Home() {
       featured: true,
     },
     {
-      label: "Goals Saved",
-      value: formatMoney(goalSummary.totalSavedMinor),
-      detail: `${goalSummary.progressPercent}% of target`,
+      label: "Household Income",
+      value: formatMoney(transactionSummary.householdIncomeMinor),
+      detail: "Confirmed transfers excluded",
+    },
+    {
+      label: "Household Spending",
+      value: formatMoney(transactionSummary.householdSpendingMinor),
+      detail: "Confirmed transfers excluded",
     },
     {
       label: "Needs Review",

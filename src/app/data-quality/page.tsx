@@ -4,16 +4,19 @@ import { Card, PageHeader, Pill } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { dataQualityRules } from "@/domain/summaries/calculations";
 import { importDashboard } from "@/server/data/imports";
+import { transferDataQuality } from "@/server/data/transfers";
 
 export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
   const { household, batches } = await importDashboard();
+  const transferQuality = await transferDataQuality();
   const quality = dataQualityRules({
     transactions: household.transactions,
     accounts: household.accounts,
     goals: household.goals,
     importBatches: batches,
+    transfers: transferQuality,
     asOf: new Date("2026-07-11"),
   });
   const issues = [
@@ -82,6 +85,42 @@ export default async function DataQualityPage() {
       quality.unknownTypeTransactions,
       "Unknown transaction types can distort summaries.",
       "Set a supported transaction type in the drawer.",
+    ],
+    [
+      "High-confidence unmatched transfers",
+      quality.highConfidenceTransferCandidates,
+      "Likely internal transfers may be counted as income or spending until confirmed.",
+      "Open Transactions and confirm or reject transfer suggestions.",
+    ],
+    [
+      "Possible credit-card payments",
+      quality.possibleCreditCardPayments,
+      "Card payments can double-count spending if not matched as transfers.",
+      "Confirm true payments and leave fees or refunds as expenses/refunds.",
+    ],
+    [
+      "Broken transfer relationships",
+      quality.brokenTransferRelationships,
+      "A confirmed transfer no longer reconciles and can distort reporting.",
+      "Review the pair, unmatch it, or correct the transaction classification.",
+    ],
+    [
+      "Rejected transfer candidates",
+      quality.rejectedTransferCandidates,
+      "Rejected suggestions are preserved for audit and future review.",
+      "No action is required unless the underlying transactions changed.",
+    ],
+    [
+      "Transfers without confirmed counterpart",
+      quality.transferMarkedWithoutCounterpart,
+      "Transactions marked as transfer need a confirmed relationship for reliable reporting.",
+      "Create a manual match or restore the original classification.",
+    ],
+    [
+      "Excluded transfer candidates",
+      quality.excludedTransferCandidates,
+      "Excluded transactions require explicit review before transfer matching.",
+      "Unexclude the transaction or leave the suggestion unresolved.",
     ],
   ] as const;
   const issueCount = issues.reduce((total, [, count]) => total + count, 0);

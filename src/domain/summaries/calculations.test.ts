@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { accountSummaries, dataQualityRules, goalProgress, goalSummaries } from "./calculations";
+import {
+  accountSummaries,
+  dataQualityRules,
+  goalProgress,
+  goalSummaries,
+  householdTransactionSummary,
+} from "./calculations";
 
 describe("summary calculations", () => {
   it("calculates assets, debts, and net worth from active accounts", () => {
@@ -31,6 +37,23 @@ describe("summary calculations", () => {
     expect(goalProgress(goals[0])).toBe(25);
   });
 
+  it("excludes confirmed transfers from household income and spending while preserving account activity", () => {
+    expect(
+      householdTransactionSummary([
+        { amountMinor: 325000, type: "INCOME" },
+        { amountMinor: -8742, type: "EXPENSE" },
+        { amountMinor: -50000, type: "TRANSFER_OUT" },
+        { amountMinor: 50000, type: "TRANSFER_IN" },
+        { amountMinor: -1000, type: "FEE" },
+      ]),
+    ).toEqual({
+      householdIncomeMinor: 325000,
+      householdSpendingMinor: 9742,
+      transferMovementMinor: 100000,
+      accountActivityMinor: 434742,
+    });
+  });
+
   it("runs deterministic data-quality rules without pretending advanced detection exists", () => {
     const result = dataQualityRules({
       transactions: [
@@ -59,6 +82,14 @@ describe("summary calculations", () => {
           duplicateCandidateCount: 3,
         },
       ],
+      transfers: {
+        suggestedHigh: 2,
+        creditCard: 1,
+        broken: 1,
+        rejected: 3,
+        markedWithoutMatch: 4,
+        excludedCandidates: 1,
+      },
       asOf: new Date("2026-07-11"),
     });
     expect(result).toEqual({
@@ -73,6 +104,12 @@ describe("summary calculations", () => {
       duplicateImportCandidates: 4,
       repeatedFileAttempts: 1,
       unknownTypeTransactions: 1,
+      highConfidenceTransferCandidates: 2,
+      possibleCreditCardPayments: 1,
+      brokenTransferRelationships: 1,
+      rejectedTransferCandidates: 3,
+      transferMarkedWithoutCounterpart: 4,
+      excludedTransferCandidates: 1,
     });
   });
 });

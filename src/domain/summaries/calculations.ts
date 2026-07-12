@@ -11,6 +11,13 @@ export type GoalSummaryInput = {
   archivedAt?: Date | string | null;
 };
 
+export type TransactionSummaryInput = {
+  amountMinor: number;
+  type?: string | null;
+  categoryId?: string | null;
+  excluded?: boolean | null;
+};
+
 export function accountSummaries(accounts: AccountSummaryInput[]) {
   const active = accounts.filter((account) => !account.archivedAt);
   const totalAssetsMinor = active
@@ -47,6 +54,30 @@ export function goalProgress(goal: GoalSummaryInput) {
     : Math.min(100, Math.round((goal.currentMinor / goal.targetMinor) * 100));
 }
 
+export function householdTransactionSummary(transactions: TransactionSummaryInput[]) {
+  const included = transactions.filter((transaction) => !transaction.excluded);
+  const householdIncomeMinor = included
+    .filter((transaction) => ["CREDIT", "INCOME"].includes(transaction.type ?? ""))
+    .reduce((total, transaction) => total + Math.max(transaction.amountMinor, 0), 0);
+  const householdSpendingMinor = included
+    .filter((transaction) =>
+      ["DEBIT", "EXPENSE", "FEE", "INTEREST"].includes(transaction.type ?? ""),
+    )
+    .reduce((total, transaction) => total + Math.abs(Math.min(transaction.amountMinor, 0)), 0);
+  const transferMovementMinor = included
+    .filter((transaction) => ["TRANSFER_IN", "TRANSFER_OUT"].includes(transaction.type ?? ""))
+    .reduce((total, transaction) => total + Math.abs(transaction.amountMinor), 0);
+  return {
+    householdIncomeMinor,
+    householdSpendingMinor,
+    transferMovementMinor,
+    accountActivityMinor: included.reduce(
+      (total, transaction) => total + Math.abs(transaction.amountMinor),
+      0,
+    ),
+  };
+}
+
 export function dataQualityRules(input: {
   transactions: { categoryId?: string | null; reviewStatus: string; type?: string | null }[];
   accounts: {
@@ -66,6 +97,14 @@ export function dataQualityRules(input: {
     duplicateCandidateCount: number;
     repeatedFile?: boolean;
   }[];
+  transfers?: {
+    suggestedHigh: number;
+    creditCard: number;
+    broken: number;
+    rejected: number;
+    markedWithoutMatch: number;
+    excludedCandidates: number;
+  };
   asOf: Date;
 }) {
   const staleBefore = new Date(input.asOf);
@@ -102,8 +141,26 @@ export function dataQualityRules(input: {
   const unknownTypeTransactions = input.transactions.filter(
     (transaction) =>
       !transaction.type ||
-      !["DEBIT", "CREDIT", "TRANSFER", "PAYMENT", "REFUND"].includes(transaction.type),
+      ![
+        "DEBIT",
+        "CREDIT",
+        "INCOME",
+        "EXPENSE",
+        "TRANSFER_OUT",
+        "TRANSFER_IN",
+        "REFUND",
+        "FEE",
+        "INTEREST",
+      ].includes(transaction.type),
   ).length;
+  const transfers = input.transfers ?? {
+    suggestedHigh: 0,
+    creditCard: 0,
+    broken: 0,
+    rejected: 0,
+    markedWithoutMatch: 0,
+    excludedCandidates: 0,
+  };
   return {
     uncategorized,
     unreviewed,
@@ -116,5 +173,11 @@ export function dataQualityRules(input: {
     duplicateImportCandidates,
     repeatedFileAttempts,
     unknownTypeTransactions,
+    highConfidenceTransferCandidates: transfers.suggestedHigh,
+    possibleCreditCardPayments: transfers.creditCard,
+    brokenTransferRelationships: transfers.broken,
+    rejectedTransferCandidates: transfers.rejected,
+    transferMarkedWithoutCounterpart: transfers.markedWithoutMatch,
+    excludedTransferCandidates: transfers.excludedCandidates,
   };
 }
