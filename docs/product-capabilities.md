@@ -3,7 +3,7 @@
 ## Implemented Local Capabilities
 
 - Local household, account, category, goal, contribution, transaction, CSV import, transfer review, recurring review, backup, restore, demo reset, and start-fresh persistence.
-- Repository-derived Overview summaries for available cash, recorded cash flow, category spending, goal progress, and debt snapshot.
+- Repository-derived Overview summaries for available cash, recorded cash flow, action items, upcoming obligations, category spending, goal progress/status, and debt snapshot/recommendation.
 - Repository-derived Budget actuals, current-pace forecasts, remaining amounts, and status labels by category group.
 - Repository-derived Cash Flow, Debt, and Reports summary values where deterministic local inputs exist.
 - Empty workspace, demonstration workspace, user-data workspace, and mixed-data workspace states.
@@ -13,6 +13,7 @@
 - Projected Month-End is current available cash plus recorded current-month net cash flow.
 - Budget forecast is current-month actual spending projected at the current daily pace.
 - Safe to Save and Safe to Spend are intentionally labeled preliminary until buffer, obligation, and confidence engines are implemented.
+- Overview upcoming obligations are deterministic account minimums and confirmed recurring expenses for the next 30 days; reservation labels are conservative because no reservation engine exists.
 
 ## Demonstration or Unavailable Capabilities
 

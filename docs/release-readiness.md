@@ -17,7 +17,8 @@ Date: 2026-07-12
 - Local backup creation, validation, restore preview, mandatory pre-restore safety backup, restore confirmation, and backup deletion.
 - Demonstration data reset with exact confirmation, visible pending/success/error feedback, active-database diagnostics, canonical seed counts, and browser preference preservation.
 - Start fresh with exact confirmation, before/after counts, backup ZIP preservation, browser preference preservation, empty workspace creation, workspace-state badges, and empty states for core screens.
-- Repository-derived preliminary Overview, Cash Flow, Budget, Debt, and Reports values where deterministic local account, category, goal, and transaction inputs exist.
+- Repository-derived preliminary Overview, Cash Flow, Budget, Debt, and Reports values where deterministic local account, category, goal, recurring, transfer, import, and transaction inputs exist.
+- Actionable Overview sections for Needs Your Attention, Upcoming Obligations, Spending by Category, Goals Snapshot, and Debt Snapshot with functional drill-down links.
 
 ## Demonstration-only Capabilities
 
@@ -29,6 +30,8 @@ Date: 2026-07-12
 ## Known Limitations
 
 - Transaction filtering is client-side over the locally loaded dataset.
+- Overview category drill-down uses existing Transactions filters and does not add period filtering or saved views.
+- Overview upcoming obligations only include persisted account minimums and confirmed recurring records; no reservation engine or bill-pay workflow is implemented.
 - Curated institutions are stored as account institution text; there is no separate institution table or normalized identifier yet.
 - Goal contribution source account is stored as contribution source text, not a foreign key.
 - Delete-all-data and general export workflows are not implemented.

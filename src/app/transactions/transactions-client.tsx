@@ -642,169 +642,173 @@ function TransferReviewPanel({
     Boolean(selectedOut && selectedIn) &&
     eligibleIncoming.some((transaction) => transaction.id === selectedIn?.id);
   return (
-    <Card className="mb-4 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link2 className="h-4 w-4 text-[var(--teal)]" />
-            <h2 className="text-lg font-semibold">Transfer Review</h2>
+    <div id="transfer-review" className="scroll-mt-6">
+      <Card className="mb-4 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-[var(--teal)]" />
+              <h2 className="text-lg font-semibold">Transfer Review</h2>
+            </div>
+            <p className="text-sm text-[var(--muted)]">
+              Review internal movements before they affect household income or spending.
+            </p>
           </div>
-          <p className="text-sm text-[var(--muted)]">
-            Review internal movements before they affect household income or spending.
-          </p>
+          <Button variant="secondary" onClick={onScan}>
+            Scan transfers
+          </Button>
         </div>
-        <Button variant="secondary" onClick={onScan}>
-          Scan transfers
-        </Button>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <SummaryLine label="Suggested" value={String(suggestions.length)} />
-        <SummaryLine label="Confirmed" value={String(confirmed.length)} />
-        <SummaryLine
-          label="Credit-card payment candidates"
-          value={String(
-            suggestions.filter((match) => match.incomingTransaction.account.type === "CREDIT")
-              .length,
-          )}
-        />
-      </div>
-      {suggestions.length ? (
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="text-[var(--muted)]">
-              <tr>
-                {["Confidence", "Amount", "Accounts", "Dates", "Reasons", "Actions"].map((head) => (
-                  <th key={head} className="py-3 pr-4">
-                    {head}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {suggestions.map((match) => (
-                <tr key={match.id} className="border-t border-[var(--border)]">
-                  <td className="py-3 pr-4">
-                    <Pill tone={match.confidence === "HIGH" ? "good" : "warn"}>
-                      {match.confidence} {match.score}
-                    </Pill>
-                  </td>
-                  <td className="py-3 pr-4 font-semibold">
-                    {formatMoney(Math.abs(match.outgoingTransaction.amountMinor))}
-                  </td>
-                  <td className="py-3 pr-4">
-                    {match.outgoingTransaction.account.name} to{" "}
-                    {match.incomingTransaction.account.name}
-                    {match.incomingTransaction.account.type === "CREDIT" ? (
-                      <div className="text-xs font-semibold text-[var(--blue)]">
-                        Credit-card payment candidate
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="py-3 pr-4">
-                    {shortDate(match.outgoingTransaction.transactionDate)} /{" "}
-                    {shortDate(match.incomingTransaction.transactionDate)}
-                  </td>
-                  <td className="py-3 pr-4 text-xs text-[var(--muted)]">
-                    {match.reasons.slice(0, 3).join("; ")}
-                    <div className="mt-1">
-                      {match.outgoingTransaction.normalizedMerchant} vs.{" "}
-                      {match.incomingTransaction.normalizedMerchant}
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        className="rounded-md border px-3 py-1"
-                        onClick={() => onOpen(match.outgoingTransactionId)}
-                      >
-                        Open outgoing
-                      </button>
-                      <button
-                        className="rounded-md border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={pendingMatchId === match.id}
-                        onClick={() => onConfirm(match.id)}
-                      >
-                        {pendingMatchId === match.id ? "Working..." : "Confirm transfer"}
-                      </button>
-                      <button
-                        className="rounded-md border px-3 py-1 text-[var(--red)] disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={pendingMatchId === match.id}
-                        onClick={() => onReject(match.id)}
-                      >
-                        {pendingMatchId === match.id ? "Working..." : "Reject suggestion"}
-                      </button>
-                    </div>
-                  </td>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <SummaryLine label="Suggested" value={String(suggestions.length)} />
+          <SummaryLine label="Confirmed" value={String(confirmed.length)} />
+          <SummaryLine
+            label="Credit-card payment candidates"
+            value={String(
+              suggestions.filter((match) => match.incomingTransaction.account.type === "CREDIT")
+                .length,
+            )}
+          />
+        </div>
+        {suggestions.length ? (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left text-sm">
+              <thead className="text-[var(--muted)]">
+                <tr>
+                  {["Confidence", "Amount", "Accounts", "Dates", "Reasons", "Actions"].map(
+                    (head) => (
+                      <th key={head} className="py-3 pr-4">
+                        {head}
+                      </th>
+                    ),
+                  )}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="mt-5 rounded-md border border-[var(--border)] p-4 text-sm text-[var(--muted)]">
-          No suggested transfer pairs. Run a scan after importing or editing transactions.
-        </p>
-      )}
-      <div className="mt-6 border-t border-[var(--border)] pt-5">
-        <h3 className="font-semibold">Manual match</h3>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Choose one money-out transaction and one money-in transaction with the same absolute
-          amount, different accounts, and dates within seven days.
-        </p>
-        {error ? (
-          <div role="alert" className="mt-3 rounded-md bg-[var(--red-soft)] p-3 text-sm">
-            {error}
+              </thead>
+              <tbody>
+                {suggestions.map((match) => (
+                  <tr key={match.id} className="border-t border-[var(--border)]">
+                    <td className="py-3 pr-4">
+                      <Pill tone={match.confidence === "HIGH" ? "good" : "warn"}>
+                        {match.confidence} {match.score}
+                      </Pill>
+                    </td>
+                    <td className="py-3 pr-4 font-semibold">
+                      {formatMoney(Math.abs(match.outgoingTransaction.amountMinor))}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {match.outgoingTransaction.account.name} to{" "}
+                      {match.incomingTransaction.account.name}
+                      {match.incomingTransaction.account.type === "CREDIT" ? (
+                        <div className="text-xs font-semibold text-[var(--blue)]">
+                          Credit-card payment candidate
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {shortDate(match.outgoingTransaction.transactionDate)} /{" "}
+                      {shortDate(match.incomingTransaction.transactionDate)}
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-[var(--muted)]">
+                      {match.reasons.slice(0, 3).join("; ")}
+                      <div className="mt-1">
+                        {match.outgoingTransaction.normalizedMerchant} vs.{" "}
+                        {match.incomingTransaction.normalizedMerchant}
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          className="rounded-md border px-3 py-1"
+                          onClick={() => onOpen(match.outgoingTransactionId)}
+                        >
+                          Open outgoing
+                        </button>
+                        <button
+                          className="rounded-md border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={pendingMatchId === match.id}
+                          onClick={() => onConfirm(match.id)}
+                        >
+                          {pendingMatchId === match.id ? "Working..." : "Confirm transfer"}
+                        </button>
+                        <button
+                          className="rounded-md border px-3 py-1 text-[var(--red)] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={pendingMatchId === match.id}
+                          onClick={() => onReject(match.id)}
+                        >
+                          {pendingMatchId === match.id ? "Working..." : "Reject suggestion"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : null}
-        <div className="mt-3 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <select
-            aria-label="Manual outgoing transaction"
-            className="h-10 min-w-0 max-w-full rounded-md border border-[var(--border)] px-3"
-            value={manualOut}
-            onChange={(event) => {
-              setManualOut(event.target.value);
-              setManualIn("");
-            }}
-          >
-            <option value="">Outgoing transaction</option>
-            {candidates
-              .filter((transaction) => transaction.amountMinor < 0)
-              .map((transaction) => (
+        ) : (
+          <p className="mt-5 rounded-md border border-[var(--border)] p-4 text-sm text-[var(--muted)]">
+            No suggested transfer pairs. Run a scan after importing or editing transactions.
+          </p>
+        )}
+        <div className="mt-6 border-t border-[var(--border)] pt-5">
+          <h3 className="font-semibold">Manual match</h3>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Choose one money-out transaction and one money-in transaction with the same absolute
+            amount, different accounts, and dates within seven days.
+          </p>
+          {error ? (
+            <div role="alert" className="mt-3 rounded-md bg-[var(--red-soft)] p-3 text-sm">
+              {error}
+            </div>
+          ) : null}
+          <div className="mt-3 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <select
+              aria-label="Manual outgoing transaction"
+              className="h-10 min-w-0 max-w-full rounded-md border border-[var(--border)] px-3"
+              value={manualOut}
+              onChange={(event) => {
+                setManualOut(event.target.value);
+                setManualIn("");
+              }}
+            >
+              <option value="">Outgoing transaction</option>
+              {candidates
+                .filter((transaction) => transaction.amountMinor < 0)
+                .map((transaction) => (
+                  <option key={transaction.id} value={transaction.id}>
+                    {shortDate(transaction.transactionDate)} {transaction.account.name}{" "}
+                    {formatMoney(transaction.amountMinor)} {transaction.normalizedMerchant}
+                  </option>
+                ))}
+            </select>
+            <select
+              aria-label="Manual incoming transaction"
+              className="h-10 min-w-0 max-w-full rounded-md border border-[var(--border)] px-3"
+              value={manualIn}
+              onChange={(event) => setManualIn(event.target.value)}
+            >
+              <option value="">Incoming transaction</option>
+              {eligibleIncoming.map((transaction) => (
                 <option key={transaction.id} value={transaction.id}>
                   {shortDate(transaction.transactionDate)} {transaction.account.name}{" "}
                   {formatMoney(transaction.amountMinor)} {transaction.normalizedMerchant}
                 </option>
               ))}
-          </select>
-          <select
-            aria-label="Manual incoming transaction"
-            className="h-10 min-w-0 max-w-full rounded-md border border-[var(--border)] px-3"
-            value={manualIn}
-            onChange={(event) => setManualIn(event.target.value)}
-          >
-            <option value="">Incoming transaction</option>
-            {eligibleIncoming.map((transaction) => (
-              <option key={transaction.id} value={transaction.id}>
-                {shortDate(transaction.transactionDate)} {transaction.account.name}{" "}
-                {formatMoney(transaction.amountMinor)} {transaction.normalizedMerchant}
-              </option>
-            ))}
-          </select>
-          <button
-            className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!manualEligible || Boolean(pendingMatchId)}
-            onClick={() => onManual(manualOut, manualIn)}
-          >
-            {pendingMatchId ? "Working..." : "Create manual match"}
-          </button>
+            </select>
+            <button
+              className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!manualEligible || Boolean(pendingMatchId)}
+              onClick={() => onManual(manualOut, manualIn)}
+            >
+              {pendingMatchId ? "Working..." : "Create manual match"}
+            </button>
+          </div>
+          {selectedOut && !eligibleIncoming.length ? (
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              No eligible incoming transactions match the selected amount, account, and date window.
+            </p>
+          ) : null}
         </div>
-        {selectedOut && !eligibleIncoming.length ? (
-          <p className="mt-3 text-sm text-[var(--muted)]">
-            No eligible incoming transactions match the selected amount, account, and date window.
-          </p>
-        ) : null}
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
 

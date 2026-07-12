@@ -4,7 +4,28 @@ test("overview renders the local-first shell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByText("Available Cash")).toBeVisible();
-  await expect(page.getByText("Spending by Category")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Spending by Category" })).toBeVisible();
+});
+
+test("overview action dashboard sections and links are functional", async ({ page }) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Needs Your Attention" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upcoming Obligations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Goals Snapshot" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Debt Snapshot" })).toBeVisible();
+
+  await page.getByRole("link", { name: "View all" }).click();
+  await expect(page).toHaveURL(/\/data-quality/);
+  await page.goto("/");
+  await page.getByRole("link", { name: "Full breakdown" }).click();
+  await expect(page).toHaveURL(/\/budget/);
+  await page.goto("/");
+  await page.getByRole("link", { name: "All goals" }).click();
+  await expect(page).toHaveURL(/\/goals/);
+  await page.goto("/");
+  await page.getByRole("link", { name: "Debt planner" }).click();
+  await expect(page).toHaveURL(/\/debt/);
 });
 
 test("transactions drawer opens from a transaction row", async ({ page }) => {

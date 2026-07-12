@@ -33,6 +33,23 @@ export async function getHousehold(db: Db = prisma) {
         include: { account: true, category: true },
         orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
       },
+      importBatches: { orderBy: [{ createdAt: "desc" }], take: 25 },
+      transferMatches: {
+        include: {
+          outgoingTransaction: { include: { account: true } },
+          incomingTransaction: { include: { account: true } },
+        },
+        orderBy: [{ status: "asc" }, { score: "desc" }, { createdAt: "desc" }],
+        take: 100,
+      },
+      recurringExpenses: {
+        orderBy: [
+          { status: "asc" },
+          { confidenceScore: "desc" },
+          { monthlyEquivalentMinor: "desc" },
+        ],
+        take: 100,
+      },
     },
   });
   if (!household) throw new AppError("Household not found. Run npm run db:seed.", 404);

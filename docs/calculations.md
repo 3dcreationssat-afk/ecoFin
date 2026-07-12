@@ -26,12 +26,18 @@
 - Recurring detection derives cadence, confidence, monthly equivalents, annual equivalents, amount variability, and price-change flags from local transactions only.
 - Recurring monthly equivalents use integer minor-unit math: weekly x 52 / 12, every two weeks x 26 / 12, monthly as-is, every two months / 2, quarterly / 3, twice yearly / 6, and annual / 12.
 - Recurring candidates exclude confirmed transfers, income, refunds, fees, card payments, zero-amount rows, and user-excluded transactions.
+- Overview action items are a concise projection of existing repository signals: checking buffer shortfall, upcoming account minimums, transfer candidates, possible duplicates, uncategorized spending, recurring review, recurring price increases, stale accounts, incomplete imports, underfunded goals, high APR debt, and missing debt metadata. Items sort by severity, then payment/cash risk, transfer/duplicate/category risk, recurring review, stale data, and informational debt/goal metadata.
+- Overview obligations cover the next 30 days from persisted data only. Account minimum payments take precedence over confirmed recurring records, and recurring entries that look like card payments or transfers are omitted to avoid counting credit-card payments as household spending.
+- Overview category spending uses current-month expense-like transactions, excludes transfers/income/refunds/excluded rows, includes an uncategorized row when needed, and labels rows as `Over budget`, `Approaching budget`, `On track`, or `No budget`.
+- Overview goal statuses are derived from target/current/planned/required monthly values and target date: completed goals are `Completed`; missing target dates or contribution plans are called out; planned monthly below required monthly is `Behind`; near-required funding is `At risk`; otherwise the goal is `On track`.
+- Overview debt recommendations use active non-archived debt accounts with negative balances shown as positive debt. Avalanche recommends highest APR first, Snowball recommends lowest positive balance first, and Custom shows no recommendation because custom ordering is not persisted.
 
 ## Preliminary or Unavailable
 
 - Safe to Save, Safe to Spend, scheduled cash-flow projection, debt payoff, and decision simulator values are not production recommendation engines yet.
 - Cash-flow month-end uses current cash plus recorded current-month net cash flow. It does not include future income, future bills, recurring schedules, or household buffer rules.
 - Debt payoff date, remaining interest, and strategy impact are intentionally unavailable until a validated payoff engine is implemented.
+- Overview reserved status is limited to `Planned`, `Not specifically reserved`, or `Unknown`; there is no reservation engine.
 
 ## Planned
 

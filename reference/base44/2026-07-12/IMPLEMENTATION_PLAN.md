@@ -34,7 +34,7 @@ Validation:
 
 ## Increment 2: Actionable Overview
 
-Status: deferred
+Status: complete for the actionable Overview recovery increment
 
 Scope:
 
@@ -42,11 +42,13 @@ Scope:
 - Upcoming obligations from debt due dates, recurring records, and household settings.
 - Direct remediation links with URL-backed filters.
 - Confidence indicators by calculation area.
+- Current-period category status rows, active goal statuses, and debt next-payment recommendation.
 
 Dependencies:
 
 - Structured data-quality issue metadata.
 - Obligation model that avoids double counting scheduled and recorded activity.
+- No schema change was required; category period filtering and persisted custom debt order remain deferred.
 
 ## Increment 3: Transaction Management Parity
 

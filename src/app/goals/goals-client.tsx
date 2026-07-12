@@ -298,47 +298,52 @@ export function GoalsClient({
         {goals.map((goal) => {
           const progress = goalProgress(goal);
           return (
-            <Card key={goal.id} className="p-6">
-              <div className="mb-8 flex justify-between">
-                <div>
-                  <button className="text-left text-xl font-semibold" onClick={() => choose(goal)}>
-                    {goal.name}
-                  </button>
-                  <p className="text-sm text-[var(--muted)]">
-                    {goal.linkedAccount?.name ?? "No account linked"}
-                  </p>
+            <div key={goal.id} id={`goal-${goal.id}`} className="scroll-mt-6">
+              <Card className="p-6">
+                <div className="mb-8 flex justify-between">
+                  <div>
+                    <button
+                      className="text-left text-xl font-semibold"
+                      onClick={() => choose(goal)}
+                    >
+                      {goal.name}
+                    </button>
+                    <p className="text-sm text-[var(--muted)]">
+                      {goal.linkedAccount?.name ?? "No account linked"}
+                    </p>
+                  </div>
+                  <Pill tone={goal.archivedAt ? "neutral" : "good"}>
+                    {goal.archivedAt ? "Archived" : "Active"}
+                  </Pill>
                 </div>
-                <Pill tone={goal.archivedAt ? "neutral" : "good"}>
-                  {goal.archivedAt ? "Archived" : "Active"}
-                </Pill>
-              </div>
-              <div className="flex items-end justify-between">
-                <strong className="text-3xl">{formatMoney(goal.currentMinor)}</strong>
-                <span className="text-[var(--muted)]">of {formatMoney(goal.targetMinor)}</span>
-              </div>
-              <div className="my-3 h-2 rounded bg-[var(--surface-muted)]">
-                <div className="h-2 rounded bg-[var(--teal)]" style={{ width: `${progress}%` }} />
-              </div>
-              <p className="text-sm text-[var(--muted)]">
-                {progress}% complete · {goal.contributions.length} contribution records
-              </p>
-              <div className="mt-7 grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-[var(--muted)]">Planned / mo</span>
-                  <div className="font-semibold">{formatMoney(goal.plannedMonthlyMinor)}</div>
+                <div className="flex items-end justify-between">
+                  <strong className="text-3xl">{formatMoney(goal.currentMinor)}</strong>
+                  <span className="text-[var(--muted)]">of {formatMoney(goal.targetMinor)}</span>
                 </div>
-                <div>
-                  <span className="text-[var(--muted)]">Required / mo</span>
-                  <div className="font-semibold">{formatMoney(goal.requiredMonthlyMinor)}</div>
+                <div className="my-3 h-2 rounded bg-[var(--surface-muted)]">
+                  <div className="h-2 rounded bg-[var(--teal)]" style={{ width: `${progress}%` }} />
                 </div>
-              </div>
-              <button
-                className="mt-6 h-10 w-full rounded-md border border-[var(--border)]"
-                onClick={() => archive(goal.id, goal.archivedAt ? "restore" : "archive")}
-              >
-                {goal.archivedAt ? "Restore" : "Archive"}
-              </button>
-            </Card>
+                <p className="text-sm text-[var(--muted)]">
+                  {progress}% complete · {goal.contributions.length} contribution records
+                </p>
+                <div className="mt-7 grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-[var(--muted)]">Planned / mo</span>
+                    <div className="font-semibold">{formatMoney(goal.plannedMonthlyMinor)}</div>
+                  </div>
+                  <div>
+                    <span className="text-[var(--muted)]">Required / mo</span>
+                    <div className="font-semibold">{formatMoney(goal.requiredMonthlyMinor)}</div>
+                  </div>
+                </div>
+                <button
+                  className="mt-6 h-10 w-full rounded-md border border-[var(--border)]"
+                  onClick={() => archive(goal.id, goal.archivedAt ? "restore" : "archive")}
+                >
+                  {goal.archivedAt ? "Restore" : "Archive"}
+                </button>
+              </Card>
+            </div>
           );
         })}
       </div>

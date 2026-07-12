@@ -22,7 +22,7 @@ Implemented:
 - Explainable recurring-expense and subscription detection with review, confirmation, rejection, manual creation, cancellation tracking, savings selection, audit records, import/edit refresh, and data-quality signals.
 - Synthetic seed/reset flow for one local demo household plus a separate Start fresh workflow for an empty workspace.
 - Workspace state badges for Demonstration data, Empty workspace, Your data, and Mixed data.
-- Repository-derived overview, cash-flow, budget, debt, reports, accounts, transactions, goals, settings, and data-quality values where deterministic local inputs exist.
+- Repository-derived overview action queue, upcoming obligations, category spending, goal statuses, debt recommendation, cash-flow, budget, reports, accounts, transactions, goals, settings, and data-quality values where deterministic local inputs exist.
 
 Still planned:
 
@@ -90,6 +90,7 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - Recurring detection excludes confirmed transfers, income, refunds, fees, card payments, and user-excluded transactions.
 - APR values use basis points, for example `2149` means `21.49%`.
 - Preliminary financial signals remain labeled until validated engines exist.
+- Overview obligations use account minimum-payment terms and confirmed recurring records only; no bill dates, reservation status, or credit-card payment spending is invented.
 
 ## Demo Data And Backup Status
 

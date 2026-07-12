@@ -25,3 +25,4 @@
 - Fixed demo data reset to run through the active Prisma database connection, return structured counts and safe database diagnostics, show pending/success/error UI feedback, clear confirmation state, preserve browser preferences, and cover reset success/failure paths with tests.
 - Added workspace lifecycle states, a Start fresh workflow for empty local workspaces, empty-state screens, and clarified Restore demonstration data semantics while preserving backup ZIP files and browser preferences.
 - Added the Base44 parity audit package and replaced static Overview, Cash Flow, Budget, Debt, and Reports figures with repository-derived or explicitly unavailable/preliminary values.
+- Added the actionable Overview increment with repository-derived attention items, upcoming obligations, category status rows, goal statuses, debt strategy recommendation, direct drill-down links, and focused unit/e2e coverage.

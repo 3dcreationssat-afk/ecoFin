@@ -28,6 +28,7 @@
 - Confirmed transfers set directional transaction types `TRANSFER_OUT` and `TRANSFER_IN` so household reporting can neutralize the pair while account activity remains visible.
 - Recurring detection uses durable `RecurringExpense` and `RecurringExpenseTransaction` records, deterministic merchant normalization, cadence scoring, amount statistics, confidence reasons, review status, and user confirmation state.
 - Recurring scans run locally after CSV import confirmation and transaction normalization edits. Failures are recorded as recoverable warnings and never block an already confirmed import.
+- The Overview dashboard is composed through `src/domain/overview/dashboard.ts`, which projects repository records into action items, upcoming obligations, category spending, goal snapshots, and debt snapshots before React renders them.
 - Workspace lifecycle state is represented by `Household.workspaceMode` plus per-record `isDemo` provenance on accounts, categories, goals, and transactions. The UI reports `DEMONSTRATION`, `EMPTY`, `USER_DATA`, or `MIXED` from those durable markers, not from record names.
 - Start fresh runs server-side through the active Prisma connection in a transaction, clears financial/import/transfer/recurring/audit records, creates one empty household, preserves backup records and ZIP files, and records one `workspace_start_fresh` audit event.
 
