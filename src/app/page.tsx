@@ -7,6 +7,8 @@ import { buildOverviewDashboard, type OverviewSeverity } from "@/domain/overview
 import { accountSummaries, currentPeriodSummary } from "@/domain/summaries/calculations";
 import { getHousehold, workspaceState } from "@/server/data/repositories";
 import { cashAllocationSummary, getCashFlowProjection } from "@/server/data/cash-flow";
+import { calculatePayoff, type DebtInput } from "@/domain/debt/payoff";
+import { getDebtPlan } from "@/server/data/debt-plans";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,30 @@ export default async function Home() {
   const period = currentPeriodSummary(household.transactions);
   const dashboard = buildOverviewDashboard({ household });
   const cashFlow = isEmpty ? null : await getCashFlowProjection();
+  const debtPlan = isEmpty ? null : await getDebtPlan(household.id);
+  const debtInputs: DebtInput[] = household.accounts.map((account) => ({
+    id: account.id,
+    name: account.name,
+    type: account.type,
+    balanceMinor: account.ledgerBalanceMinor ?? 0,
+    aprBasisPoints: account.aprBasisPoints,
+    minimumPaymentMinor: account.minimumPaymentMinor,
+    dueDay: account.dueDay,
+    archivedAt: account.archivedAt,
+    reconciliationStatus: account.reconciliationStatus,
+    balanceConfidence: account.balanceConfidence,
+    lastReconciledAt: account.lastReconciledAt,
+  }));
+  const payoff = debtPlan
+    ? calculatePayoff({
+        debts: debtInputs,
+        strategy: debtPlan.strategy as "AVALANCHE" | "SNOWBALL" | "CUSTOM",
+        extraPaymentMinor: debtPlan.extraPaymentMinor,
+        customOrder: debtPlan.customOrder,
+        asOf: new Date("2026-07-12T00:00:00.000Z"),
+      })
+    : null;
+  const nextDebt = household.accounts.find((account) => account.id === payoff?.orderedDebtIds[0]);
   const allocation = cashFlow ? cashAllocationSummary(cashFlow) : null;
   const summaryCards = [
     {
@@ -390,19 +416,29 @@ export default async function Home() {
                   </div>
                   <div className="flex justify-between gap-4">
                     <span className="text-[var(--muted)]">Selected strategy</span>
-                    <strong>{dashboard.debt.strategy}</strong>
+                    <strong>{debtPlan?.strategy ?? dashboard.debt.strategy}</strong>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[var(--muted)]">Estimated debt-free</span>
+                    <strong className="whitespace-nowrap">
+                      {payoff?.debtFreeDate
+                        ? formatPayoffMonth(payoff.debtFreeDate)
+                        : "Review terms"}
+                    </strong>
                   </div>
                   <div className="border-t border-[var(--border)] pt-3">
                     <p className="text-xs text-[var(--muted)]">
-                      {dashboard.debt.recommendationNote}
+                      {payoff?.available
+                        ? `Validated monthly estimate · ${payoff.confidence} confidence`
+                        : dashboard.debt.recommendationNote}
                     </p>
-                    {dashboard.debt.recommendedDebt ? (
+                    {nextDebt ? (
                       <a
                         className="mt-2 flex justify-between gap-4 font-semibold text-[var(--teal)]"
-                        href={dashboard.debt.recommendedDebt.href}
+                        href="/debt"
                       >
-                        <span>{dashboard.debt.recommendedDebt.name}</span>
-                        <span>{formatApr(dashboard.debt.recommendedDebt.aprBasisPoints)}</span>
+                        <span>{nextDebt.name}</span>
+                        <span>{formatApr(nextDebt.aprBasisPoints)}</span>
                       </a>
                     ) : (
                       <p className="mt-2 font-semibold">No recommendation available.</p>
@@ -444,4 +480,12 @@ function formatDate(value: Date) {
 
 function formatApr(value: number | null) {
   return value == null ? "Not set" : `${(value / 100).toFixed(2)}%`;
+}
+
+function formatPayoffMonth(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(value);
 }

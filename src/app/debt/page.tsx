@@ -1,40 +1,34 @@
 import { Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { Button, Card, MetricCard, PageHeader, Pill } from "@/components/data-display/primitives";
+import { Button, Card, PageHeader } from "@/components/data-display/primitives";
+import { DebtPlanner } from "./debt-planner";
 import { pageMeta } from "@/data/demo";
-import { formatMoney } from "@/domain/money/money";
-import { accountSummaries } from "@/domain/summaries/calculations";
+import type { DebtInput } from "@/domain/debt/payoff";
+import { getDebtPlan } from "@/server/data/debt-plans";
 import { getHousehold, workspaceState } from "@/server/data/repositories";
 
 export const dynamic = "force-dynamic";
 
 export default async function DebtPage() {
-  const household = await getHousehold();
-  const state = await workspaceState();
-  const summary = accountSummaries(household.accounts);
-  const debtAccounts = household.accounts
-    .filter(
-      (account) =>
-        !account.archivedAt &&
-        ["CREDIT", "LOAN", "MORTGAGE"].includes(account.type) &&
-        (account.ledgerBalanceMinor ?? 0) > 0,
-    )
-    .sort((a, b) => (b.aprBasisPoints ?? 0) - (a.aprBasisPoints ?? 0));
-  const monthlyMinimumsMinor = debtAccounts.reduce(
-    (total, account) => total + (account.minimumPaymentMinor ?? 0),
-    0,
-  );
-  const weightedAprBasisPoints =
-    summary.totalDebtsMinor === 0
-      ? 0
-      : Math.round(
-          debtAccounts.reduce(
-            (total, account) =>
-              total + (account.ledgerBalanceMinor ?? 0) * (account.aprBasisPoints ?? 0),
-            0,
-          ) / summary.totalDebtsMinor,
-        );
-  const highestAprBasisPoints = debtAccounts[0]?.aprBasisPoints ?? 0;
+  const [household, state, plan] = await Promise.all([
+    getHousehold(),
+    workspaceState(),
+    getDebtPlan(),
+  ]);
+  const debts: DebtInput[] = household.accounts.map((account) => ({
+    id: account.id,
+    name: account.name,
+    type: account.type,
+    balanceMinor: account.ledgerBalanceMinor ?? 0,
+    aprBasisPoints: account.aprBasisPoints,
+    minimumPaymentMinor: account.minimumPaymentMinor,
+    dueDay: account.dueDay,
+    archivedAt: account.archivedAt,
+    reconciliationStatus: account.reconciliationStatus,
+    balanceConfidence: account.balanceConfidence,
+    lastReconciledAt: account.lastReconciledAt,
+  }));
+
   return (
     <AppShell>
       <PageHeader
@@ -42,142 +36,37 @@ export default async function DebtPage() {
         subtitle={pageMeta["/debt"].subtitle}
         workspaceState={state}
         action={
-          <Button disabled title="Debt creation is planned">
+          <Button disabled title="Add debt accounts from Accounts">
             <Plus className="h-4 w-4" /> Add Debt
           </Button>
         }
       />
       {state === "EMPTY" ? (
         <Card className="p-6">
-          <h2 className="text-xl font-semibold">Debt planning will appear after data is added.</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Add debt accounts before reviewing payoff order and strategy impact.
+          <h2 className="text-xl font-semibold">Build your debt payoff plan.</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            Add a liability account, enter its APR, minimum payment, and due day, then reconcile the
+            opening balance. Financial Compass will use that ledger balance without inventing
+            missing terms.
           </p>
+          <a
+            href="/accounts"
+            className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-[var(--teal)] px-4 text-sm font-semibold text-white"
+          >
+            Add and reconcile an account
+          </a>
         </Card>
       ) : (
-        <>
-          <div className="metric-grid mb-7">
-            <MetricCard label="Total balance" value={formatMoney(summary.totalDebtsMinor)} />
-            <MetricCard label="Monthly minimums" value={formatMoney(monthlyMinimumsMinor)} />
-            <MetricCard label="Weighted APR" value={formatApr(weightedAprBasisPoints)} />
-            <MetricCard
-              label="Highest APR"
-              value={formatApr(highestAprBasisPoints)}
-              tone={highestAprBasisPoints > 0 ? "critical" : "default"}
-            />
-            <MetricCard
-              label="Est. payoff date"
-              value="Not yet available"
-              detail="Requires the validated payoff engine"
-            />
-            <MetricCard
-              label="Est. remaining interest"
-              value="Not yet available"
-              detail="Requires the validated payoff engine"
-            />
-          </div>
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--muted)]">Payoff Strategy</h2>
-              <div
-                className="mt-3 flex rounded-md border border-[var(--border)] bg-white p-1"
-                aria-label="Demonstration payoff strategy"
-              >
-                <button
-                  disabled
-                  title="Strategy switching requires the payoff engine"
-                  className="rounded bg-[var(--surface-muted)] px-4 py-2"
-                >
-                  Avalanche
-                </button>
-                <button
-                  disabled
-                  title="Strategy switching requires the payoff engine"
-                  className="px-4 py-2 text-[var(--muted)]"
-                >
-                  Snowball
-                </button>
-                <button
-                  disabled
-                  title="Strategy switching requires the payoff engine"
-                  className="px-4 py-2 text-[var(--muted)]"
-                >
-                  Custom
-                </button>
-              </div>
-            </div>
-            <label className="grid gap-2 text-sm text-[var(--muted)] sm:grid-cols-[auto_minmax(140px,1fr)_auto] sm:items-center">
-              Extra monthly payment
-              <input disabled type="range" defaultValue="0" />
-              <strong className="whitespace-nowrap text-[var(--text)]">Not yet available</strong>
-            </label>
-          </div>
-          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold">Payoff Order</h2>
-              <p className="mb-6 text-sm text-[var(--muted)]">
-                Sorted by APR until a validated payoff strategy engine is enabled
-              </p>
-              <div className="space-y-4">
-                {debtAccounts.map((account, index) => (
-                  <div
-                    key={account.id}
-                    className="grid items-center gap-3 rounded-lg border border-[var(--border)] p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4"
-                  >
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--teal)] font-semibold text-white">
-                      {index + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold">
-                        {account.name} <Pill>{friendlyAccountType(account.type)}</Pill>
-                      </div>
-                      <div className="text-sm text-[var(--muted)]">
-                        {formatApr(account.aprBasisPoints ?? 0)} APR
-                      </div>
-                    </div>
-                    <div className="pl-12 sm:pl-0 sm:text-right">
-                      <div className="whitespace-nowrap font-semibold tabular-nums">
-                        {formatMoney(account.ledgerBalanceMinor ?? 0)}
-                      </div>
-                      <div className="whitespace-nowrap text-sm text-[var(--muted)] tabular-nums">
-                        {formatMoney(account.minimumPaymentMinor ?? 0)} min
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {debtAccounts.length === 0 ? (
-                  <p className="text-sm text-[var(--muted)]">No active debt accounts found.</p>
-                ) : null}
-              </div>
-            </Card>
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold">Strategy Impact</h2>
-              <p className="mb-6 text-sm leading-6 text-[var(--muted)]">
-                Payoff simulation is coming in an upcoming iteration. Current totals remain visible
-                without presenting unvalidated estimates.
-              </p>
-              <div className="flex items-center justify-between gap-4 border-y border-[var(--border)] py-5">
-                <span className="text-[var(--muted)]">Total monthly minimums</span>
-                <strong className="whitespace-nowrap tabular-nums">
-                  {formatMoney(monthlyMinimumsMinor)}
-                </strong>
-              </div>
-            </Card>
-          </div>
-        </>
+        <DebtPlanner
+          debts={debts}
+          initialStrategy={plan.strategy as "AVALANCHE" | "SNOWBALL" | "CUSTOM"}
+          initialExtraPaymentMinor={plan.extraPaymentMinor}
+          initialCustomOrder={plan.customOrder}
+          initiallySaved={plan.saved}
+          asOfIso="2026-07-12T00:00:00.000Z"
+          mixedWorkspace={state === "MIXED"}
+        />
       )}
     </AppShell>
   );
-}
-
-function formatApr(value: number) {
-  return value > 0 ? `${(value / 100).toFixed(2)}%` : "Not set";
-}
-
-function friendlyAccountType(type: string) {
-  return type
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
