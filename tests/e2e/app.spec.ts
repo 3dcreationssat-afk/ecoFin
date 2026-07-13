@@ -341,6 +341,8 @@ test("complete signed amount CSV import workflow and undo", async ({ page }, tes
   await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
   await expect(page.getByText("Imported", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "View imported transactions" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.reload();
   await expect(page.getByRole("button", { name: marker })).toBeVisible();
   await Promise.all([
     page.waitForResponse(
@@ -395,13 +397,17 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
     mimeType: "text/csv",
     buffer: Buffer.from(content),
   });
-  await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
+  const repeatedPreview = page.getByRole("button", { name: "Preview CSV" });
+  await expect(repeatedPreview).toBeEnabled();
+  await repeatedPreview.click();
+  await expect(page.getByRole("heading", { name: "CSV Preview" })).toBeVisible();
   await page.getByRole("button", { name: "Validate rows" }).click();
   await expect(page.getByText("Invalid")).toBeVisible();
   await page.getByLabel("Decision for row 1").selectOption("IMPORT");
   await page.getByRole("button", { name: "Confirm import" }).click();
   await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
-  await page.getByRole("button", { name: "View imported transactions" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Import CSV" }).click();
   await page.locator('input[type="file"]').setInputFiles({
@@ -409,7 +415,9 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
     mimeType: "text/csv",
     buffer: Buffer.from(content),
   });
-  await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
+  await expect(repeatedPreview).toBeEnabled();
+  await repeatedPreview.click();
+  await expect(page.getByRole("heading", { name: "CSV Preview" })).toBeVisible();
   await page.getByRole("button", { name: "Validate rows" }).click();
   await expect(page.getByText(/Exact file repeat warning/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm import" })).toBeDisabled();
