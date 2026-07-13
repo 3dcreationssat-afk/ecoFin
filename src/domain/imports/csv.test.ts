@@ -5,6 +5,7 @@ import {
   parseCsv,
   parseDateOnly,
   parseDebitCreditAmount,
+  normalizeSignedAmount,
   parseSignedAmount,
   scoreDuplicate,
   sha256Text,
@@ -74,6 +75,13 @@ describe("csv import domain", () => {
     expect(parseSignedAmount("+12.75", { decimalSeparator: ".", thousandsSeparator: "," })).toBe(
       1275,
     );
+    expect(
+      normalizeSignedAmount("12.75", {
+        decimalSeparator: ".",
+        thousandsSeparator: ",",
+        signConvention: "DEBITS_POSITIVE",
+      }),
+    ).toBe(-1275);
     expect(parseSignedAmount("1.250,75", { decimalSeparator: ",", thousandsSeparator: "." })).toBe(
       125075,
     );
@@ -119,5 +127,49 @@ describe("csv import domain", () => {
         ],
       ).status,
     ).toBe("LIKELY");
+    expect(
+      scoreDuplicate(
+        {
+          accountId: "acct",
+          transactionDate: new Date("2026-08-11"),
+          amountMinor: -1000,
+          originalDescription: "Coffee",
+          normalizedMerchant: "Coffee",
+        },
+        [
+          {
+            accountId: "acct",
+            transactionDate: date,
+            amountMinor: -1000,
+            originalDescription: "Coffee",
+            normalizedMerchant: "Coffee",
+          },
+        ],
+      ).status,
+    ).toBe("NONE");
+    expect(
+      scoreDuplicate(
+        {
+          accountId: "acct",
+          transactionDate: new Date("2026-08-11"),
+          amountMinor: -2000,
+          originalDescription: "Changed",
+          normalizedMerchant: "Changed",
+          fileHash: "same-file",
+          rowNumber: 7,
+        },
+        [
+          {
+            accountId: "acct",
+            transactionDate: date,
+            amountMinor: -1000,
+            originalDescription: "Original",
+            normalizedMerchant: "Original",
+            fileHash: "same-file",
+            rowNumber: 7,
+          },
+        ],
+      ).status,
+    ).toBe("EXACT");
   });
 });

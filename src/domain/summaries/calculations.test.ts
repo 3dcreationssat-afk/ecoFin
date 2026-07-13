@@ -72,6 +72,29 @@ describe("summary calculations", () => {
     });
   });
 
+  it("keeps card purchases out of income, credits out of spending, and matched payments out of both", () => {
+    expect(
+      householdTransactionSummary([
+        { amountMinor: -5000, type: "DEBIT" },
+        { amountMinor: 1200, type: "REFUND" },
+        {
+          amountMinor: 5000,
+          type: "TRANSFER_IN",
+          affectsIncomeSpendingReports: false,
+        },
+        {
+          amountMinor: -5000,
+          type: "TRANSFER_OUT",
+          affectsIncomeSpendingReports: false,
+        },
+      ]),
+    ).toMatchObject({
+      householdIncomeMinor: 0,
+      householdSpendingMinor: 3800,
+      netCashFlowMinor: -3800,
+    });
+  });
+
   it("summarizes current and prior periods from dated transactions", () => {
     const result = currentPeriodSummary(
       [

@@ -80,3 +80,17 @@
 
 - Replaced ambiguous snapshot balance fields with explicit opening anchors, derived ledgers, reported snapshots, reconciliation state/confidence, and audited adjustments.
 - Adopted positive liability amounts owed, separated ledger/reporting semantics, and connected CSV import/undo and transfer workflows to recalculation.
+
+# 2026-07-13 — Real-data import semantics and recurring repair
+
+- Normalized signed CSV amounts according to the selected debit convention and persisted mapping
+  provenance on each newly validated batch.
+- Separated exact source provenance from narrowly time-bounded fuzzy duplicate scoring. Explicit
+  Import now takes precedence for ledger inclusion without clearing the review warning.
+- Added a generic, aggregate-only repair inspector with account conditions, exact-count refusal,
+  provenance validation, semantic ambiguity flags, auditing, and unanchored-ledger safeguards.
+- Made recurring detection more conservative, advanced predictable Next dates strictly into the
+  future, added Last observed, revalidated material decision changes, and lazy-loaded evidence.
+- Limited Data Quality import counts to the latest actionable attempt for each account/file source.
+- Household totals remain non-authoritative until anchors, categories, transfer decisions, and
+  household configuration are complete.

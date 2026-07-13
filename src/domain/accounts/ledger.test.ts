@@ -31,7 +31,7 @@ describe("account ledger", () => {
     expect(ledgerTransactionEffect("CREDIT", 1000)).toBe(-1000);
     expect(netWorthContribution("CREDIT", 5000)).toBe(-5000);
   });
-  it("suppresses pending, duplicate, and non-ledger rows", () => {
+  it("honors the explicit ledger decision even when a row remains duplicate-flagged", () => {
     const result = calculateLedgerBalance(
       "CHECKING",
       10000,
@@ -61,7 +61,7 @@ describe("account ledger", () => {
       ],
       [],
     );
-    expect(result.ledgerBalanceMinor).toBe(10000);
+    expect(result.ledgerBalanceMinor).toBe(9000);
   });
   it("keeps reporting exclusion independent from ledger inclusion", () => {
     const transfer = { affectsLedger: true, affectsIncomeSpendingReports: false };

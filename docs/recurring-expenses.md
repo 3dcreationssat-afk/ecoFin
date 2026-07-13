@@ -87,3 +87,15 @@ Recurring expense records and recurring transaction links are included in backup
 - No advanced forecasting engine.
 - No multi-currency handling.
 - No household-to-household recurring sharing.
+
+# Prediction and revalidation
+
+Automatic detection requires a defensible interval cluster and is intentionally conservative.
+Predictable schedules show both Last observed and the first expected occurrence strictly after the
+scan date. Irregular patterns do not show a precise Next date. Supporting transactions are loaded
+only when an item is opened, keeping the recurring page payload bounded.
+
+Confirmed and rejected decisions remain auditable. After supporting transaction semantics change,
+a confirmed pattern whose frequency, amount, type, or eligibility changes materially returns to
+Needs review. A rejected pattern is reconsidered only when its detection evidence changes. Stale
+unconfirmed suggestions become inactive rather than being deleted.

@@ -82,6 +82,34 @@ describe("recurring expense service", () => {
     expect(quality.unlinkedRecurringTransactions).toBeGreaterThanOrEqual(0);
   });
 
+  it("keeps dashboard payloads bounded and revalidates confirmed patterns that become ineligible", async () => {
+    await recurring.scanRecurringExpenses();
+    const dashboard = await recurring.recurringDashboard();
+    expect(dashboard.items.every((item) => "supportCount" in item && !("support" in item))).toBe(
+      true,
+    );
+    const candidate = await prismaModule.prisma.recurringExpense.findFirstOrThrow({
+      where: { status: "SUGGESTED" },
+      include: { transactions: true },
+    });
+    const evidence = await recurring.recurringEvidence(candidate.id);
+    expect(evidence.support).toHaveLength(candidate.transactions.length);
+    await recurring.confirmRecurringExpense(candidate.id, {});
+    await prismaModule.prisma.transaction.updateMany({
+      where: { recurringLinks: { some: { recurringExpenseId: candidate.id } } },
+      data: { amountMinor: 1 },
+    });
+    await recurring.scanRecurringExpenses();
+    expect(
+      await prismaModule.prisma.recurringExpense.findUniqueOrThrow({ where: { id: candidate.id } }),
+    ).toMatchObject({ status: "NEEDS_REVIEW" });
+    expect(
+      await prismaModule.prisma.scheduledObligation.findFirst({
+        where: { recurringExpenseId: candidate.id },
+      }),
+    ).toMatchObject({ active: false });
+  });
+
   it("runs after import confirmation and removes links when imported rows are undone", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts.find((item) => item.type === "CHECKING")!;

@@ -239,6 +239,18 @@ export function parseSignedAmount(
   return negative ? -amount : amount;
 }
 
+export function normalizeSignedAmount(
+  value: string,
+  options: {
+    decimalSeparator: "." | ",";
+    thousandsSeparator: "," | "." | " " | "";
+    signConvention: "DEBITS_NEGATIVE" | "DEBITS_POSITIVE";
+  },
+) {
+  const parsed = parseSignedAmount(value, options);
+  return options.signConvention === "DEBITS_POSITIVE" ? parsed * -1 : parsed;
+}
+
 export function parseDebitCreditAmount(
   debit: string,
   credit: string,
@@ -280,45 +292,48 @@ export type DuplicateInput = {
 export function scoreDuplicate(row: DuplicateInput, existing: DuplicateInput[]) {
   let best = { status: "NONE" as "NONE" | "POSSIBLE" | "LIKELY" | "EXACT", reason: "" };
   for (const candidate of existing) {
-    let score = 0;
-    const reasons: string[] = [];
-    if (candidate.accountId === row.accountId) {
-      score += 25;
-      reasons.push("same account");
-    }
-    if (sameDate(candidate.transactionDate, row.transactionDate)) {
-      score += 25;
-      reasons.push("same transaction date");
-    }
-    if (candidate.amountMinor === row.amountMinor) {
-      score += 25;
-      reasons.push("same amount");
-    }
-    if (
-      candidate.originalDescription.trim().toLowerCase() ===
-      row.originalDescription.trim().toLowerCase()
-    ) {
-      score += 15;
-      reasons.push("same original description");
-    }
+    if (candidate.accountId !== row.accountId) continue;
     if (
       candidate.fileHash &&
       row.fileHash &&
       candidate.fileHash === row.fileHash &&
+      candidate.rowNumber != null &&
       candidate.rowNumber === row.rowNumber
     ) {
-      score += 50;
-      reasons.push("same file and row");
+      return { status: "EXACT" as const, reason: "same account, source file, and source row" };
     }
-    const status =
-      score >= 100 ? "EXACT" : score >= 75 ? "LIKELY" : score >= 50 ? "POSSIBLE" : "NONE";
+    if (candidate.amountMinor !== row.amountMinor) continue;
+    const proximity = dateDistanceDays(candidate.transactionDate, row.transactionDate);
+    if (proximity > 3) continue;
+    const sameDescription =
+      normalizeDuplicateText(candidate.originalDescription) ===
+      normalizeDuplicateText(row.originalDescription);
+    const sameMerchant =
+      normalizeDuplicateText(candidate.normalizedMerchant) ===
+      normalizeDuplicateText(row.normalizedMerchant);
+    if (!sameDescription && !sameMerchant) continue;
+    const reasons = [
+      "same account",
+      "same amount",
+      proximity === 0 ? "same transaction date" : `transaction dates within ${proximity} days`,
+      sameDescription ? "same original description" : "same normalized merchant",
+    ];
+    const status = proximity === 0 && sameDescription ? "LIKELY" : "POSSIBLE";
     if (rank(status) > rank(best.status)) best = { status, reason: reasons.join(", ") };
   }
   return best;
 }
 
-function sameDate(a: Date, b: Date) {
-  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+function dateDistanceDays(a: Date, b: Date) {
+  return Math.abs(Math.round((dateOnlyTime(a) - dateOnlyTime(b)) / 86_400_000));
+}
+
+function dateOnlyTime(value: Date) {
+  return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+}
+
+function normalizeDuplicateText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function rank(status: "NONE" | "POSSIBLE" | "LIKELY" | "EXACT") {

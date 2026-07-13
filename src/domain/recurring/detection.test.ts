@@ -5,6 +5,7 @@ import {
   isRecurringEligible,
   normalizeRecurringAmount,
   normalizeRecurringMerchant,
+  nextFutureOccurrence,
 } from "./detection";
 
 function tx(input: {
@@ -38,16 +39,20 @@ describe("recurring detection", () => {
   });
 
   it("detects monthly, variable, and annual recurring candidates with equivalents", () => {
-    const candidates = detectRecurringCandidates([
-      tx({ id: "n1", date: "2026-05-08", amount: -1599 }),
-      tx({ id: "n2", date: "2026-06-08", amount: -1599 }),
-      tx({ id: "n3", date: "2026-07-08", amount: -1799 }),
-      tx({ id: "u1", date: "2026-05-01", amount: -5840, merchant: "City Water Utility" }),
-      tx({ id: "u2", date: "2026-06-01", amount: -6218, merchant: "City Water Utility" }),
-      tx({ id: "u3", date: "2026-07-01", amount: -6405, merchant: "City Water Utility" }),
-      tx({ id: "a1", date: "2025-07-01", amount: -12000, merchant: "Annual Cloud Backup" }),
-      tx({ id: "a2", date: "2026-07-01", amount: -12000, merchant: "Annual Cloud Backup" }),
-    ]);
+    const candidates = detectRecurringCandidates(
+      [
+        tx({ id: "n1", date: "2026-05-08", amount: -1599 }),
+        tx({ id: "n2", date: "2026-06-08", amount: -1599 }),
+        tx({ id: "n3", date: "2026-07-08", amount: -1799 }),
+        tx({ id: "u1", date: "2026-05-01", amount: -5840, merchant: "City Water Utility" }),
+        tx({ id: "u2", date: "2026-06-01", amount: -6218, merchant: "City Water Utility" }),
+        tx({ id: "u3", date: "2026-07-01", amount: -6405, merchant: "City Water Utility" }),
+        tx({ id: "a1", date: "2025-07-01", amount: -12000, merchant: "Annual Cloud Backup" }),
+        tx({ id: "a2", date: "2026-07-01", amount: -12000, merchant: "Annual Cloud Backup" }),
+        tx({ id: "a3", date: "2027-07-01", amount: -12000, merchant: "Annual Cloud Backup" }),
+      ],
+      new Date("2027-07-12"),
+    );
     expect(candidates.map((candidate) => candidate.displayName)).toEqual(
       expect.arrayContaining(["Netflix", "City Water Utility", "Cloud Backup"]),
     );
@@ -57,6 +62,27 @@ describe("recurring detection", () => {
     expect(netflix.monthlyEquivalentMinor).toBe(1599);
     const annual = candidates.find((candidate) => candidate.displayName === "Cloud Backup")!;
     expect(annual.monthlyEquivalentMinor).toBe(1000);
+  });
+
+  it("returns the first strictly future occurrence and no precise date for irregular patterns", () => {
+    expect(
+      nextFutureOccurrence(
+        new Date("2026-01-31T00:00:00Z"),
+        "MONTHLY",
+        30,
+        new Date("2026-07-13T00:00:00Z"),
+      )
+        ?.toISOString()
+        .slice(0, 10),
+    ).toBe("2026-07-28");
+    expect(
+      nextFutureOccurrence(
+        new Date("2026-07-01T00:00:00Z"),
+        "IRREGULAR_RECURRING",
+        30,
+        new Date("2026-07-13T00:00:00Z"),
+      ),
+    ).toBeNull();
   });
 
   it("excludes income, refunds, transfers, card payments, and excluded rows", () => {

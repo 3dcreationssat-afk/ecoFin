@@ -7,6 +7,7 @@ let imports: typeof import("./imports");
 let repositories: typeof import("./repositories");
 let prismaModule: typeof import("@/server/db/prisma");
 let merchantRules: typeof import("./merchant-rules");
+let accountBalances: typeof import("./account-balances");
 
 const signedCsv =
   "Date,Description,Amount\n07/10/2026,Synthetic Coffee,-4.25\n07/11/2026,Synthetic Payroll,1250.00";
@@ -24,6 +25,7 @@ describe("csv import repositories", () => {
     repositories = await import("./repositories");
     prismaModule = await import("@/server/db/prisma");
     merchantRules = await import("./merchant-rules");
+    accountBalances = await import("./account-balances");
   }, 120_000);
 
   afterAll(async () => {
@@ -105,7 +107,8 @@ describe("csv import repositories", () => {
   it("previews, validates, imports, detects repeats, and undoes signed amount CSV", async () => {
     const dashboard = await imports.importDashboard();
     const account = dashboard.accounts[0];
-    const ledgerBefore = account.ledgerBalanceMinor;
+    const ledgerBefore = (await accountBalances.recalculateAccountBalance(account.id))
+      .ledgerBalanceMinor;
     await merchantRules.createMerchantRule(
       {
         name: "Synthetic coffee import",
@@ -161,6 +164,10 @@ describe("csv import repositories", () => {
       },
     });
     expect(validated.acceptedRowCount).toBe(2);
+    expect(JSON.parse(validated.summaryJson ?? "{}").mapping).toMatchObject({
+      amountMode: "SIGNED_AMOUNT",
+      signConvention: "DEBITS_NEGATIVE",
+    });
     const imported = await imports.confirmImport({
       batchId: validated.id,
       decisions: validated.rows.map((row) => ({ rowId: row.id, decision: "IMPORT" })),
@@ -275,12 +282,15 @@ describe("csv import repositories", () => {
       batchId: validated.id,
       decisions: validated.rows.map((row) => ({
         rowId: row.id,
-        decision: row.id === candidate?.id ? "SKIP" : "IMPORT",
+        decision: "IMPORT",
       })),
       confirm: "IMPORT CSV",
     });
-    expect(imported.importedTransactionCount).toBe(1);
-    expect(imported.rows.find((row) => row.id === candidate?.id)?.createdTransactionId).toBeNull();
+    expect(imported.importedTransactionCount).toBe(2);
+    const explicitDuplicate = imported.transactions.find(
+      (transaction) => transaction.importRowId === candidate?.id,
+    );
+    expect(explicitDuplicate).toMatchObject({ possibleDuplicate: true, affectsLedger: true });
   });
 
   it("accepts Amex-shaped rows with masked account identifiers and preserves unused metadata", async () => {

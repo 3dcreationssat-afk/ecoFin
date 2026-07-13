@@ -18,3 +18,10 @@ Ledger formula:
 CSV confirmation and undo recalculate affected accounts. Normal merchant/category/note edits do not change amounts and therefore do not change ledger totals. Transfer confirmation/unmatch recalculates both accounts. Future amount/date/account correction workflows must call the same recalculation service.
 
 Cash Flow uses only trustworthy anchored ledgers. A reported available balance may cap usable liquidity only when current (seven days or less old) and lower; it never changes the ledger.
+
+# Import repair and unanchored accounts
+
+Recalculating after an import semantic repair recalculates eligible transaction-derived ledger
+movement and ledger state only. It never infers an opening balance. An account without an explicit
+anchor remains `NEEDS_ANCHOR`, keeps a null authoritative ledger balance, and retains limited
+confidence.

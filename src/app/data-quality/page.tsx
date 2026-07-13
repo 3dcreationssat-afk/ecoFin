@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { Card, PageHeader, Pill } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { dataQualityRules } from "@/domain/summaries/calculations";
-import { importDashboard } from "@/server/data/imports";
+import { actionableImportBatches, importDashboard } from "@/server/data/imports";
 import { workspaceState } from "@/server/data/repositories";
 import { recurringDataQuality } from "@/server/data/recurring";
 import { transferDataQuality } from "@/server/data/transfers";
@@ -15,22 +15,22 @@ import { calculateEmergencyRunway } from "@/domain/planning/emergency-runway";
 export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
-  const { household, batches } = await importDashboard();
+  const { household } = await importDashboard();
   const state = await workspaceState();
-  const [transferQuality, recurringQuality, merchantRuleQuality, cashFlowInput] = await Promise.all(
-    [
+  const [transferQuality, recurringQuality, merchantRuleQuality, cashFlowInput, activeBatches] =
+    await Promise.all([
       transferDataQuality(),
       recurringDataQuality(),
       merchantRuleDataQuality(),
       getCashFlowInput(new Date("2026-07-11")),
-    ],
-  );
+      actionableImportBatches(household.id),
+    ]);
   const runway = calculateEmergencyRunway(cashFlowInput);
   const quality = dataQualityRules({
     transactions: household.transactions,
     accounts: household.accounts,
     goals: household.goals,
-    importBatches: batches,
+    importBatches: activeBatches,
     transfers: transferQuality,
     recurring: recurringQuality,
     asOf: new Date("2026-07-11"),

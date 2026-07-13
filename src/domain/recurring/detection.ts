@@ -87,28 +87,28 @@ const frequencyRules: FrequencyRule[] = [
     label: "Every two months",
     expectedDays: 61,
     toleranceDays: 7,
-    minOccurrences: 2,
+    minOccurrences: 3,
   },
   {
     frequency: "QUARTERLY",
     label: "Quarterly",
     expectedDays: 91,
     toleranceDays: 7,
-    minOccurrences: 2,
+    minOccurrences: 3,
   },
   {
     frequency: "SEMIANNUAL",
     label: "Semiannual",
     expectedDays: 183,
     toleranceDays: 14,
-    minOccurrences: 2,
+    minOccurrences: 3,
   },
   {
     frequency: "ANNUAL",
     label: "Annual",
     expectedDays: 365,
     toleranceDays: 15,
-    minOccurrences: 2,
+    minOccurrences: 3,
   },
 ];
 
@@ -175,7 +175,10 @@ export function isRecurringEligible(transaction: RecurringTransactionInput) {
   return true;
 }
 
-export function detectRecurringCandidates(transactions: RecurringTransactionInput[]) {
+export function detectRecurringCandidates(
+  transactions: RecurringTransactionInput[],
+  asOf = new Date(),
+) {
   const groups = new Map<string, RecurringTransactionInput[]>();
   for (const transaction of transactions.filter(isRecurringEligible)) {
     const merchantKey = normalizeRecurringMerchant(
@@ -188,13 +191,17 @@ export function detectRecurringCandidates(transactions: RecurringTransactionInpu
   const candidates: RecurringCandidate[] = [];
   for (const [merchantKey, group] of groups) {
     const sorted = [...group].sort((a, b) => observedDate(a).getTime() - observedDate(b).getTime());
-    const candidate = buildCandidate(merchantKey, sorted);
+    const candidate = buildCandidate(merchantKey, sorted, asOf);
     if (candidate) candidates.push(candidate);
   }
   return candidates.sort((a, b) => b.confidenceScore - a.confidenceScore);
 }
 
-function buildCandidate(merchantKey: string, transactions: RecurringTransactionInput[]) {
+function buildCandidate(
+  merchantKey: string,
+  transactions: RecurringTransactionInput[],
+  asOf: Date,
+) {
   if (transactions.length < 2) return null;
   const intervals = transactions
     .slice(1)
@@ -243,8 +250,12 @@ function buildCandidate(merchantKey: string, transactions: RecurringTransactionI
   );
   const firstObservedDate = observedDate(transactions[0]);
   const lastObservedDate = observedDate(transactions[transactions.length - 1]);
-  const nextExpectedDate =
-    frequency.expectedDays > 0 ? addDays(lastObservedDate, frequency.expectedDays) : null;
+  const nextExpectedDate = nextFutureOccurrence(
+    lastObservedDate,
+    frequency.frequency,
+    frequency.expectedDays,
+    asOf,
+  );
   const transactionIds = transactions.map((transaction) => transaction.id);
 
   return {
@@ -299,22 +310,55 @@ function chooseFrequency(intervals: number[], occurrences: number) {
       };
     }
   }
-  if (best.matchRatio >= 0.6) return best;
-  if (occurrences >= 3) {
+  if (best.matchRatio >= 0.7) return best;
+  if (occurrences >= 4 && intervals.every((interval) => interval >= 14)) {
     return {
       frequency: "IRREGULAR_RECURRING" as Frequency,
-      expectedDays: Math.max(
-        1,
-        roundDiv(
-          intervals.reduce((total, day) => total + day, 0),
-          intervals.length,
-        ),
-      ),
-      matchRatio: 0.45,
+      expectedDays: 0,
+      matchRatio: 0.5,
       label: "Irregular recurring",
     };
   }
   return best;
+}
+
+export function nextFutureOccurrence(
+  lastObservedDate: Date,
+  frequency: Frequency,
+  expectedDays: number,
+  asOf: Date,
+) {
+  if (frequency === "IRREGULAR_RECURRING" || frequency === "UNKNOWN") return null;
+  let next = new Date(lastObservedDate);
+  let guard = 0;
+  while (next <= asOf && guard < 1_000) {
+    next = addCadence(next, frequency, expectedDays);
+    guard += 1;
+  }
+  return next > asOf ? next : null;
+}
+
+function addCadence(value: Date, frequency: Frequency, expectedDays: number) {
+  const months =
+    frequency === "MONTHLY"
+      ? 1
+      : frequency === "EVERY_TWO_MONTHS"
+        ? 2
+        : frequency === "QUARTERLY"
+          ? 3
+          : frequency === "SEMIANNUAL"
+            ? 6
+            : frequency === "ANNUAL"
+              ? 12
+              : 0;
+  if (!months) return addDays(value, expectedDays);
+  const day = value.getUTCDate();
+  const result = new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + months, 1));
+  const lastDay = new Date(
+    Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  result.setUTCDate(Math.min(day, lastDay));
+  return result;
 }
 
 export function normalizeRecurringAmount(amountMinor: number, frequency: Frequency) {

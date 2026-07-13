@@ -38,6 +38,7 @@ export async function scanRecurringExpenses(
   const candidates = detectRecurringCandidates(transactions);
   const created: string[] = [];
   const refreshed: string[] = [];
+  const detectedKeys = new Set(candidates.map((item) => `${item.merchantKey}|${item.frequency}`));
 
   for (const candidate of candidates) {
     const existing = await prisma.recurringExpense.findUnique({
@@ -53,7 +54,9 @@ export async function scanRecurringExpenses(
       continue;
     }
     if (existing?.status === "CONFIRMED" || existing?.status === "CANCELED") {
-      await refreshExistingRecurring(existing.id, candidate);
+      const needsReview =
+        existing.status === "CONFIRMED" && recurringMateriallyChanged(existing, candidate);
+      await refreshExistingRecurring(existing.id, candidate, needsReview);
       refreshed.push(existing.id);
       continue;
     }
@@ -97,6 +100,48 @@ export async function scanRecurringExpenses(
       });
     }
   }
+  const noLongerEligible = await prisma.recurringExpense.findMany({
+    where: {
+      householdId: household.id,
+      status: "CONFIRMED",
+      detectionHash: { not: { startsWith: "manual:" } },
+    },
+  });
+  for (const existing of noLongerEligible) {
+    if (detectedKeys.has(`${existing.merchantKey}|${existing.frequency}`)) continue;
+    await deactivateDerivedSchedule(existing.id);
+    await prisma.recurringExpense.update({
+      where: { id: existing.id },
+      data: { status: "NEEDS_REVIEW" },
+    });
+    await auditChange(prisma, {
+      householdId: household.id,
+      entityType: "RecurringExpense",
+      entityId: existing.id,
+      action: "confirmed_pattern_revalidation_required",
+      field: "status",
+      previousValue: "CONFIRMED",
+      newValue: "NEEDS_REVIEW",
+      reason: "Supporting transactions no longer form an eligible recurring pattern.",
+      source: "recurring",
+    });
+    refreshed.push(existing.id);
+  }
+  const staleSuggestions = await prisma.recurringExpense.findMany({
+    where: {
+      householdId: household.id,
+      status: "SUGGESTED",
+      NOT: { detectionHash: { startsWith: "manual:" } },
+    },
+  });
+  for (const existing of staleSuggestions) {
+    if (detectedKeys.has(`${existing.merchantKey}|${existing.frequency}`)) continue;
+    await prisma.recurringExpense.update({
+      where: { id: existing.id },
+      data: { status: "INACTIVE", nextExpectedDate: null },
+    });
+    refreshed.push(existing.id);
+  }
   return {
     createdCount: created.length,
     refreshedCount: refreshed.length,
@@ -113,10 +158,7 @@ export async function recurringDashboard() {
       where: { householdId: household.id },
       include: {
         category: true,
-        transactions: {
-          include: { transaction: { include: { account: true, category: true } } },
-          orderBy: { createdAt: "desc" },
-        },
+        _count: { select: { transactions: true } },
       },
       orderBy: [{ status: "asc" }, { confidenceScore: "desc" }, { monthlyEquivalentMinor: "desc" }],
       take: 250,
@@ -132,7 +174,12 @@ export async function recurringDashboard() {
   return {
     household,
     categories,
-    items: items.map(serializeRecurring),
+    items: items.map((item) => ({
+      ...item,
+      reasons: parseJsonArray(item.reasonsJson),
+      supportCount: item._count.transactions,
+      _count: undefined,
+    })),
     summary: {
       monthlyTotalMinor: active.reduce((total, item) => total + item.monthlyEquivalentMinor, 0),
       annualTotalMinor: active.reduce((total, item) => total + item.annualEquivalentMinor, 0),
@@ -153,6 +200,21 @@ export async function recurringDashboard() {
       priceIncreases: items.filter((item) => item.priceChangeAmountMinor > 0).length,
     },
   };
+}
+
+export async function recurringEvidence(id: string) {
+  const item = await prisma.recurringExpense.findUnique({
+    where: { id },
+    include: {
+      category: true,
+      transactions: {
+        include: { transaction: { include: { account: true, category: true } } },
+        orderBy: { transaction: { transactionDate: "desc" } },
+      },
+    },
+  });
+  if (!item) throw new AppError("Recurring expense not found.", 404);
+  return serializeRecurring(item);
 }
 
 export async function confirmRecurringExpense(id: string, input: unknown) {
@@ -493,10 +555,14 @@ function candidateToData(candidate: RecurringCandidate) {
   };
 }
 
-async function refreshExistingRecurring(id: string, candidate: RecurringCandidate) {
+async function refreshExistingRecurring(
+  id: string,
+  candidate: RecurringCandidate,
+  needsReview = false,
+) {
   const record = await prisma.recurringExpense.update({
     where: { id },
-    data: candidateToData(candidate),
+    data: { ...candidateToData(candidate), status: needsReview ? "NEEDS_REVIEW" : undefined },
   });
   await replaceSupportingLinks(record.id, candidate.transactionIds, record.confidence);
   if (candidate.priceChangeAmountMinor) {
@@ -510,6 +576,47 @@ async function refreshExistingRecurring(id: string, candidate: RecurringCandidat
       source: "recurring",
     });
   }
+  if (needsReview) {
+    await deactivateDerivedSchedule(record.id);
+    await auditChange(prisma, {
+      householdId: record.householdId,
+      entityType: "RecurringExpense",
+      entityId: record.id,
+      action: "confirmed_pattern_revalidation_required",
+      field: "status",
+      previousValue: "CONFIRMED",
+      newValue: "NEEDS_REVIEW",
+      reason: "Frequency, amount, or supporting evidence changed materially.",
+      source: "recurring",
+    });
+  }
+}
+
+async function deactivateDerivedSchedule(recurringExpenseId: string) {
+  await prisma.$transaction([
+    prisma.expectedIncomeSchedule.updateMany({
+      where: { recurringExpenseId, archivedAt: null },
+      data: { active: false },
+    }),
+    prisma.scheduledObligation.updateMany({
+      where: { recurringExpenseId, archivedAt: null },
+      data: { active: false },
+    }),
+  ]);
+}
+
+function recurringMateriallyChanged(
+  existing: {
+    frequency: string;
+    typicalAmountMinor: number;
+    recurringType: string;
+  },
+  candidate: RecurringCandidate,
+) {
+  if (existing.frequency !== candidate.frequency) return true;
+  if (existing.recurringType !== candidate.recurringType) return true;
+  const baseline = Math.max(1, Math.abs(existing.typicalAmountMinor));
+  return Math.abs(candidate.typicalAmountMinor - existing.typicalAmountMinor) * 100 > baseline * 20;
 }
 
 async function replaceSupportingLinks(

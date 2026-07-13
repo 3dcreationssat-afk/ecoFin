@@ -48,7 +48,8 @@ type RecurringDto = {
   canceledAt?: string | null;
   expectedFinalChargeDate?: string | null;
   reasons: string[];
-  support: SupportDto[];
+  supportCount: number;
+  support?: SupportDto[];
   category?: { name: string } | null;
 };
 type RecurringData = {
@@ -74,6 +75,7 @@ const frequencyLabels: Record<string, string> = {
   QUARTERLY: "Quarterly",
   SEMIANNUAL: "Twice a year",
   ANNUAL: "Annual",
+  IRREGULAR_RECURRING: "Irregular pattern",
 };
 const statusLabels: Record<string, string> = {
   SUGGESTED: "Suggested",
@@ -173,6 +175,18 @@ export function RecurringClient({ data }: { data: RecurringData }) {
     refreshFromServer();
   }
 
+  async function openRecurring(item: RecurringDto) {
+    setMessage("Loading supporting transactions.");
+    const response = await fetch(`/api/recurring/${item.id}`);
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(json.error ?? "Could not load supporting transactions.");
+      return;
+    }
+    setSelected({ ...item, ...json.recurring, supportCount: item.supportCount });
+    setMessage("");
+  }
+
   async function calculateSavings() {
     const result = await postJson("/api/recurring/savings", { ids: checked });
     setSavings(
@@ -257,7 +271,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
       </Card>
       <Card className="overflow-hidden">
         <div className="max-h-[680px] overflow-auto">
-          <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
+          <table className="w-full min-w-[1280px] table-fixed text-left text-sm">
             <thead className="sticky top-0 bg-[var(--surface)] text-[var(--muted)]">
               <tr>
                 {[
@@ -265,6 +279,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                   "Merchant",
                   "Amount",
                   "Cadence",
+                  "Last",
                   "Next",
                   "Confidence",
                   "Classification",
@@ -318,8 +333,13 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                     ) : null}
                   </td>
                   <td className="px-4 py-4">{frequencyLabels[item.frequency] ?? item.frequency}</td>
+                  <td className="px-4 py-4">{shortDate(item.lastObservedDate)}</td>
                   <td className="px-4 py-4">
-                    {item.nextExpectedDate ? shortDate(item.nextExpectedDate) : "Needs review"}
+                    {item.nextExpectedDate
+                      ? shortDate(item.nextExpectedDate)
+                      : item.frequency === "IRREGULAR_RECURRING"
+                        ? "No reliable prediction"
+                        : "Needs review"}
                   </td>
                   <td className="px-4 py-4">
                     <Pill
@@ -343,9 +363,9 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                   <td className="px-4 py-4">
                     <button
                       className="text-left text-[var(--teal)] underline"
-                      onClick={() => setSelected(item)}
+                      onClick={() => openRecurring(item)}
                     >
-                      {item.support.length} transactions
+                      {item.supportCount} transactions
                     </button>
                   </td>
                   <td className="space-y-2 px-4 py-4">
@@ -379,7 +399,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                         </IconButton>
                       </>
                     ) : null}
-                    <IconButton label="Edit" onClick={() => setSelected(item)}>
+                    <IconButton label="Edit" onClick={() => openRecurring(item)}>
                       <Edit3 className="h-4 w-4" />
                     </IconButton>
                     {item.status === "CANCELED" ? (
@@ -572,7 +592,7 @@ function RecurringDrawer({
         <section className="mt-8">
           <h3 className="font-semibold">Supporting transactions</h3>
           <div className="mt-3 space-y-3">
-            {item.support.map((link) => (
+            {(item.support ?? []).map((link) => (
               <div key={link.id} className="rounded-md border border-[var(--border)] p-3 text-sm">
                 <div className="flex flex-wrap justify-between gap-3">
                   <strong>{link.transaction.normalizedMerchant}</strong>

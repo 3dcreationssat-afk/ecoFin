@@ -11,6 +11,7 @@ let transfers: typeof import("./transfers");
 let imports: typeof import("./imports");
 let backup: typeof import("./backup");
 let prismaModule: typeof import("@/server/db/prisma");
+let accountBalances: typeof import("./account-balances");
 
 describe("transfer matching service", () => {
   beforeAll(async () => {
@@ -22,6 +23,7 @@ describe("transfer matching service", () => {
     imports = await import("./imports");
     backup = await import("./backup");
     prismaModule = await import("@/server/db/prisma");
+    accountBalances = await import("./account-balances");
   }, 120_000);
 
   afterAll(async () => {
@@ -60,6 +62,7 @@ describe("transfer matching service", () => {
       select: { accountId: true },
     });
     const matchedAccountIds = matchedTransactions.map((transaction) => transaction.accountId);
+    await accountBalances.recalculateAccountBalances(matchedAccountIds);
     const ledgerBefore = await prismaModule.prisma.account.findMany({
       where: { id: { in: matchedAccountIds } },
       select: { id: true, ledgerBalanceMinor: true },
@@ -208,11 +211,44 @@ describe("transfer matching service", () => {
   });
 
   it("preserves transfer relationships through backup and restore", async () => {
-    await transfers.scanTransferCandidates();
-    const suggested = await prismaModule.prisma.transferMatch.findFirstOrThrow({
-      where: { status: "SUGGESTED" },
+    const checking = await prismaModule.prisma.account.findFirstOrThrow({
+      where: { type: "CHECKING" },
     });
-    await transfers.confirmTransferMatch(suggested.id, { confirmation: "CONFIRM TRANSFER" });
+    const savings = await prismaModule.prisma.account.findFirstOrThrow({
+      where: { type: "SAVINGS" },
+    });
+    const base = {
+      householdId: checking.householdId,
+      originalDateText: "2026-07-13",
+      normalizedMerchant: "Backup Transfer",
+      transactionDate: new Date("2026-07-13"),
+      postedDate: new Date("2026-07-13"),
+    };
+    const outgoing = await prismaModule.prisma.transaction.create({
+      data: {
+        ...base,
+        accountId: checking.id,
+        originalDescription: "Backup transfer out",
+        originalAmountText: "-543.21",
+        amountMinor: -54321,
+        type: "DEBIT",
+      },
+    });
+    const incoming = await prismaModule.prisma.transaction.create({
+      data: {
+        ...base,
+        accountId: savings.id,
+        originalDescription: "Backup transfer in",
+        originalAmountText: "543.21",
+        amountMinor: 54321,
+        type: "CREDIT",
+      },
+    });
+    await transfers.createManualTransfer({
+      outgoingTransactionId: outgoing.id,
+      incomingTransactionId: incoming.id,
+      confirmation: "CONFIRM TRANSFER",
+    });
     const created = await backup.createLocalBackup();
     await prismaModule.prisma.transferMatch.updateMany({ data: { status: "BROKEN" } });
     await backup.restoreBackup(readFileSync(created.path), { confirmation: "RESTORE BACKUP" });

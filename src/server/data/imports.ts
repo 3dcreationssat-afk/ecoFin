@@ -4,7 +4,7 @@ import {
   parseCsv,
   parseDateOnly,
   parseDebitCreditAmount,
-  parseSignedAmount,
+  normalizeSignedAmount,
   scoreDuplicate,
   sha256Text,
   transactionKind,
@@ -181,6 +181,7 @@ export async function validateImport(input: unknown) {
   const fileHash = sha256Text(data.content);
   const existingTransactions = await prisma.transaction.findMany({
     where: { householdId: household.id, accountId: account.id },
+    include: { importBatch: { select: { fileHash: true } } },
   });
   const repeatedFile = await prisma.importBatch.findFirst({
     where: {
@@ -245,6 +246,7 @@ export async function validateImport(input: unknown) {
             summaryJson: JSON.stringify({
               headers: parsed.headers,
               repeatedFileBatchId: repeatedFile?.id ?? null,
+              mapping: mappingSnapshot(mapping),
             }),
           },
         })
@@ -265,6 +267,7 @@ export async function validateImport(input: unknown) {
             summaryJson: JSON.stringify({
               headers: parsed.headers,
               repeatedFileBatchId: repeatedFile?.id ?? null,
+              mapping: mappingSnapshot(mapping),
             }),
           },
         });
@@ -309,6 +312,7 @@ export async function validateImport(input: unknown) {
         summaryJson: JSON.stringify({
           headers: parsed.headers,
           repeatedFileBatchId: repeatedFile?.id ?? null,
+          mapping: mappingSnapshot(mapping),
           warnings: repeatedFile ? ["This file was already imported for this account."] : [],
         }),
       },
@@ -405,7 +409,7 @@ export async function confirmImport(input: unknown) {
           type: row.parsedAmountMinor < 0 ? "DEBIT" : "CREDIT",
           reviewStatus: row.duplicateStatus === "NONE" ? "NEEDS_REVIEW" : "FLAGGED",
           possibleDuplicate: row.duplicateStatus !== "NONE",
-          affectsLedger: row.duplicateStatus === "NONE",
+          affectsLedger: true,
           isDemo: false,
         },
       });
@@ -447,6 +451,7 @@ export async function confirmImport(input: unknown) {
         acceptedRowCount: rowsToImport.length,
         rejectedRowCount: batch.rows.filter((row) => row.validationStatus === "INVALID").length,
         summaryJson: JSON.stringify({
+          ...parseSummary(batch.summaryJson),
           importedIds,
           skippedCount,
           invalidCount: batch.rows.filter((row) => row.validationStatus === "INVALID").length,
@@ -651,6 +656,7 @@ function validateRow(input: {
     normalizedMerchant: string;
     importBatchId: string | null;
     sourceRowNumber: number | null;
+    importBatch: { fileHash: string } | null;
   }>;
 }) {
   const sourceFields = rowToFields(input.headers, input.row);
@@ -691,7 +697,7 @@ function validateRow(input: {
   try {
     amountMinor =
       input.mapping.amountMode === "SIGNED_AMOUNT"
-        ? parseSignedAmount(
+        ? normalizeSignedAmount(
             getColumn(sourceFields, input.mapping.amountColumn ?? ""),
             input.mapping,
           )
@@ -722,7 +728,7 @@ function validateRow(input: {
           },
           input.existingTransactions.map((transaction) => ({
             ...transaction,
-            fileHash: null,
+            fileHash: transaction.importBatch?.fileHash ?? null,
             rowNumber: transaction.sourceRowNumber,
           })),
         )
@@ -828,4 +834,30 @@ function parseSummary(value: string | null | undefined) {
   } catch {
     return {};
   }
+}
+
+export async function actionableImportBatches(householdId: string) {
+  const batches = await prisma.importBatch.findMany({
+    where: { householdId },
+    orderBy: { createdAt: "desc" },
+  });
+  const latestBySource = new Map<string, (typeof batches)[number]>();
+  for (const batch of batches) {
+    const key = `${batch.accountId}|${batch.fileHash}`;
+    if (!latestBySource.has(key)) latestBySource.set(key, batch);
+  }
+  return [...latestBySource.values()].filter((batch) =>
+    ["PREVIEW", "VALIDATED", "FAILED", "PARTIALLY_IMPORTED"].includes(batch.status),
+  );
+}
+
+function mappingSnapshot(mapping: Mapping) {
+  return {
+    amountMode: mapping.amountMode,
+    signConvention: mapping.signConvention,
+    dateFormat: mapping.dateFormat,
+    amountColumn: mapping.amountColumn ?? null,
+    debitColumn: mapping.debitColumn ?? null,
+    creditColumn: mapping.creditColumn ?? null,
+  };
 }

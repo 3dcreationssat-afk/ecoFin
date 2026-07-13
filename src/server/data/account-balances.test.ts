@@ -31,7 +31,8 @@ describe("account balance persistence", () => {
     ).toBe(false);
   });
   it("reconciles and creates only an explicit adjustment", async () => {
-    const account = await prismaModule.prisma.account.findFirst({ where: { type: "CHECKING" } });
+    const original = await prismaModule.prisma.account.findFirst({ where: { type: "CHECKING" } });
+    const account = original ? await balances.recalculateAccountBalance(original.id) : null;
     expect(account).toBeTruthy();
     const reported = (account!.ledgerBalanceMinor ?? 0) + 500;
     const unreconciled = await balances.reconcileAccount(account!.id, {

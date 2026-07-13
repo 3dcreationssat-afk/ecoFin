@@ -42,7 +42,6 @@ export function calculateLedgerBalance(
       (item) =>
         item.affectsLedger &&
         item.clearingStatus === "CLEARED" &&
-        !item.possibleDuplicate &&
         item.transactionDate > openingBalanceDate,
     )
     .reduce((sum, item) => sum + ledgerTransactionEffect(accountType, item.amountMinor), 0);

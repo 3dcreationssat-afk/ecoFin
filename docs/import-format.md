@@ -124,3 +124,21 @@ After import confirmation, recurring candidate generation also runs locally agai
 The importer rejects unsupported extensions, empty files, oversized files, binary content, duplicate headers, malformed quoting, overly long fields, missing required mapped columns, invalid dates, invalid amounts, and formula-like non-amount fields.
 
 Do not commit real CSV exports. Synthetic fixtures live under `tests/fixtures/csv/`.
+
+# Canonical amount and duplicate semantics
+
+Imported amounts use one internal economic convention: inflows and liability-reducing credits are
+positive; outflows and liability-increasing purchases are negative. `DEBITS_POSITIVE` therefore
+inverts a signed source amount during validation, while `DEBITS_NEGATIVE` preserves it. Each
+validated batch snapshots its amount mode and sign convention so later repair or audit work does
+not depend on a mutable profile.
+
+Exact duplicate identity is limited to conclusive source provenance, such as the same account,
+file hash, and source row. Fuzzy candidates require the same account and amount, transaction dates
+within three days, and matching original description or normalized merchant. A fuzzy candidate is
+never silently skipped: the user must choose Import or Skip. Choosing Import makes the transaction
+ledger-affecting while retaining the warning for review.
+
+Semantic transaction types use reliable source type fields when available. Descriptions that may
+represent payments, refunds, credits, fees, rewards, adjustments, reversals, or chargebacks are
+flagged for review when the source does not state a reliable type.
