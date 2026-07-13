@@ -24,7 +24,7 @@ Financial Compass is local-first.
 - `npm run db:reset` is restricted to SQLite `file:` URLs under the repository `prisma/` directory.
 - The in-app demonstration reset requires explicit confirmation and runs server-side against the synthetic single-household dataset.
 - Demonstration reset uses the active application database connection, replaces local synthetic database records with canonical seed records, preserves browser UI preferences, does not delete backup ZIP files, and returns only safe database diagnostics such as provider, filename, and a short URL hash.
-- Start fresh uses the active application database connection, requires `START FRESH`, clears local financial/import/transfer/recurring/audit records, creates an empty household workspace, preserves browser UI preferences, preserves backup ZIP files, and returns structured before/after counts.
+- Start fresh uses the active application database connection, requires `START FRESH`, clears local financial/import/transfer/recurring/audit records and custom categories, creates an empty household workspace with only the canonical default categories, preserves browser UI preferences and backup ZIP files, and returns structured before/after counts.
 - Remove demo records only and Delete all local financial data are intentionally not implemented. They must not be treated as synonyms for Start fresh, Restore demonstration data, or Restore backup.
 - Audit records store field-level values for material manual changes and must not be used for secrets or complete object snapshots.
 - CSV import is local-only. File contents are parsed through the local application server and are not sent to external services.
@@ -33,6 +33,7 @@ Financial Compass is local-first.
 - Local backup packages are created under `backups/local/`, are ignored by Git, and contain complete unencrypted SQLite financial data.
 - Restore validation rejects corrupt, oversized, unsupported, unsafe, hash-mismatched, schema-mismatched, and SQLite-integrity-failing packages before replacement.
 - Restore creates a mandatory pre-restore safety backup and attempts automatic rollback if the active database fails post-restore validation.
+- Restore replaces the database with the validated backup exactly; it does not run default-category initialization or merge defaults with the restored category set.
 - Transfer matching is local deterministic logic. It does not use external bank APIs, remote AI, telemetry, or cloud services.
 - Transfer audit records store relationship identifiers, status changes, reasons, and bounded notes rather than full transaction snapshots.
 - Recurring detection is local deterministic logic. It does not use external bank APIs, remote AI, email access, merchant APIs, telemetry, cloud services, or cancellation services.

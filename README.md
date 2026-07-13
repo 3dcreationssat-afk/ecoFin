@@ -109,10 +109,11 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 
 - Seed/reset creates one synthetic household with accounts, categories, goals, contribution records, transactions, audit records, and clears import batches/profiles.
 - Restore demonstration data requires the exact confirmation phrase `RESET DEMO DATA`, runs through the active application database connection, replaces the current local workspace with the canonical sample accounts, transactions, goals, and settings, returns resulting record counts, and preserves browser UI preferences.
-- Start fresh requires the exact confirmation phrase `START FRESH`, removes sample accounts, transactions, goals, categories, imports, transfer matches, recurring records, and demonstration audit history, then creates one empty household configuration. No starter categories are retained because the current app can create accounts and goals without categories.
+- Start fresh requires the exact confirmation phrase `START FRESH`, removes sample and custom accounts, transactions, goals, categories, imports, transfer matches, recurring records, and audit history, then creates an empty household configuration with the canonical default category set. Default categories use stable system keys and are seeded idempotently; custom categories are not restored.
 - Start fresh preserves browser UI preferences and local backup ZIP files. It is not the same as Restore demonstration data, Remove demo records only, Delete all local data, Restore backup, or any future selective cleanup workflow.
 - In-app backup creation writes an application-controlled local ZIP package with `database.sqlite`, `manifest.json`, and `README.txt`.
 - Restore requires validation, the exact phrase `RESTORE BACKUP`, and a mandatory pre-restore safety backup.
+- Restore reproduces the exact category set stored in the backup and never merges canonical defaults into the restored database.
 - Backup/restore includes transfer and recurring relationships and requires the current schema fingerprint.
 - Backup/restore includes transaction saved views. Start Fresh and demonstration reset remove saved views and seed none.
 

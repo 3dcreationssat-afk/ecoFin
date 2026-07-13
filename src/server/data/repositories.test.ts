@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { backupRoot } from "@/domain/backup/backup";
 import { parseTransactionQuery } from "@/domain/transactions/query";
+import { DEFAULT_CATEGORY_DEFINITIONS, seedDefaultCategories } from "./default-categories";
 
 const parseQueryForTest = (value: string) => parseTransactionQuery(new URLSearchParams(value));
 
@@ -26,6 +27,32 @@ describe("persistent repositories", () => {
 
   afterAll(async () => {
     await prismaModule.prisma.$disconnect();
+  });
+
+  it("initializes stable canonical default categories idempotently", async () => {
+    const household = await repositories.getHousehold();
+    const expected = DEFAULT_CATEGORY_DEFINITIONS.map(({ id, systemKey, type }) => ({
+      id,
+      systemKey,
+      type,
+    })).sort((left, right) => left.systemKey.localeCompare(right.systemKey));
+    const defaults = await prismaModule.prisma.category.findMany({
+      where: { householdId: household.id, isSystem: true },
+      select: { id: true, systemKey: true, type: true },
+      orderBy: { systemKey: "asc" },
+    });
+
+    expect(defaults).toEqual(expected);
+    expect(defaults.filter((category) => category.type === "INCOME")).toHaveLength(1);
+    expect(defaults.filter((category) => category.type === "EXPENSE")).toHaveLength(13);
+
+    await seedDefaultCategories(prismaModule.prisma, household.id, { isDemo: true });
+    await seedDefaultCategories(prismaModule.prisma, household.id, { isDemo: true });
+    expect(
+      await prismaModule.prisma.category.count({
+        where: { householdId: household.id, isSystem: true },
+      }),
+    ).toBe(DEFAULT_CATEGORY_DEFINITIONS.length);
   });
 
   it("persists household updates and records audit", async () => {
@@ -203,6 +230,13 @@ describe("persistent repositories", () => {
         where: { action: "demo_reset", source: "reset" },
       }),
     ).toBe(1);
+    const firstDefaultIds = (
+      await prismaModule.prisma.category.findMany({
+        where: { isSystem: true },
+        select: { id: true },
+        orderBy: { id: "asc" },
+      })
+    ).map((category) => category.id);
     const repeated = await repositories.resetDemoDataWithResult({
       confirmation: "RESET DEMO DATA",
     });
@@ -213,11 +247,43 @@ describe("persistent repositories", () => {
       goals: 4,
       transactions: 20,
     });
+    expect(
+      (
+        await prismaModule.prisma.category.findMany({
+          where: { isSystem: true },
+          select: { id: true },
+          orderBy: { id: "asc" },
+        })
+      ).map((category) => category.id),
+    ).toEqual(firstDefaultIds);
     expect(await repositories.workspaceState()).toBe("DEMONSTRATION");
   });
 
   it("starts fresh without recreating demo records and preserves backup files", async () => {
     await repositories.resetDemoDataWithResult({ confirmation: "RESET DEMO DATA" });
+    const demoHousehold = await repositories.getHousehold();
+    const cleanDefaultShape = await prismaModule.prisma.category.findMany({
+      where: { isSystem: true },
+      select: {
+        id: true,
+        systemKey: true,
+        parentId: true,
+        name: true,
+        group: true,
+        type: true,
+        budgetMinor: true,
+        sortOrder: true,
+      },
+      orderBy: { systemKey: "asc" },
+    });
+    const customCategory = await repositories.createCategory({
+      householdId: demoHousehold.id,
+      name: "Temporary custom category",
+      group: "Custom",
+      type: "EXPENSE",
+      budgetMinor: 123,
+      sortOrder: 999,
+    });
     await transactionViews.createSavedView({
       name: "Removed by start fresh",
       query: parseQueryForTest("status=FLAGGED"),
@@ -249,14 +315,14 @@ describe("persistent repositories", () => {
     expect(result.before).toMatchObject({
       households: 1,
       accounts: 6,
-      categories: 14,
+      categories: 15,
       goals: 4,
       transactions: 20,
     });
     expect(result.after).toMatchObject({
       households: 1,
       accounts: 0,
-      categories: 0,
+      categories: 14,
       goals: 0,
       transactions: 0,
       importBatches: 0,
@@ -264,6 +330,36 @@ describe("persistent repositories", () => {
       recurringExpenses: 0,
     });
     expect(await repositories.workspaceState()).toBe("EMPTY");
+    expect(await prismaModule.prisma.category.count({ where: { id: customCategory.id } })).toBe(0);
+    expect(
+      await prismaModule.prisma.category.findMany({
+        select: { id: true, systemKey: true, isSystem: true, isDemo: true },
+        orderBy: { systemKey: "asc" },
+      }),
+    ).toEqual(
+      DEFAULT_CATEGORY_DEFINITIONS.map(({ id, systemKey }) => ({
+        id,
+        systemKey,
+        isSystem: true,
+        isDemo: false,
+      })).sort((left, right) => left.systemKey.localeCompare(right.systemKey)),
+    );
+    expect(
+      await prismaModule.prisma.category.findMany({
+        where: { isSystem: true },
+        select: {
+          id: true,
+          systemKey: true,
+          parentId: true,
+          name: true,
+          group: true,
+          type: true,
+          budgetMinor: true,
+          sortOrder: true,
+        },
+        orderBy: { systemKey: "asc" },
+      }),
+    ).toEqual(cleanDefaultShape);
     expect(await prismaModule.prisma.emergencyFundConfiguration.findFirst()).toMatchObject({
       enabled: false,
       targetRunwayMonths: 3,
@@ -278,7 +374,13 @@ describe("persistent repositories", () => {
     ).toBe(1);
 
     const repeated = await repositories.startFreshWorkspace({ confirmation: "START FRESH" });
-    expect(repeated.after).toMatchObject({ accounts: 0, transactions: 0, goals: 0 });
+    expect(repeated.after).toMatchObject({
+      accounts: 0,
+      categories: 14,
+      transactions: 0,
+      goals: 0,
+    });
+    expect(await prismaModule.prisma.category.count({ where: { isSystem: true } })).toBe(14);
     expect(await repositories.workspaceState()).toBe("EMPTY");
   });
 

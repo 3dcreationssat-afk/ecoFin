@@ -61,7 +61,7 @@ describe("start fresh API route", () => {
       after: {
         households: 1,
         accounts: 0,
-        categories: 0,
+        categories: 14,
         goals: 0,
         transactions: 0,
         importBatches: 0,
@@ -74,6 +74,8 @@ describe("start fresh API route", () => {
       enabled: false,
       targetRunwayMonths: 3,
     });
+    expect(await prismaModule.prisma.category.count({ where: { isSystem: true } })).toBe(14);
+    expect(await prismaModule.prisma.category.count({ where: { isSystem: false } })).toBe(0);
   });
 
   it("returns a structured failure response without a raw stack trace", async () => {

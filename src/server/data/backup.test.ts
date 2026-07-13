@@ -50,6 +50,15 @@ describe("backup and restore service", () => {
 
   it("previews and restores a valid backup with a mandatory safety backup", async () => {
     const scenario = await prismaModule.prisma.decisionScenario.findFirstOrThrow();
+    const householdBeforeBackup = await repositories.getHousehold();
+    const backedCustomCategory = await repositories.createCategory({
+      householdId: householdBeforeBackup.id,
+      name: "Backed custom category",
+      group: "Custom",
+      type: "EXPENSE",
+      budgetMinor: 321,
+      sortOrder: 999,
+    });
     await prismaModule.prisma.decisionScenario.update({
       where: { id: scenario.id },
       data: { name: "Scenario before backup" },
@@ -64,6 +73,17 @@ describe("backup and restore service", () => {
       debtStrategy: "AVALANCHE",
     });
     const created = await backup.createLocalBackup();
+    const backedCategoryIds = (
+      await prismaModule.prisma.category.findMany({ select: { id: true }, orderBy: { id: "asc" } })
+    ).map((category) => category.id);
+    const afterBackupCategory = await repositories.createCategory({
+      householdId: householdBeforeBackup.id,
+      name: "Created after backup",
+      group: "Custom",
+      type: "EXPENSE",
+      budgetMinor: 654,
+      sortOrder: 1000,
+    });
     await prismaModule.prisma.decisionScenario.update({
       where: { id: scenario.id },
       data: { name: "Scenario after backup" },
@@ -91,6 +111,21 @@ describe("backup and restore service", () => {
         (await restoredClient.decisionScenario.findUniqueOrThrow({ where: { id: scenario.id } }))
           .name,
       ).toBe("Scenario before backup");
+      expect(
+        (
+          await restoredClient.category.findMany({
+            select: { id: true },
+            orderBy: { id: "asc" },
+          })
+        ).map((category) => category.id),
+      ).toEqual(backedCategoryIds);
+      expect(await restoredClient.category.count({ where: { id: backedCustomCategory.id } })).toBe(
+        1,
+      );
+      expect(await restoredClient.category.count({ where: { id: afterBackupCategory.id } })).toBe(
+        0,
+      );
+      expect(await restoredClient.category.count({ where: { isSystem: true } })).toBe(14);
     } finally {
       await restoredClient.$disconnect();
     }

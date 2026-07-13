@@ -902,6 +902,15 @@ test("start fresh empties demo data, updates badges, and preserves navigation pr
     await page.goto("/transactions");
     await expect(page.getByRole("heading", { name: "No transactions yet." })).toBeVisible();
     await expect(page.getByText("Whole Foods Market")).toHaveCount(0);
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "Categories" }).click();
+    await expect(page.getByRole("heading", { name: "Category Management" })).toBeVisible();
+    await expect(page.getByText("Default", { exact: true })).toHaveCount(14);
+    await expect(page.getByText("Custom", { exact: true })).toHaveCount(0);
+    await page.goto("/budget");
+    await expect(page.getByRole("heading", { name: "Budget", exact: true })).toBeVisible();
+    await page.goto("/reports");
+    await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
     await page.goto("/goals");
     await expect(page.getByRole("heading", { name: "No goals yet." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Emergency Fund" })).toHaveCount(0);

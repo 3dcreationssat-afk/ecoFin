@@ -97,3 +97,13 @@
 - Added a verified undo/reimport workflow with validated-backup rollback, source-hash and batch-ID
   identity checks, immutable row decision mapping, historical batch preservation, safe editable
   intent carry-forward, and aggregate-only verification output.
+
+# 2026-07-13 — Start Fresh canonical category correctness
+
+- Extracted the canonical income/expense taxonomy from demonstration data into one idempotent
+  default-category initializer with stable system keys and identifiers.
+- Start Fresh now removes custom categories but recreates canonical defaults while keeping the
+  workspace financially empty; repeated initialization and reset cannot duplicate defaults.
+- Added explicit Default/Custom presentation, additive persistence metadata, exact restore
+  protection, and integration/browser regressions across Categories, Transactions, Budget, and
+  Reports.
