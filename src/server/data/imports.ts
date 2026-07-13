@@ -25,6 +25,7 @@ import { AppError } from "./errors";
 import { getHousehold, workspaceState } from "./repositories";
 import { scanRecurringExpenses } from "./recurring";
 import { scanTransferCandidates } from "./transfers";
+import { classifySemantics } from "./import-repair";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -374,6 +375,7 @@ export async function confirmImport(input: unknown) {
     let ruleConflictCount = 0;
     let ruleMerchantNormalizedCount = 0;
     let ruleCategoryAssignedCount = 0;
+    let semanticReviewCount = 0;
     for (const row of rowsToImport) {
       if (
         !row.parsedTransactionDate ||
@@ -384,6 +386,11 @@ export async function confirmImport(input: unknown) {
         throw new AppError(`Row ${row.rowNumber} is missing required parsed fields.`, 422);
       }
       const sourceFields = JSON.parse(row.sourceFieldsJson) as Record<string, string>;
+      const semantic = classifySemantics(
+        row.originalDescription,
+        sourceFields,
+        row.parsedAmountMinor,
+      );
       const transaction = await tx.transaction.create({
         data: {
           householdId: batch.householdId,
@@ -406,13 +413,16 @@ export async function confirmImport(input: unknown) {
           amountMinor: row.parsedAmountMinor,
           transactionDate: row.parsedTransactionDate,
           postedDate: row.parsedPostedDate,
-          type: row.parsedAmountMinor < 0 ? "DEBIT" : "CREDIT",
-          reviewStatus: row.duplicateStatus === "NONE" ? "NEEDS_REVIEW" : "FLAGGED",
+          type: semantic.type,
+          typeSource: semantic.source,
+          reviewStatus:
+            semantic.ambiguous || row.duplicateStatus !== "NONE" ? "FLAGGED" : "NEEDS_REVIEW",
           possibleDuplicate: row.duplicateStatus !== "NONE",
           affectsLedger: true,
           isDemo: false,
         },
       });
+      if (semantic.ambiguous) semanticReviewCount += 1;
       const ruleResult = await applyRulesToTransaction(tx, transaction, merchantRules);
       if (ruleResult.matched) ruleMatchedCount++;
       if (ruleResult.conflict) ruleConflictCount++;
@@ -460,6 +470,7 @@ export async function confirmImport(input: unknown) {
           ruleMerchantNormalizedCount,
           ruleCategoryAssignedCount,
           stillNeedsReview: rowsToImport.length - ruleMatchedCount,
+          semanticReviewCount,
         }),
       },
     });
@@ -712,6 +723,12 @@ function validateRow(input: {
   sourceFields.__dateText = dateText;
   sourceFields.__merchant = merchant;
   sourceFields.__kind = amountMinor === null ? "Unknown" : transactionKind(amountMinor);
+  const semantic =
+    amountMinor === null ? null : classifySemantics(description, sourceFields, amountMinor);
+  if (semantic?.ambiguous) {
+    sourceFields.__semanticWarning =
+      "Transaction semantics require review; source context may represent a payment, refund, credit, fee, reward, adjustment, reversal, or chargeback.";
+  }
 
   const duplicate =
     transactionDate && amountMinor !== null
@@ -733,7 +750,10 @@ function validateRow(input: {
           })),
         )
       : { status: "NONE" as const, reason: "" };
-  const warning = duplicate.status !== "NONE" || Boolean(sourceFields.__dateWarning);
+  const warning =
+    duplicate.status !== "NONE" ||
+    Boolean(sourceFields.__dateWarning) ||
+    Boolean(sourceFields.__semanticWarning);
   return {
     rowNumber: input.rowNumber,
     sourceFields,
@@ -748,7 +768,7 @@ function validateRow(input: {
     errors: errors.length
       ? errors
       : warning
-        ? [duplicate.reason || sourceFields.__dateWarning]
+        ? [duplicate.reason || sourceFields.__dateWarning || sourceFields.__semanticWarning]
         : [],
     importDecision: errors.length ? "SKIP" : duplicate.status === "NONE" ? "IMPORT" : "REVIEW",
   };

@@ -112,7 +112,7 @@ export async function scanRecurringExpenses(
     await deactivateDerivedSchedule(existing.id);
     await prisma.recurringExpense.update({
       where: { id: existing.id },
-      data: { status: "NEEDS_REVIEW" },
+      data: { status: "NEEDS_REVIEW", nextExpectedDate: null },
     });
     await auditChange(prisma, {
       householdId: household.id,

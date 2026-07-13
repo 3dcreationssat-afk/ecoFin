@@ -94,3 +94,6 @@
 - Limited Data Quality import counts to the latest actionable attempt for each account/file source.
 - Household totals remain non-authoritative until anchors, categories, transfer decisions, and
   household configuration are complete.
+- Added a verified undo/reimport workflow with validated-backup rollback, source-hash and batch-ID
+  identity checks, immutable row decision mapping, historical batch preservation, safe editable
+  intent carry-forward, and aggregate-only verification output.

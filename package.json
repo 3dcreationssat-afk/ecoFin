@@ -23,7 +23,8 @@
     "backup:list": "tsx scripts/backup-list.ts",
     "backup:validate": "tsx scripts/backup-validate.ts",
     "restore": "tsx scripts/restore.ts",
-    "repair:import-semantics": "tsx scripts/repair-import-semantics.ts"
+    "repair:import-semantics": "tsx scripts/repair-import-semantics.ts",
+    "reimport:verified": "tsx scripts/reimport-verified-batches.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

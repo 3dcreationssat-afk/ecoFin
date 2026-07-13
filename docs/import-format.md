@@ -142,3 +142,10 @@ ledger-affecting while retaining the warning for review.
 Semantic transaction types use reliable source type fields when available. Descriptions that may
 represent payments, refunds, credits, fees, rewards, adjustments, reversals, or chargebacks are
 flagged for review when the source does not state a reliable type.
+
+Verified reimport uses existing batch IDs plus matching source-file hashes and immutable row
+numbers. It refuses ambiguous source associations, mappings, date formats, counts, confirmed
+transfer dependencies, or unmappable prior decisions. Historical batches and staged rows remain
+available with `UNDONE` status, while replacement batches receive a mapping snapshot. Safe editable
+intent such as categories and completed review is carried forward by immutable row provenance;
+semantically ambiguous rows remain flagged even if the old sign made them appear reviewed.
