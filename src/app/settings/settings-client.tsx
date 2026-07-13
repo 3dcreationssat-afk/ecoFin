@@ -18,6 +18,8 @@ type HouseholdDto = {
 
 type CategoryDto = {
   id: string;
+  systemKey?: string | null;
+  isSystem: boolean;
   name: string;
   group: string;
   type: string;
@@ -843,7 +845,12 @@ export function SettingsClient({
                 className="flex items-center justify-between rounded-md border border-[var(--border)] p-4"
               >
                 <div>
-                  <strong>{category.name}</strong>
+                  <div className="flex items-center gap-2">
+                    <strong>{category.name}</strong>
+                    <Pill tone={category.isSystem ? "info" : "neutral"}>
+                      {category.isSystem ? "Default" : "Custom"}
+                    </Pill>
+                  </div>
                   <p className="text-sm text-[var(--muted)]">
                     {category.group} · {categoryTypeLabels[category.type] ?? category.type}
                     {category.archivedAt ? " · Archived" : ""}
@@ -1292,7 +1299,10 @@ export function SettingsClient({
                 <li>All current local demo accounts will be removed.</li>
                 <li>All demo transactions will be removed.</li>
                 <li>All demo goals will be removed.</li>
-                <li>Demo categories are removed; no starter categories are required.</li>
+                <li>
+                  Demo and custom categories are removed; canonical default categories are
+                  recreated.
+                </li>
                 <li>
                   Import history, transfer matches, recurring patterns, and audit records are
                   cleared.

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
+import { seedDefaultCategories } from "./default-categories";
 
 type SeedClient = PrismaClient | Prisma.TransactionClient;
 
@@ -139,146 +140,12 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
       },
     });
 
-    const fixed = await client.category.create({
-      data: {
-        householdId: household.id,
-        name: "Fixed",
-        group: "Fixed",
-        type: "EXPENSE",
-        budgetMinor: 0,
-        sortOrder: 1,
-      },
-    });
-    const variable = await client.category.create({
-      data: {
-        householdId: household.id,
-        name: "Essential Variable",
-        group: "Essential Variable",
-        type: "EXPENSE",
-        budgetMinor: 0,
-        sortOrder: 2,
-      },
-    });
-    const discretionary = await client.category.create({
-      data: {
-        householdId: household.id,
-        name: "Discretionary",
-        group: "Discretionary",
-        type: "EXPENSE",
-        budgetMinor: 0,
-        sortOrder: 3,
-      },
-    });
-    const income = await client.category.create({
-      data: {
-        householdId: household.id,
-        name: "Income",
-        group: "Income",
-        type: "INCOME",
-        budgetMinor: 485000,
-        sortOrder: 110,
-      },
-    });
-    const groceries = await client.category.create({
-      data: {
-        householdId: household.id,
-        parentId: variable.id,
-        name: "Groceries",
-        group: "Essential Variable",
-        type: "EXPENSE",
-        budgetMinor: 65000,
-        sortOrder: 70,
-      },
-    });
-    const dining = await client.category.create({
-      data: {
-        householdId: household.id,
-        parentId: discretionary.id,
-        name: "Dining",
-        group: "Discretionary",
-        type: "EXPENSE",
-        budgetMinor: 25000,
-        sortOrder: 80,
-      },
-    });
-    const subscriptions = await client.category.create({
-      data: {
-        householdId: household.id,
-        parentId: discretionary.id,
-        name: "Subscriptions",
-        group: "Discretionary",
-        type: "EXPENSE",
-        budgetMinor: 9000,
-        sortOrder: 100,
-      },
-    });
-    await client.category.createMany({
-      data: [
-        {
-          householdId: household.id,
-          parentId: fixed.id,
-          name: "Mortgage",
-          group: "Fixed",
-          type: "EXPENSE",
-          budgetMinor: 165000,
-          sortOrder: 10,
-        },
-        {
-          householdId: household.id,
-          parentId: fixed.id,
-          name: "Auto Loan",
-          group: "Fixed",
-          type: "EXPENSE",
-          budgetMinor: 38000,
-          sortOrder: 20,
-        },
-        {
-          householdId: household.id,
-          parentId: fixed.id,
-          name: "Car Insurance",
-          group: "Fixed",
-          type: "EXPENSE",
-          budgetMinor: 18000,
-          sortOrder: 30,
-        },
-        {
-          householdId: household.id,
-          parentId: fixed.id,
-          name: "Phone",
-          group: "Fixed",
-          type: "EXPENSE",
-          budgetMinor: 8500,
-          sortOrder: 40,
-        },
-        {
-          householdId: household.id,
-          parentId: fixed.id,
-          name: "Internet",
-          group: "Fixed",
-          type: "EXPENSE",
-          budgetMinor: 7000,
-          sortOrder: 50,
-        },
-        {
-          householdId: household.id,
-          parentId: fixed.id,
-          name: "Life Insurance",
-          group: "Fixed",
-          type: "EXPENSE",
-          budgetMinor: 4500,
-          sortOrder: 60,
-        },
-        {
-          householdId: household.id,
-          parentId: variable.id,
-          name: "Gas",
-          group: "Essential Variable",
-          type: "EXPENSE",
-          budgetMinor: 18000,
-          sortOrder: 90,
-        },
-      ],
-    });
+    const defaultCategories = await seedDefaultCategories(client, household.id, { isDemo: true });
+    const variable = defaultCategories.ESSENTIAL_VARIABLE;
+    const income = defaultCategories.INCOME;
+    const groceries = defaultCategories.GROCERIES;
+    const dining = defaultCategories.DINING;
+    const subscriptions = defaultCategories.SUBSCRIPTIONS;
 
     const emergency = await client.goal.create({
       data: {

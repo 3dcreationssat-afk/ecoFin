@@ -260,6 +260,8 @@ model ReconciliationAdjustment {
 model Category {
   id              String   @id @default(cuid())
   householdId     String
+  systemKey       String?
+  isSystem        Boolean  @default(false)
   parentId        String?
   name            String
   group           String
@@ -277,6 +279,9 @@ model Category {
   recurringExpenses RecurringExpense[]
   merchantRules     MerchantRule[]
   scheduledObligations ScheduledObligation[]
+
+  @@unique([householdId, systemKey])
+  @@index([householdId, isSystem])
 }
 
 model Goal {

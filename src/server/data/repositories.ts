@@ -15,6 +15,7 @@ import {
 } from "@/domain/workspace/schema";
 import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
+import { seedDefaultCategories } from "./default-categories";
 import { AppError } from "./errors";
 import { refreshTransferStateForTransactions } from "./transfers";
 import { recalculateAccountBalance } from "./account-balances";
@@ -427,6 +428,7 @@ export async function startFreshWorkspace(input: unknown) {
         },
       },
     });
+    await seedDefaultCategories(tx, household.id, { isDemo: false });
     await auditChange(tx, {
       householdId: household.id,
       entityType: "Household",
@@ -535,7 +537,7 @@ async function markWorkspaceUserData(db: Db, householdId: string) {
 async function countProvenanceRecords(db: Db, isDemo: boolean) {
   const [accounts, categories, goals, transactions, incomes, obligations] = await Promise.all([
     db.account.count({ where: { isDemo } }),
-    db.category.count({ where: { isDemo } }),
+    db.category.count({ where: { isDemo, isSystem: false } }),
     db.goal.count({ where: { isDemo } }),
     db.transaction.count({ where: { isDemo } }),
     db.expectedIncomeSchedule.count({ where: { isDemo } }),
@@ -557,7 +559,7 @@ async function countMeaningfulFinancialRecords(db: Db) {
     obligations,
   ] = await Promise.all([
     db.account.count(),
-    db.category.count(),
+    db.category.count({ where: { isSystem: false } }),
     db.goal.count(),
     db.transaction.count(),
     db.importBatch.count(),
