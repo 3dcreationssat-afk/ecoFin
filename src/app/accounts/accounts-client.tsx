@@ -111,11 +111,37 @@ export function AccountsClient({
 
   async function archive(id: string, action: "archive" | "restore") {
     setStatus("saving");
-    await fetch(`/api/accounts/${id}`, {
+    setError("");
+    const response = await fetch(`/api/accounts/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
+    if (!response.ok) {
+      setError(formatAccountError(await response.json()));
+      setStatus("error");
+      return;
+    }
+    setStatus("saved");
+    startTransition(() => router.refresh());
+  }
+
+  async function remove(account: AccountDto) {
+    if (
+      !window.confirm(
+        `Permanently delete ${account.name}? Only accounts with no financial or planning history can be deleted.`,
+      )
+    )
+      return;
+    setStatus("saving");
+    setError("");
+    const response = await fetch(`/api/accounts/${account.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setError(formatAccountError(await response.json()));
+      setStatus("error");
+      return;
+    }
+    if (editingId === account.id) startAdd();
     setStatus("saved");
     startTransition(() => router.refresh());
   }
@@ -367,7 +393,10 @@ export function AccountsClient({
       <Card className="overflow-hidden">
         <div className="border-b border-[var(--border)] p-6">
           <h2 className="text-xl font-semibold">All Accounts</h2>
-          <p className="text-[var(--muted)]">Choose an account to edit, archive, or restore.</p>
+          <p className="text-[var(--muted)]">
+            Choose an account to edit, archive, restore, or permanently delete when it has no
+            history.
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] text-left text-sm">
@@ -455,14 +484,22 @@ export function AccountsClient({
                     </Pill>
                   </td>
                   <td className="px-5 py-4">
-                    <button
-                      className="rounded-md border border-[var(--border)] px-3 py-2"
-                      onClick={() =>
-                        archive(account.id, account.archivedAt ? "restore" : "archive")
-                      }
-                    >
-                      {account.archivedAt ? "Restore" : "Archive"}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded-md border border-[var(--border)] px-3 py-2"
+                        onClick={() =>
+                          archive(account.id, account.archivedAt ? "restore" : "archive")
+                        }
+                      >
+                        {account.archivedAt ? "Restore" : "Archive"}
+                      </button>
+                      <button
+                        className="rounded-md border border-[var(--red)] px-3 py-2 text-[var(--red)]"
+                        onClick={() => remove(account)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

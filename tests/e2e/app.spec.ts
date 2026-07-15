@@ -423,10 +423,10 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
   await expect(page.getByRole("button", { name: "Confirm import" })).toBeDisabled();
 });
 
-test("account creation, conditional fields, archive, and restore persist after reload", async ({
+test("account creation, duplicate prevention, archive, restore, and delete persist after reload", async ({
   page,
 }, testInfo) => {
-  const accountName = `Playwright Checking ${testInfo.project.name}`;
+  const accountName = `Playwright Checking ${testInfo.project.name} ${Date.now()}`;
   await page.goto("/accounts");
   await expect(page.getByRole("heading", { name: "Add Account" })).toBeVisible();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(accountName);
@@ -442,6 +442,13 @@ test("account creation, conditional fields, archive, and restore persist after r
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: accountName })).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill(`  ${accountName.toUpperCase()}  `);
+  await page.getByLabel("Institution", { exact: true }).selectOption("Other institution");
+  await page.getByLabel("Other institution name").fill(" test   bank ");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("Use a unique account name for this institution.")).toBeVisible();
   await page.getByRole("button", { name: accountName }).click();
   await expect(page.getByRole("heading", { name: "Edit Account" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel edit" }).click();
@@ -463,6 +470,15 @@ test("account creation, conditional fields, archive, and restore persist after r
   await expect(
     page.getByRole("row").filter({ hasText: accountName }).getByText("Active"),
   ).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("row")
+    .filter({ hasText: accountName })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: accountName })).toHaveCount(0);
 });
 
 test("category creation persists and validation errors are accessible", async ({

@@ -79,6 +79,7 @@ export async function updateHousehold(input: unknown) {
 export async function createAccount(input: unknown) {
   const data = accountSchema.parse(input);
   return prisma.$transaction(async (tx) => {
+    await ensureUniqueAccountIdentity(tx, data.householdId, data.name, data.institution);
     const account = await tx.account.create({ data: { ...data, isDemo: false } });
     await markWorkspaceUserData(tx, account.householdId);
     await auditChange(tx, {
@@ -100,6 +101,13 @@ export async function updateAccount(id: string, input: unknown) {
   if (!existing) throw new AppError("Account not found.", 404);
   if (existing.archivedAt) throw new AppError("Restore the account before editing it.", 409);
   const updated = await prisma.$transaction(async (tx) => {
+    await ensureUniqueAccountIdentity(
+      tx,
+      existing.householdId,
+      data.name ?? existing.name,
+      data.institution ?? existing.institution,
+      id,
+    );
     const account = await tx.account.update({ where: { id }, data });
     await auditFields(tx, {
       householdId: existing.householdId,
@@ -133,6 +141,104 @@ export async function setAccountArchived(id: string, archived: boolean) {
     newValue: archivedAt,
   });
   return account;
+}
+
+function normalizeAccountIdentity(value: string) {
+  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+}
+
+async function ensureUniqueAccountIdentity(
+  db: Db,
+  householdId: string,
+  name: string,
+  institution: string,
+  excludeId?: string,
+) {
+  const accounts = await db.account.findMany({
+    where: { householdId, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    select: { name: true, institution: true, archivedAt: true },
+  });
+  const normalizedName = normalizeAccountIdentity(name);
+  const normalizedInstitution = normalizeAccountIdentity(institution);
+  const duplicate = accounts.find(
+    (account) =>
+      normalizeAccountIdentity(account.name) === normalizedName &&
+      normalizeAccountIdentity(account.institution) === normalizedInstitution,
+  );
+  if (duplicate) {
+    const message = duplicate.archivedAt
+      ? "An archived account with this name and institution already exists. Restore it instead."
+      : "An account with this name and institution already exists.";
+    throw new AppError(message, 409, [
+      {
+        path: "name",
+        message: duplicate.archivedAt
+          ? "Restore the archived account instead of creating a duplicate."
+          : "Use a unique account name for this institution.",
+      },
+    ]);
+  }
+}
+
+export async function deleteAccount(id: string) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.account.findUnique({ where: { id } });
+    if (!existing) throw new AppError("Account not found.", 404);
+
+    const [
+      transactions,
+      importBatches,
+      reconciliationAdjustments,
+      goals,
+      expectedIncomeSchedules,
+      paymentObligations,
+      debtObligations,
+      emergencyFundLinks,
+      decisionComponents,
+    ] = await Promise.all([
+      tx.transaction.count({ where: { accountId: id } }),
+      tx.importBatch.count({ where: { accountId: id } }),
+      tx.reconciliationAdjustment.count({ where: { accountId: id } }),
+      tx.goal.count({ where: { linkedAccountId: id } }),
+      tx.expectedIncomeSchedule.count({ where: { accountId: id } }),
+      tx.scheduledObligation.count({ where: { accountId: id } }),
+      tx.scheduledObligation.count({ where: { debtAccountId: id } }),
+      tx.emergencyFundAccount.count({ where: { accountId: id } }),
+      tx.decisionScenarioComponent.count({
+        where: { OR: [{ linkedAccountId: id }, { linkedDebtAccountId: id }] },
+      }),
+    ]);
+    const dependencies = [
+      [transactions, "transactions"],
+      [importBatches, "import batches"],
+      [reconciliationAdjustments, "reconciliation adjustments"],
+      [goals, "goals"],
+      [expectedIncomeSchedules, "income schedules"],
+      [paymentObligations + debtObligations, "scheduled obligations"],
+      [emergencyFundLinks, "emergency-fund settings"],
+      [decisionComponents, "decision scenarios"],
+    ] as const;
+    const inUseBy = dependencies.filter(([count]) => count > 0).map(([, label]) => label);
+    if (inUseBy.length) {
+      throw new AppError(
+        `This account cannot be deleted because it is used by ${inUseBy.join(", ")}. Archive it to preserve financial history.`,
+        409,
+      );
+    }
+
+    await tx.account.delete({ where: { id } });
+    await auditChange(tx, {
+      householdId: existing.householdId,
+      entityType: "Account",
+      entityId: id,
+      action: "delete",
+      field: "name",
+      previousValue: existing.name,
+      newValue: null,
+      reason: "Deleted unused account.",
+    });
+    return { id };
+  });
 }
 
 export async function validateCategoryParent(

@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const accountSchema = z.object({
   householdId: z.string().min(1),
-  name: z.string().min(1).max(120),
-  institution: z.string().min(1).max(120),
+  name: z.string().trim().min(1).max(120),
+  institution: z.string().trim().min(1).max(120),
   type: z.enum(["CHECKING", "SAVINGS", "CREDIT", "LOAN", "MORTGAGE", "OTHER"]),
   openingBalanceMinor: z.number().int().nullable().optional(),
   openingBalanceDate: z.coerce.date().nullable().optional(),

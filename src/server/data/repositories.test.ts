@@ -95,6 +95,62 @@ describe("persistent repositories", () => {
     expect((await repositories.setAccountArchived(account.id, false)).archivedAt).toBeNull();
   });
 
+  it("rejects duplicate account identities regardless of case and whitespace", async () => {
+    const household = await repositories.getHousehold();
+    const account = await repositories.createAccount({
+      householdId: household.id,
+      name: "Unique Checking",
+      institution: "Local Credit Union",
+      type: "CHECKING",
+      lastUpdated: new Date(),
+    });
+    await expect(
+      repositories.createAccount({
+        householdId: household.id,
+        name: "  unique   CHECKING ",
+        institution: "local credit union",
+        type: "SAVINGS",
+        lastUpdated: new Date(),
+      }),
+    ).rejects.toThrow("already exists");
+    await repositories.setAccountArchived(account.id, true);
+    await expect(
+      repositories.createAccount({
+        householdId: household.id,
+        name: "Unique Checking",
+        institution: "Local Credit Union",
+        type: "CHECKING",
+        lastUpdated: new Date(),
+      }),
+    ).rejects.toThrow("Restore it instead");
+  });
+
+  it("deletes unused accounts with an audit record and blocks deletion of account history", async () => {
+    const household = await repositories.getHousehold();
+    const unused = await repositories.createAccount({
+      householdId: household.id,
+      name: "Accidental Duplicate",
+      institution: "Local",
+      type: "CHECKING",
+      lastUpdated: new Date(),
+    });
+    await expect(repositories.deleteAccount(unused.id)).resolves.toEqual({ id: unused.id });
+    expect(await prismaModule.prisma.account.findUnique({ where: { id: unused.id } })).toBeNull();
+    expect(
+      await prismaModule.prisma.auditLog.findFirst({
+        where: { entityType: "Account", entityId: unused.id, action: "delete" },
+      }),
+    ).toMatchObject({ field: "name", previousValue: "Accidental Duplicate" });
+
+    const usedAccountId = household.transactions[0].accountId;
+    await expect(repositories.deleteAccount(usedAccountId)).rejects.toThrow(
+      "cannot be deleted because it is used by transactions",
+    );
+    expect(
+      await prismaModule.prisma.account.findUnique({ where: { id: usedAccountId } }),
+    ).not.toBeNull();
+  });
+
   it("rejects invalid category hierarchy", async () => {
     const household = await repositories.getHousehold();
     const category = await repositories.createCategory({

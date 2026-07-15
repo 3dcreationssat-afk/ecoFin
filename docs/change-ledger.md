@@ -107,3 +107,10 @@
 - Added explicit Default/Custom presentation, additive persistence metadata, exact restore
   protection, and integration/browser regressions across Categories, Transactions, Budget, and
   Reports.
+
+# 2026-07-14 — Account duplicate prevention and safe deletion
+
+- Account creation and identity edits now reject household duplicates using normalized institution
+  and account names, including archived matches, with a structured conflict response.
+- Added confirmed permanent deletion for unused accounts. Deletion is blocked when financial or
+  planning records reference the account, while successful deletions retain a minimal audit event.
