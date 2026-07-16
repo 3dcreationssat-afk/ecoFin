@@ -120,7 +120,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("CURRENT");
   const [classification, setClassification] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<RecurringDto | null>(null);
@@ -138,7 +138,8 @@ export function RecurringClient({ data }: { data: RecurringData }) {
         .toLowerCase();
       return (
         (!q || text.includes(q)) &&
-        (!status || item.status === status) &&
+        (!status ||
+          (status === "CURRENT" ? !isHistoricalStatus(item.status) : item.status === status)) &&
         (!classification || item.classification === classification)
       );
     });
@@ -164,6 +165,9 @@ export function RecurringClient({ data }: { data: RecurringData }) {
   async function action(id: string, path: string, body: Record<string, unknown>, done: string) {
     const result = await postJson(`/api/recurring/${id}/${path}`, body);
     setMessage(result.ok ? done : result.error);
+    if (result.ok && ["reject", "cancel"].includes(path)) {
+      setChecked((current) => current.filter((selectedId) => selectedId !== id));
+    }
     refreshFromServer();
   }
 
@@ -198,7 +202,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
 
   return (
     <>
-      <div className="metric-grid mb-7">
+      <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <MetricCard label="Monthly total" value={formatMoney(data.summary.monthlyTotalMinor)} />
         <MetricCard label="Annual total" value={formatMoney(data.summary.annualTotalMinor)} />
         <MetricCard
@@ -212,21 +216,33 @@ export function RecurringClient({ data }: { data: RecurringData }) {
           value={formatMoney(data.summary.optionalMinor)}
           tone="warning"
         />
-        <MetricCard label="Under review" value={String(data.summary.underReview)} />
       </div>
       <Card className="mb-5 p-5">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold">Review recurring activity</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Scan for new patterns, review suggestions, or add a recurring item manually.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {data.summary.underReview ? (
+              <Pill tone="info">{data.summary.underReview} under review</Pill>
+            ) : null}
+            {data.summary.priceIncreases ? (
+              <Pill tone="warn">{data.summary.priceIncreases} price increases</Pill>
+            ) : null}
+            {isPending ? <Pill tone="info">Refreshing</Pill> : null}
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-4">
+          <Button onClick={() => setManualOpen(true)}>Create recurring item</Button>
           <Button variant="secondary" onClick={scan}>
             <RefreshCw className="h-4 w-4" /> Run scan
           </Button>
-          <Button onClick={() => setManualOpen(true)}>Create recurring item</Button>
           <Button variant="secondary" disabled={!checked.length} onClick={calculateSavings}>
             <CircleDollarSign className="h-4 w-4" /> Calculate selected savings
           </Button>
-          {data.summary.priceIncreases ? (
-            <Pill tone="warn">{data.summary.priceIncreases} price increases</Pill>
-          ) : null}
-          {isPending ? <Pill tone="info">Refreshing</Pill> : null}
         </div>
         <div aria-live="polite" className="mt-3 text-sm text-[var(--muted)]">
           {savings ||
@@ -235,7 +251,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
         </div>
       </Card>
       <Card className="mb-5 p-5">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid items-end gap-3 lg:grid-cols-[minmax(240px,1.3fr)_minmax(180px,1fr)_minmax(180px,1fr)_auto]">
           <label className="text-sm text-[var(--muted)]">
             Search
             <div className="mt-2 flex h-10 items-center gap-2 rounded-md border border-[var(--border)] px-3">
@@ -253,37 +269,63 @@ export function RecurringClient({ data }: { data: RecurringData }) {
           <Select
             label="Status"
             value={status}
-            options={["", ...Object.keys(statusLabels)]}
-            labels={{ "": "All statuses", ...statusLabels }}
-            onChange={setStatus}
+            options={["CURRENT", "", ...Object.keys(statusLabels)]}
+            labels={{ CURRENT: "Current & review", "": "All statuses", ...statusLabels }}
+            onChange={(value) => {
+              setStatus(value);
+              setPage(1);
+            }}
           />
           <Select
             label="Classification"
             value={classification}
             options={["", ...classifications]}
             labels={{ "": "All classifications", ...classificationLabels }}
-            onChange={setClassification}
+            onChange={(value) => {
+              setClassification(value);
+              setPage(1);
+            }}
           />
-          <div className="self-end text-sm text-[var(--muted)]">
-            Showing {visible.length} of {filtered.length} recurring items
+          <div className="flex min-h-11 items-center justify-between gap-3 text-sm text-[var(--muted)] lg:justify-end">
+            <span>{resultRange(page, totalPages, pageSize, visible.length, filtered.length)}</span>
+            {query || status !== "CURRENT" || classification ? (
+              <button
+                className="whitespace-nowrap font-semibold text-[var(--teal)]"
+                onClick={() => {
+                  setQuery("");
+                  setStatus("CURRENT");
+                  setClassification("");
+                  setPage(1);
+                }}
+              >
+                Clear filters
+              </button>
+            ) : null}
           </div>
         </div>
       </Card>
       <Card className="overflow-hidden">
         <div className="max-h-[680px] overflow-auto">
-          <table className="w-full min-w-[1280px] table-fixed text-left text-sm">
+          <table className="w-full min-w-[1200px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-14" />
+              <col className="w-[210px]" />
+              <col className="w-[120px]" />
+              <col className="w-[220px]" />
+              <col className="w-[120px]" />
+              <col className="w-[180px]" />
+              <col className="w-[105px]" />
+              <col className="w-[190px]" />
+            </colgroup>
             <thead className="sticky top-0 bg-[var(--surface)] text-[var(--muted)]">
               <tr>
                 {[
-                  "Save",
-                  "Merchant",
+                  "Select",
+                  "Recurring item",
                   "Amount",
-                  "Cadence",
-                  "Last",
-                  "Next",
+                  "Schedule",
                   "Confidence",
-                  "Classification",
-                  "Recommendation",
+                  "Decision",
                   "Evidence",
                   "Actions",
                 ].map((head) => (
@@ -311,7 +353,12 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                     />
                   </td>
                   <td className="px-4 py-4">
-                    <div className="font-semibold">{item.displayName}</div>
+                    <button
+                      className="text-left font-semibold hover:text-[var(--teal)]"
+                      onClick={() => openRecurring(item)}
+                    >
+                      {item.displayName}
+                    </button>
                     <div className="text-xs text-[var(--muted)]">
                       {item.serviceName || typeLabels[item.recurringType] || "Recurring expense"}
                     </div>
@@ -332,14 +379,16 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                       </div>
                     ) : null}
                   </td>
-                  <td className="px-4 py-4">{frequencyLabels[item.frequency] ?? item.frequency}</td>
-                  <td className="px-4 py-4">{shortDate(item.lastObservedDate)}</td>
                   <td className="px-4 py-4">
-                    {item.nextExpectedDate
-                      ? shortDate(item.nextExpectedDate)
-                      : item.frequency === "IRREGULAR_RECURRING"
-                        ? "No reliable prediction"
-                        : "Needs review"}
+                    <div className="font-medium">
+                      {frequencyLabels[item.frequency] ?? item.frequency}
+                    </div>
+                    <div className="mt-2 text-xs text-[var(--muted)]">
+                      Last {shortDate(item.lastObservedDate)}
+                    </div>
+                    <div className="mt-1 text-xs text-[var(--muted)]">
+                      Next {nextExpectedLabel(item)}
+                    </div>
                   </td>
                   <td className="px-4 py-4">
                     <Pill
@@ -355,10 +404,12 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                     </Pill>
                   </td>
                   <td className="px-4 py-4">
-                    {classificationLabels[item.classification] ?? item.classification}
-                  </td>
-                  <td className="px-4 py-4">
-                    {recommendationLabels[item.recommendation] ?? item.recommendation}
+                    <div className="font-medium">
+                      {classificationLabels[item.classification] ?? item.classification}
+                    </div>
+                    <div className="mt-1 text-xs text-[var(--muted)]">
+                      {recommendationLabels[item.recommendation] ?? item.recommendation}
+                    </div>
                   </td>
                   <td className="px-4 py-4">
                     <button
@@ -368,76 +419,96 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                       {item.supportCount} transactions
                     </button>
                   </td>
-                  <td className="space-y-2 px-4 py-4">
-                    {["SUGGESTED", "NEEDS_REVIEW"].includes(item.status) ? (
-                      <>
-                        <IconButton
-                          label="Confirm"
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      {["SUGGESTED", "NEEDS_REVIEW"].includes(item.status) ? (
+                        <>
+                          <RowActionButton
+                            label="Confirm"
+                            onClick={() =>
+                              action(
+                                item.id,
+                                "confirm",
+                                { confirmation: "CONFIRM RECURRING" },
+                                "Recurring item confirmed.",
+                              )
+                            }
+                          >
+                            <Check className="h-4 w-4" />
+                          </RowActionButton>
+                          <RowActionButton
+                            label="Reject"
+                            onClick={() =>
+                              action(
+                                item.id,
+                                "reject",
+                                { confirmation: "REJECT RECURRING" },
+                                "Recurring suggestion rejected.",
+                              )
+                            }
+                          >
+                            <X className="h-4 w-4" />
+                          </RowActionButton>
+                        </>
+                      ) : null}
+                      <RowActionButton label="Edit" onClick={() => openRecurring(item)}>
+                        <Edit3 className="h-4 w-4" />
+                      </RowActionButton>
+                      {item.status === "CANCELED" ? (
+                        <RowActionButton
+                          label="Reactivate"
                           onClick={() =>
                             action(
                               item.id,
-                              "confirm",
+                              "reactivate",
                               { confirmation: "CONFIRM RECURRING" },
-                              "Recurring item confirmed.",
+                              "Recurring item reactivated.",
                             )
                           }
                         >
-                          <Check className="h-4 w-4" />
-                        </IconButton>
-                        <IconButton
-                          label="Reject"
+                          <RotateCcw className="h-4 w-4" />
+                        </RowActionButton>
+                      ) : (
+                        <RowActionButton
+                          label="Mark canceled"
                           onClick={() =>
                             action(
                               item.id,
-                              "reject",
-                              { confirmation: "REJECT RECURRING" },
-                              "Recurring suggestion rejected.",
+                              "cancel",
+                              {
+                                confirmation: "MARK CANCELED",
+                                canceledAt: new Date().toISOString(),
+                                reactivateOnFutureMatch: true,
+                              },
+                              "Recurring item marked canceled.",
                             )
                           }
                         >
                           <X className="h-4 w-4" />
-                        </IconButton>
-                      </>
-                    ) : null}
-                    <IconButton label="Edit" onClick={() => openRecurring(item)}>
-                      <Edit3 className="h-4 w-4" />
-                    </IconButton>
-                    {item.status === "CANCELED" ? (
-                      <IconButton
-                        label="Reactivate"
-                        onClick={() =>
-                          action(
-                            item.id,
-                            "reactivate",
-                            { confirmation: "CONFIRM RECURRING" },
-                            "Recurring item reactivated.",
-                          )
-                        }
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </IconButton>
-                    ) : (
-                      <IconButton
-                        label="Mark canceled"
-                        onClick={() =>
-                          action(
-                            item.id,
-                            "cancel",
-                            {
-                              confirmation: "MARK CANCELED",
-                              canceledAt: new Date().toISOString(),
-                              reactivateOnFutureMatch: true,
-                            },
-                            "Recurring item marked canceled.",
-                          )
-                        }
-                      >
-                        <X className="h-4 w-4" />
-                      </IconButton>
-                    )}
+                        </RowActionButton>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
+              {!visible.length ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <div className="font-semibold">No recurring items match these filters.</div>
+                    <button
+                      className="mt-2 text-sm font-semibold text-[var(--teal)]"
+                      onClick={() => {
+                        setQuery("");
+                        setStatus("CURRENT");
+                        setClassification("");
+                        setPage(1);
+                      }}
+                    >
+                      Return to current items
+                    </button>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -804,7 +875,7 @@ function Field({
   );
 }
 
-function IconButton({
+function RowActionButton({
   label,
   children,
   onClick,
@@ -817,10 +888,11 @@ function IconButton({
     <button
       title={label}
       aria-label={label}
-      className="mr-2 inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border)] text-[var(--teal)]"
+      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 text-xs font-semibold text-[var(--teal)] hover:bg-[var(--teal-soft)]"
       onClick={onClick}
     >
       {children}
+      {label}
     </button>
   );
 }
@@ -847,6 +919,29 @@ async function patchJson(url: string, body: unknown) {
   return response.ok
     ? { ok: true, ...json }
     : { ok: false, error: json.error ?? "Request failed." };
+}
+
+function isHistoricalStatus(status: string) {
+  return ["REJECTED", "CANCELED", "INACTIVE"].includes(status);
+}
+
+function nextExpectedLabel(item: RecurringDto) {
+  if (item.nextExpectedDate) return shortDate(item.nextExpectedDate);
+  return item.frequency === "IRREGULAR_RECURRING" ? "No reliable prediction" : "Needs review";
+}
+
+function resultRange(
+  page: number,
+  totalPages: number,
+  pageSize: number,
+  visibleCount: number,
+  totalCount: number,
+) {
+  if (!totalCount) return "0 items";
+  const currentPage = Math.min(page, totalPages);
+  const first = (currentPage - 1) * pageSize + 1;
+  const last = first + visibleCount - 1;
+  return `${first}–${last} of ${totalCount}`;
 }
 
 function shortDate(value: string) {

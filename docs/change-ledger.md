@@ -114,3 +114,10 @@
   and account names, including archived matches, with a structured conflict response.
 - Added confirmed permanent deletion for unused accounts. Deletion is blocked when financial or
   planning records reference the account, while successful deletions retain a minimal audit event.
+
+# 2026-07-15 — Recurring review workspace refinement
+
+- Balanced recurring financial summaries, promoted review alerts into the action area, and made
+  current/reviewable items the default view while retaining filtered access to historical statuses.
+- Consolidated the recurring table into readable schedule and decision groups, added labeled row
+  actions, clearer result ranges and empty-filter recovery, and preserved contained mobile overflow.

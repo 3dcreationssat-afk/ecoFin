@@ -750,6 +750,9 @@ test("recurring scan, review, confirm, reject, manual create, and savings work",
     "Desktop project owns the destructive recurring workflow.",
   );
   await page.goto("/recurring");
+  await expect(page.getByLabel("Status")).toHaveValue("CURRENT");
+  await expect(page.getByRole("columnheader", { name: "Schedule" })).toBeAttached();
+  await expect(page.getByRole("columnheader", { name: "Decision" })).toBeAttached();
   await page.getByRole("button", { name: "Run scan" }).click();
   await expect(page.getByText(/Scan complete/)).toBeVisible();
   await expect(page.getByText("Netflix").first()).toBeVisible();
@@ -793,7 +796,15 @@ test("recurring scan, review, confirm, reject, manual create, and savings work",
 test("data quality and mobile recurring review expose recurring issues without overflow", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/recurring");
+  const metricTops = await page
+    .locator("[data-metric-value]")
+    .evaluateAll((metrics) =>
+      metrics.map((metric) => Math.round(metric.getBoundingClientRect().top)),
+    );
+  expect(metricTops).toHaveLength(5);
+  expect(new Set(metricTops).size).toBe(1);
   await page.getByRole("button", { name: "Run scan" }).click();
   await page.goto("/data-quality");
   await expect(page.getByText("Unconfirmed recurring candidates")).toBeVisible();
@@ -802,6 +813,7 @@ test("data quality and mobile recurring review expose recurring issues without o
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/recurring");
   await expect(page.getByRole("heading", { name: "Recurring Expenses" })).toBeVisible();
+  await expect(page.getByLabel("Status")).toHaveValue("CURRENT");
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );

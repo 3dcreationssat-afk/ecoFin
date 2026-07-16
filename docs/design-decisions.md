@@ -45,3 +45,16 @@
 - Accessibility impact: disabled controls expose titles and visible planned labels where practical.
 - Responsive impact: no material impact.
 - Product impact: clarifies Phase 1 boundaries before CSV import begins.
+
+## Recurring Review Workspace
+
+- Recurring financial totals use five balanced summary cards; operational counts such as items
+  under review and price increases appear beside review actions instead of creating an orphaned
+  metric row.
+- The default list shows current and reviewable items. Rejected, canceled, and inactive history
+  remains available through the Status filter.
+- Dense recurrence fields are grouped into Schedule and Decision columns, while row actions use
+  visible labels in addition to icons. The table retains contained horizontal scrolling on narrow
+  viewports.
+- These are presentation and review-workflow choices only; detection, persisted statuses, and
+  recurring financial calculations are unchanged.
