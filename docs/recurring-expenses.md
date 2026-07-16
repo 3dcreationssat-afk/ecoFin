@@ -14,9 +14,11 @@ Recurring candidates are built only from household expense transactions. The det
 - refunds
 - confirmed transfers
 - transfer-like or card-payment-like rows
+- explicit P2P and instant-transfer descriptors such as XFER, Zelle, Cash App, and bill pay
 - interest and fees
 - excluded transactions
 - zero-amount transactions
+- future-dated transactions
 
 Credit-card purchases can still be detected as subscriptions. Credit-card payments are excluded.
 
@@ -32,7 +34,15 @@ Supported deterministic cadence classes:
 - twice a year
 - annual
 
-The detector uses date-gap tolerance windows and requires enough observations for the cadence. Monthly patterns require at least three observations. Longer cadence patterns can be suggested from two observations when the dates and amounts are consistent enough.
+The detector uses date-gap tolerance windows and requires at least three distinct observed dates for
+every supported cadence. Identical same-day rows count as one occurrence; differing charges from the
+same merchant on one day are treated as ambiguous and are not inferred as one recurring series.
+
+Automatic candidates require a supported cadence. Arbitrary irregular gaps are not promoted to
+recurring expenses because they do not support a defensible next occurrence or monthly equivalent.
+Users can still create or edit an explicitly irregular recurring record when they know the financial
+contract. Evidence must also be recent: a pattern is no longer detected after more than two expected
+occurrences pass without another matching charge.
 
 ## Amounts
 
@@ -92,10 +102,12 @@ Recurring expense records and recurring transaction links are included in backup
 
 Automatic detection requires a defensible interval cluster and is intentionally conservative.
 Predictable schedules show both Last observed and the first expected occurrence strictly after the
-scan date. Irregular patterns do not show a precise Next date. Supporting transactions are loaded
-only when an item is opened, keeping the recurring page payload bounded.
+scan date. User-maintained irregular patterns do not show a precise Next date. Supporting
+transactions are loaded only when an item is opened, keeping the recurring page payload bounded.
 
 Confirmed and rejected decisions remain auditable. After supporting transaction semantics change,
 a confirmed pattern whose frequency, amount, type, or eligibility changes materially returns to
 Needs review. A rejected pattern is reconsidered only when its detection evidence changes. Stale
-unconfirmed suggestions become inactive rather than being deleted.
+unconfirmed suggestions and unconfirmed Needs review records become inactive rather than being
+deleted, and each automatic inactivation is audited. Previously confirmed records preserve the
+existing Needs review revalidation path.

@@ -170,7 +170,11 @@ export function isRecurringEligible(transaction: RecurringTransactionInput) {
   ) {
     return false;
   }
-  if (/refund|statement credit|payment received|autopay|transfer from|transfer to/.test(text))
+  if (
+    /refund|statement credit|payment received|autopay|transfer from|transfer to|\bxfer\b|\bp2p\b|person to person|\bzelle\b|\bcash ?app\b|online banking transfer|\bbill pay\b/.test(
+      text,
+    )
+  )
     return false;
   return true;
 }
@@ -180,7 +184,9 @@ export function detectRecurringCandidates(
   asOf = new Date(),
 ) {
   const groups = new Map<string, RecurringTransactionInput[]>();
-  for (const transaction of transactions.filter(isRecurringEligible)) {
+  for (const transaction of transactions.filter(
+    (item) => isRecurringEligible(item) && observedDate(item) <= asOf,
+  )) {
     const merchantKey = normalizeRecurringMerchant(
       transaction.normalizedMerchant || transaction.originalDescription,
     );
@@ -191,7 +197,9 @@ export function detectRecurringCandidates(
   const candidates: RecurringCandidate[] = [];
   for (const [merchantKey, group] of groups) {
     const sorted = [...group].sort((a, b) => observedDate(a).getTime() - observedDate(b).getTime());
-    const candidate = buildCandidate(merchantKey, sorted, asOf);
+    const distinctOccurrences = distinctDailyOccurrences(sorted);
+    if (!distinctOccurrences) continue;
+    const candidate = buildCandidate(merchantKey, distinctOccurrences, asOf);
     if (candidate) candidates.push(candidate);
   }
   return candidates.sort((a, b) => b.confidenceScore - a.confidenceScore);
@@ -210,6 +218,9 @@ function buildCandidate(
     );
   const frequency = chooseFrequency(intervals, transactions.length);
   if (frequency.frequency === "UNKNOWN") return null;
+  const lastObservedDate = observedDate(transactions[transactions.length - 1]);
+  if (daysBetween(lastObservedDate, asOf) > frequency.expectedDays * 2 + frequency.toleranceDays)
+    return null;
 
   const amounts = transactions
     .map((transaction) => Math.abs(transaction.amountMinor))
@@ -249,7 +260,6 @@ function buildCandidate(
     price.priceChangeAmountMinor,
   );
   const firstObservedDate = observedDate(transactions[0]);
-  const lastObservedDate = observedDate(transactions[transactions.length - 1]);
   const nextExpectedDate = nextFutureOccurrence(
     lastObservedDate,
     frequency.frequency,
@@ -292,6 +302,7 @@ function chooseFrequency(intervals: number[], occurrences: number) {
   let best = {
     frequency: "UNKNOWN" as Frequency,
     expectedDays: 0,
+    toleranceDays: 0,
     matchRatio: 0,
     label: "Unknown",
   };
@@ -305,21 +316,29 @@ function chooseFrequency(intervals: number[], occurrences: number) {
       best = {
         frequency: rule.frequency,
         expectedDays: rule.expectedDays,
+        toleranceDays: rule.toleranceDays,
         matchRatio,
         label: rule.label,
       };
     }
   }
   if (best.matchRatio >= 0.7) return best;
-  if (occurrences >= 4 && intervals.every((interval) => interval >= 14)) {
-    return {
-      frequency: "IRREGULAR_RECURRING" as Frequency,
-      expectedDays: 0,
-      matchRatio: 0.5,
-      label: "Irregular recurring",
-    };
-  }
   return best;
+}
+
+function distinctDailyOccurrences(transactions: RecurringTransactionInput[]) {
+  const byDate = new Map<string, RecurringTransactionInput[]>();
+  for (const transaction of transactions) {
+    const date = observedDate(transaction).toISOString().slice(0, 10);
+    byDate.set(date, [...(byDate.get(date) ?? []), transaction]);
+  }
+  const distinct: RecurringTransactionInput[] = [];
+  for (const sameDay of byDate.values()) {
+    const amounts = new Set(sameDay.map((transaction) => Math.abs(transaction.amountMinor)));
+    if (amounts.size > 1) return null;
+    distinct.push(sameDay[0]);
+  }
+  return distinct;
 }
 
 export function nextFutureOccurrence(

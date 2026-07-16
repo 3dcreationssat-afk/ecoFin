@@ -127,18 +127,30 @@ export async function scanRecurringExpenses(
     });
     refreshed.push(existing.id);
   }
-  const staleSuggestions = await prisma.recurringExpense.findMany({
+  const staleUnconfirmed = await prisma.recurringExpense.findMany({
     where: {
       householdId: household.id,
-      status: "SUGGESTED",
+      status: { in: ["SUGGESTED", "NEEDS_REVIEW"] },
+      userConfirmed: false,
       NOT: { detectionHash: { startsWith: "manual:" } },
     },
   });
-  for (const existing of staleSuggestions) {
+  for (const existing of staleUnconfirmed) {
     if (detectedKeys.has(`${existing.merchantKey}|${existing.frequency}`)) continue;
     await prisma.recurringExpense.update({
       where: { id: existing.id },
       data: { status: "INACTIVE", nextExpectedDate: null },
+    });
+    await auditChange(prisma, {
+      householdId: household.id,
+      entityType: "RecurringExpense",
+      entityId: existing.id,
+      action: "candidate_inactivated",
+      field: "status",
+      previousValue: existing.status,
+      newValue: "INACTIVE",
+      reason: "Current transaction evidence no longer meets recurring-detection requirements.",
+      source: "recurring",
     });
     refreshed.push(existing.id);
   }

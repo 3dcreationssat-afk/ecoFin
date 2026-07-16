@@ -121,3 +121,12 @@
   current/reviewable items the default view while retaining filtered access to historical statuses.
 - Consolidated the recurring table into readable schedule and decision groups, added labeled row
   actions, clearer result ranges and empty-filter recovery, and preserved contained mobile overflow.
+
+# 2026-07-15 — Conservative recurring detection
+
+- Excluded future-dated and explicit P2P/instant-transfer rows, counted exact same-day duplicates as
+  one observation, and rejected conflicting same-day merchant charges as ambiguous evidence.
+- Required recent evidence and a supported cadence for automatic candidates, removing arbitrary
+  irregular-gap promotion while preserving user-created irregular records.
+- Inactivated stale unconfirmed suggestions and review records with audit history, while preserving
+  the existing confirmed-pattern revalidation contract.

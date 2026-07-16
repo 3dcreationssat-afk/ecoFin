@@ -156,11 +156,29 @@ describe("recurring expense service", () => {
       where: { transaction: { importBatchId: imported.id } },
     });
     expect(links).toBeGreaterThan(0);
+    const importedCandidate = await prismaModule.prisma.recurringExpense.findFirstOrThrow({
+      where: { merchantKey: "synthetic streaming" },
+    });
     await imports.undoImportBatch(imported.id, { confirm: "UNDO IMPORT" });
     expect(
       await prismaModule.prisma.recurringExpenseTransaction.count({
         where: { transaction: { importBatchId: imported.id } },
       }),
     ).toBe(0);
+    await recurring.scanRecurringExpenses();
+    expect(
+      await prismaModule.prisma.recurringExpense.findUniqueOrThrow({
+        where: { id: importedCandidate.id },
+      }),
+    ).toMatchObject({ status: "INACTIVE", nextExpectedDate: null });
+    expect(
+      await prismaModule.prisma.auditLog.findFirst({
+        where: {
+          entityType: "RecurringExpense",
+          entityId: importedCandidate.id,
+          action: "candidate_inactivated",
+        },
+      }),
+    ).toBeTruthy();
   });
 });
