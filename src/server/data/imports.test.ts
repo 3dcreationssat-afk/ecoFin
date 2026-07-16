@@ -291,6 +291,99 @@ describe("csv import repositories", () => {
       (transaction) => transaction.importRowId === candidate?.id,
     );
     expect(explicitDuplicate).toMatchObject({ possibleDuplicate: true, affectsLedger: true });
+
+    const overlapContent = 'Date,Description,Amount\n07/10/2026,Synthetic repeated charge,"-4.25"';
+    const overlap = await imports.validateImport({
+      accountId: account.id,
+      filename: "synthetic-overlapping-range.csv",
+      fileSize: overlapContent.length,
+      content: overlapContent,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+      mapping: {
+        delimiter: ",",
+        encoding: "UTF-8",
+        hasHeader: true,
+        dateColumn: "Date",
+        descriptionColumn: "Description",
+        amountMode: "SIGNED_AMOUNT",
+        amountColumn: "Amount",
+        dateFormat: "MM/DD/YYYY",
+        decimalSeparator: ".",
+        thousandsSeparator: ",",
+        signConvention: "DEBITS_NEGATIVE",
+        currency: "USD",
+        saveProfile: false,
+      },
+    });
+    expect(overlap.rows[0]).toMatchObject({
+      duplicateStatus: "EXACT_OVERLAP",
+      importDecision: "SKIP",
+    });
+
+    const unchanged = await imports.confirmImport({
+      batchId: overlap.id,
+      decisions: [],
+      confirm: "IMPORT CSV",
+    });
+    expect(unchanged).toMatchObject({
+      status: "NO_CHANGES",
+      importedTransactionCount: 0,
+    });
+    expect(JSON.parse(unchanged.summaryJson ?? "{}")).toMatchObject({
+      skippedCount: 1,
+      exactOverlapSkippedCount: 1,
+    });
+    expect(
+      await prismaModule.prisma.transaction.count({
+        where: {
+          accountId: account.id,
+          transactionDate: new Date("2026-07-10T00:00:00.000Z"),
+          amountMinor: -425,
+          originalDescription: "Synthetic repeated charge",
+        },
+      }),
+    ).toBe(2);
+
+    const excessContent = [
+      "Date,Description,Amount",
+      "07/10/2026,Synthetic repeated charge,-4.25",
+      "07/10/2026,Synthetic repeated charge,-4.25",
+      "07/10/2026,Synthetic repeated charge,-4.25",
+    ].join("\n");
+    const excess = await imports.validateImport({
+      accountId: account.id,
+      filename: "synthetic-overlap-with-extra.csv",
+      fileSize: excessContent.length,
+      content: excessContent,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+      mapping: {
+        delimiter: ",",
+        encoding: "UTF-8",
+        hasHeader: true,
+        dateColumn: "Date",
+        descriptionColumn: "Description",
+        amountMode: "SIGNED_AMOUNT",
+        amountColumn: "Amount",
+        dateFormat: "MM/DD/YYYY",
+        decimalSeparator: ".",
+        thousandsSeparator: ",",
+        signConvention: "DEBITS_NEGATIVE",
+        currency: "USD",
+        saveProfile: false,
+      },
+    });
+    expect(excess.rows.map((row) => row.importDecision)).toEqual(["SKIP", "SKIP", "REVIEW"]);
+    await expect(
+      imports.confirmImport({
+        batchId: excess.id,
+        decisions: [],
+        confirm: "IMPORT CSV",
+      }),
+    ).rejects.toThrow(/Unresolved rows: 3/);
   });
 
   it("accepts Amex-shaped rows with masked account identifiers and preserves unused metadata", async () => {

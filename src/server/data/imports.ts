@@ -285,7 +285,7 @@ export async function validateImport(input: unknown) {
         existingTransactions,
       }),
     );
-    markSameFileDuplicates(validatedRows);
+    markDuplicateDecisions(validatedRows, existingTransactions);
     const stagedRows = validatedRows.map((row) => ({
       importBatchId: target.id,
       rowNumber: row.rowNumber,
@@ -351,7 +351,7 @@ export async function confirmImport(input: unknown) {
     (row) =>
       row.validationStatus !== "INVALID" &&
       row.duplicateStatus !== "NONE" &&
-      (!decisions.has(row.id) || decisions.get(row.id) === "REVIEW"),
+      (decisions.get(row.id) ?? row.importDecision) === "REVIEW",
   );
   if (unresolvedDuplicateRows.length > 0) {
     throw new AppError(
@@ -363,7 +363,11 @@ export async function confirmImport(input: unknown) {
     const decision = decisions.get(row.id) ?? row.importDecision;
     return row.validationStatus !== "INVALID" && decision === "IMPORT";
   });
-  if (rowsToImport.length === 0) throw new AppError("No valid rows selected for import.", 422);
+  const validRows = batch.rows.filter((row) => row.validationStatus !== "INVALID");
+  if (validRows.length === 0) throw new AppError("No valid rows are available to confirm.", 422);
+  const rowsToSkip = validRows.filter(
+    (row) => (decisions.get(row.id) ?? row.importDecision) === "SKIP",
+  );
 
   const detail = await prisma.$transaction(async (tx) => {
     const importedIds: string[] = [];
@@ -376,6 +380,12 @@ export async function confirmImport(input: unknown) {
     let ruleMerchantNormalizedCount = 0;
     let ruleCategoryAssignedCount = 0;
     let semanticReviewCount = 0;
+    for (const row of rowsToSkip) {
+      await tx.importRow.update({
+        where: { id: row.id },
+        data: { importDecision: "SKIP", createdTransactionId: null },
+      });
+    }
     for (const row of rowsToImport) {
       if (
         !row.parsedTransactionDate ||
@@ -444,14 +454,25 @@ export async function confirmImport(input: unknown) {
         source: "import",
       });
     }
-    const skippedCount = batch.rows.length - rowsToImport.length;
-    await recalculateAccountBalances([batch.accountId], tx);
-    const status = skippedCount > 0 ? "PARTIALLY_IMPORTED" : "IMPORTED";
-    const currentState = await workspaceState(tx);
-    await tx.household.update({
-      where: { id: batch.householdId },
-      data: { workspaceMode: currentState === "DEMONSTRATION" ? "MIXED" : "USER_DATA" },
-    });
+    const skippedCount = rowsToSkip.length;
+    const invalidCount = batch.rows.filter((row) => row.validationStatus === "INVALID").length;
+    const exactOverlapSkippedCount = rowsToSkip.filter(
+      (row) => row.duplicateStatus === "EXACT_OVERLAP",
+    ).length;
+    if (importedIds.length > 0) {
+      await recalculateAccountBalances([batch.accountId], tx);
+      const currentState = await workspaceState(tx);
+      await tx.household.update({
+        where: { id: batch.householdId },
+        data: { workspaceMode: currentState === "DEMONSTRATION" ? "MIXED" : "USER_DATA" },
+      });
+    }
+    const status =
+      importedIds.length === 0
+        ? "NO_CHANGES"
+        : skippedCount > 0 || invalidCount > 0
+          ? "PARTIALLY_IMPORTED"
+          : "IMPORTED";
     const updated = await tx.importBatch.update({
       where: { id: batch.id },
       data: {
@@ -459,12 +480,13 @@ export async function confirmImport(input: unknown) {
         completedAt: new Date(),
         importedTransactionCount: importedIds.length,
         acceptedRowCount: rowsToImport.length,
-        rejectedRowCount: batch.rows.filter((row) => row.validationStatus === "INVALID").length,
+        rejectedRowCount: invalidCount,
         summaryJson: JSON.stringify({
           ...parseSummary(batch.summaryJson),
           importedIds,
           skippedCount,
-          invalidCount: batch.rows.filter((row) => row.validationStatus === "INVALID").length,
+          exactOverlapSkippedCount,
+          invalidCount,
           ruleMatchedCount,
           ruleConflictCount,
           ruleMerchantNormalizedCount,
@@ -485,6 +507,7 @@ export async function confirmImport(input: unknown) {
     });
     return batchDetail(updated.id, tx);
   });
+  if (detail.transactions.length === 0) return detail;
   try {
     const scan = await scanTransferCandidates({
       householdId: batch.householdId,
@@ -770,7 +793,13 @@ function validateRow(input: {
       : warning
         ? [duplicate.reason || sourceFields.__dateWarning || sourceFields.__semanticWarning]
         : [],
-    importDecision: errors.length ? "SKIP" : duplicate.status === "NONE" ? "IMPORT" : "REVIEW",
+    importDecision: errors.length
+      ? "SKIP"
+      : duplicate.status === "NONE"
+        ? "IMPORT"
+        : duplicate.status === "EXACT_OVERLAP"
+          ? "SKIP"
+          : "REVIEW",
   };
 }
 
@@ -817,26 +846,59 @@ function summarizeRows(rows: ReturnType<typeof validateRow>[]) {
   };
 }
 
-function markSameFileDuplicates(rows: ReturnType<typeof validateRow>[]) {
+function markDuplicateDecisions(
+  rows: ReturnType<typeof validateRow>[],
+  existingTransactions: Array<{
+    transactionDate: Date;
+    amountMinor: number;
+    originalDescription: string;
+  }>,
+) {
+  const existingCounts = new Map<string, number>();
+  existingTransactions.forEach((transaction) => {
+    const key = exactContentKey(transaction);
+    existingCounts.set(key, (existingCounts.get(key) ?? 0) + 1);
+  });
+  const matchedExistingCounts = new Map<string, number>();
   const seen = new Map<string, number>();
   rows.forEach((row) => {
     if (!row.transactionDate || row.amountMinor === null || !row.originalDescription) return;
-    const key = [
-      row.transactionDate.toISOString().slice(0, 10),
-      row.amountMinor,
-      row.originalDescription.trim().toLowerCase(),
-    ].join("|");
+    const key = exactContentKey({
+      transactionDate: row.transactionDate,
+      amountMinor: row.amountMinor,
+      originalDescription: row.originalDescription,
+    });
     const first = seen.get(key);
-    if (first) {
+    const matchedCount = matchedExistingCounts.get(key) ?? 0;
+    const existingCount = existingCounts.get(key) ?? 0;
+    if (row.duplicateStatus === "EXACT_OVERLAP" && matchedCount < existingCount) {
+      matchedExistingCounts.set(key, matchedCount + 1);
+      row.duplicateReason =
+        "Same account, transaction date, amount, and original description already exist.";
+      row.importDecision = "SKIP";
+    } else if (first) {
       row.duplicateStatus = "LIKELY";
       row.duplicateReason = `Same file row ${first} has the same date, amount, and description.`;
       if (row.validationStatus === "VALID") row.validationStatus = "WARNING";
-      row.errors = [...row.errors, row.duplicateReason];
+      row.errors = [row.duplicateReason];
       row.importDecision = "REVIEW";
     } else {
       seen.set(key, row.rowNumber);
     }
+    if (!first) seen.set(key, row.rowNumber);
   });
+}
+
+function exactContentKey(input: {
+  transactionDate: Date;
+  amountMinor: number;
+  originalDescription: string;
+}) {
+  return [
+    input.transactionDate.toISOString().slice(0, 10),
+    input.amountMinor,
+    input.originalDescription.trim().toLowerCase().replace(/\s+/g, " "),
+  ].join("|");
 }
 
 function redactFilename(filename: string) {

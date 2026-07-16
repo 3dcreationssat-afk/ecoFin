@@ -185,8 +185,10 @@ const signConventionLabels: Record<string, string> = {
 
 const duplicateStatusLabels: Record<string, string> = {
   NONE: "No duplicate found",
-  FILE_ROW: "Duplicate row in this file",
-  EXISTING_TRANSACTION: "Possible duplicate transaction",
+  POSSIBLE: "Possible duplicate transaction",
+  LIKELY: "Likely duplicate transaction",
+  EXACT_OVERLAP: "Already exists — will skip",
+  EXACT: "Exact source row already exists",
 };
 
 const decisionLabels: Record<string, string> = {
@@ -200,6 +202,7 @@ const batchStatusLabels: Record<string, string> = {
   VALIDATED: "Validated",
   IMPORTED: "Imported",
   PARTIALLY_IMPORTED: "Partially imported",
+  NO_CHANGES: "No new transactions",
   FAILED: "Failed",
   UNDONE: "Undone",
 };
@@ -396,46 +399,6 @@ export function TransactionsClient({
         {status === "saved" ? <Pill tone="good">Saved</Pill> : null}
         {status === "error" ? <Pill tone="bad">Action failed</Pill> : null}
       </div>
-      <ImportHistory batches={batches} onUndo={undoBatch} />
-      <TransferReviewPanel
-        matches={displayedTransferMatches}
-        transactions={transactions}
-        onScan={scanTransfers}
-        onOpen={(id) => {
-          const transaction = transactions.find((item) => item.id === id);
-          if (transaction) open(transaction);
-        }}
-        onConfirm={(id) =>
-          transferAction(
-            `/api/transfers/${id}/confirm`,
-            { confirmation: "CONFIRM TRANSFER", notes: transferNote || undefined },
-            "Transfer confirmed.",
-            { id, status: "CONFIRMED" },
-          )
-        }
-        onReject={(id) =>
-          transferAction(
-            `/api/transfers/${id}/reject`,
-            { confirmation: "REJECT TRANSFER", notes: transferNote || undefined },
-            "Transfer suggestion rejected.",
-            { id, status: "REJECTED" },
-          )
-        }
-        onManual={(outgoingTransactionId, incomingTransactionId) =>
-          transferAction(
-            "/api/transfers/manual",
-            {
-              outgoingTransactionId,
-              incomingTransactionId,
-              confirmation: "CONFIRM TRANSFER",
-              notes: transferNote || undefined,
-            },
-            "Manual transfer created.",
-          )
-        }
-        error={transferError}
-        pendingMatchId={pendingTransferActionId}
-      />
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
@@ -472,6 +435,48 @@ export function TransactionsClient({
         selectedIds={selectedIds}
         onSelection={setSelectedIds}
       />
+      <div className="mt-5 space-y-4" aria-label="Import and transfer activity">
+        <ImportHistory batches={batches} onUndo={undoBatch} />
+        <TransferReviewPanel
+          matches={displayedTransferMatches}
+          transactions={transactions}
+          onScan={scanTransfers}
+          onOpen={(id) => {
+            const transaction = transactions.find((item) => item.id === id);
+            if (transaction) open(transaction);
+          }}
+          onConfirm={(id) =>
+            transferAction(
+              `/api/transfers/${id}/confirm`,
+              { confirmation: "CONFIRM TRANSFER", notes: transferNote || undefined },
+              "Transfer confirmed.",
+              { id, status: "CONFIRMED" },
+            )
+          }
+          onReject={(id) =>
+            transferAction(
+              `/api/transfers/${id}/reject`,
+              { confirmation: "REJECT TRANSFER", notes: transferNote || undefined },
+              "Transfer suggestion rejected.",
+              { id, status: "REJECTED" },
+            )
+          }
+          onManual={(outgoingTransactionId, incomingTransactionId) =>
+            transferAction(
+              "/api/transfers/manual",
+              {
+                outgoingTransactionId,
+                incomingTransactionId,
+                confirmation: "CONFIRM TRANSFER",
+                notes: transferNote || undefined,
+              },
+              "Manual transfer created.",
+            )
+          }
+          error={transferError}
+          pendingMatchId={pendingTransferActionId}
+        />
+      </div>
       {importOpen ? (
         <ImportDialog
           accounts={accounts}
@@ -1243,6 +1248,16 @@ function ImportDialog({
               <ValidationSummary batch={batch} />
               {batch?.rows.some(
                 (row) =>
+                  row.duplicateStatus === "EXACT_OVERLAP" &&
+                  (decisions[row.id] ?? row.importDecision) === "SKIP",
+              ) ? (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                  Exact overlaps are preselected to Skip. They remain visible below and will only be
+                  skipped after you confirm this batch.
+                </div>
+              ) : null}
+              {batch?.rows.some(
+                (row) =>
                   row.validationStatus !== "INVALID" &&
                   row.duplicateStatus !== "NONE" &&
                   (decisions[row.id] ?? row.importDecision) === "REVIEW",
@@ -1251,8 +1266,8 @@ function ImportDialog({
                   role="alert"
                   className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
                 >
-                  Duplicate matches are candidates, not confirmed duplicates. Choose Import or Skip
-                  for each candidate before confirming; Financial Compass will not decide for you.
+                  Ambiguous duplicate matches still need your decision. Choose Import or Skip for
+                  each highlighted candidate before confirming.
                 </div>
               ) : null}
               {batch?.repeatedFile ? (
@@ -1289,7 +1304,13 @@ function ImportDialog({
                   )
                 }
               >
-                Confirm import
+                {batch?.rows.some(
+                  (row) =>
+                    row.validationStatus !== "INVALID" &&
+                    (decisions[row.id] ?? row.importDecision) === "IMPORT",
+                )
+                  ? "Confirm import"
+                  : "Confirm no new transactions"}
               </Button>
             </div>
           ) : null}
@@ -1301,9 +1322,10 @@ function ImportDialog({
               </div>
               <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <SummaryLine label="Imported" value={String(batch.importedTransactionCount)} />
+                <SummaryLine label="Skipped" value={String(summary.skippedCount ?? 0)} />
                 <SummaryLine
-                  label="Skipped"
-                  value={String(batch.totalRowCount - batch.importedTransactionCount)}
+                  label="Exact overlaps skipped"
+                  value={String(summary.exactOverlapSkippedCount ?? 0)}
                 />
                 <SummaryLine label="Invalid" value={String(batch.rejectedRowCount)} />
                 <SummaryLine
@@ -1334,7 +1356,9 @@ function ImportDialog({
                 />
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Button onClick={onComplete}>View imported transactions</Button>
+                <Button onClick={onComplete}>
+                  {batch.importedTransactionCount ? "View imported transactions" : "Done"}
+                </Button>
                 {["IMPORTED", "PARTIALLY_IMPORTED"].includes(batch.status) ? (
                   <Button
                     variant="secondary"
@@ -2155,11 +2179,16 @@ function PreviewTable({ batch }: { batch: BatchDto | null }) {
 
 function ValidationSummary({ batch }: { batch: BatchDto | null }) {
   if (!batch) return null;
+  const exactOverlaps = batch.rows.filter((row) => row.duplicateStatus === "EXACT_OVERLAP").length;
+  const needsDecision = batch.rows.filter(
+    (row) => row.duplicateStatus !== "NONE" && row.importDecision === "REVIEW",
+  ).length;
   return (
-    <Card className="grid gap-3 p-5 sm:grid-cols-4">
-      <SummaryLine label="Accepted" value={String(batch.acceptedRowCount)} />
+    <Card className="grid gap-3 p-5 sm:grid-cols-5">
+      <SummaryLine label="Ready to import" value={String(batch.acceptedRowCount)} />
       <SummaryLine label="Rejected" value={String(batch.rejectedRowCount)} />
-      <SummaryLine label="Duplicate candidates" value={String(batch.duplicateCandidateCount)} />
+      <SummaryLine label="Already exists" value={String(exactOverlaps)} />
+      <SummaryLine label="Needs duplicate review" value={String(needsDecision)} />
       <SummaryLine label="Rows" value={String(batch.totalRowCount)} />
     </Card>
   );
@@ -2212,9 +2241,11 @@ function ReviewRows({
                     >
                       {row.validationStatus === "VALID"
                         ? "Ready"
-                        : row.validationStatus === "WARNING"
-                          ? "Needs review"
-                          : "Invalid"}
+                        : row.duplicateStatus === "EXACT_OVERLAP"
+                          ? "Already imported"
+                          : row.validationStatus === "WARNING"
+                            ? "Needs review"
+                            : "Invalid"}
                     </Pill>
                     {errors.length ? (
                       <div className="mt-1 text-xs text-[var(--muted)]">{errors.join("; ")}</div>
@@ -2690,6 +2721,8 @@ function parseSummary(batch: BatchDto | null): {
   ruleMerchantNormalizedCount?: number;
   ruleCategoryAssignedCount?: number;
   stillNeedsReview?: number;
+  skippedCount?: number;
+  exactOverlapSkippedCount?: number;
 } {
   if (!batch?.summaryJson) return {};
   try {

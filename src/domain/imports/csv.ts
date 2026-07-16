@@ -290,7 +290,10 @@ export type DuplicateInput = {
 };
 
 export function scoreDuplicate(row: DuplicateInput, existing: DuplicateInput[]) {
-  let best = { status: "NONE" as "NONE" | "POSSIBLE" | "LIKELY" | "EXACT", reason: "" };
+  let best = {
+    status: "NONE" as "NONE" | "POSSIBLE" | "LIKELY" | "EXACT_OVERLAP" | "EXACT",
+    reason: "",
+  };
   for (const candidate of existing) {
     if (candidate.accountId !== row.accountId) continue;
     if (
@@ -318,7 +321,7 @@ export function scoreDuplicate(row: DuplicateInput, existing: DuplicateInput[]) 
       proximity === 0 ? "same transaction date" : `transaction dates within ${proximity} days`,
       sameDescription ? "same original description" : "same normalized merchant",
     ];
-    const status = proximity === 0 && sameDescription ? "LIKELY" : "POSSIBLE";
+    const status = proximity === 0 && sameDescription ? "EXACT_OVERLAP" : "POSSIBLE";
     if (rank(status) > rank(best.status)) best = { status, reason: reasons.join(", ") };
   }
   return best;
@@ -336,6 +339,6 @@ function normalizeDuplicateText(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function rank(status: "NONE" | "POSSIBLE" | "LIKELY" | "EXACT") {
-  return ["NONE", "POSSIBLE", "LIKELY", "EXACT"].indexOf(status);
+function rank(status: "NONE" | "POSSIBLE" | "LIKELY" | "EXACT_OVERLAP" | "EXACT") {
+  return ["NONE", "POSSIBLE", "LIKELY", "EXACT_OVERLAP", "EXACT"].indexOf(status);
 }

@@ -114,6 +114,17 @@ test("transactions drawer opens from a transaction row", async ({ page }) => {
   await expect(page.getByTestId("transaction-drawer")).toBeHidden();
 });
 
+test("transactions appear before import and transfer activity", async ({ page }) => {
+  await page.goto("/transactions");
+  const ledgerHeading = page.getByRole("heading", { name: "Transactions", exact: true }).last();
+  const historyHeading = page.getByRole("heading", { name: "Import Batch History" });
+  await expect(ledgerHeading).toBeVisible();
+  await expect(historyHeading).toBeAttached();
+  const ledgerBox = await ledgerHeading.boundingBox();
+  const historyBox = await historyHeading.boundingBox();
+  expect(ledgerBox?.y).toBeLessThan(historyBox?.y ?? 0);
+});
+
 test("settings tabs, privacy, and household persistence work after reload", async ({ page }) => {
   await page.goto("/settings");
   const household = page.getByLabel("Household name");
@@ -336,7 +347,7 @@ test("complete signed amount CSV import workflow and undo", async ({ page }, tes
   await page.getByRole("button", { name: "Preview CSV" }).click({ force: true });
   await expect(page.getByRole("heading", { name: "CSV Preview" })).toBeVisible();
   await page.getByRole("button", { name: "Validate rows" }).click();
-  await expect(page.getByText("Accepted")).toBeVisible();
+  await expect(page.getByText("Ready to import")).toBeVisible();
   await page.getByRole("button", { name: "Confirm import" }).click();
   await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
   await expect(page.getByText("Imported", { exact: true })).toBeVisible();
@@ -388,7 +399,7 @@ test("debit credit CSV mapping imports explicit signs", async ({ page }, testInf
 test("invalid row handling, duplicate review, and repeated-file warning are visible", async ({
   page,
 }, testInfo) => {
-  const marker = `Synthetic Repeat ${testInfo.project.name}`;
+  const marker = `Synthetic Repeat ${testInfo.project.name} ${Date.now()}`;
   const content = `Date,Description,Amount\n07/10/2026,${marker},-4.25\n07/11/2026,,12.345\n`;
   await page.goto("/transactions");
   await page.getByRole("button", { name: "Import CSV" }).click();
@@ -411,6 +422,23 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
 
   await page.getByRole("button", { name: "Import CSV" }).click();
   await page.locator('input[type="file"]').setInputFiles({
+    name: `synthetic-overlap-${testInfo.project.name}.csv`,
+    mimeType: "text/csv",
+    buffer: Buffer.from(`Date,Description,Amount\n07/10/2026,${marker},"-4.25"\n`),
+  });
+  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await page.getByRole("button", { name: "Validate rows" }).click();
+  await expect(
+    page.getByText("Exact overlaps are preselected to Skip", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Decision for row 1")).toHaveValue("SKIP");
+  await page.getByRole("button", { name: "Confirm no new transactions" }).click();
+  await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
+  await expect(page.getByText("Exact overlaps skipped").locator("..")).toContainText("1");
+  await page.getByRole("button", { name: "Done" }).click();
+
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  await page.locator('input[type="file"]').setInputFiles({
     name: `synthetic-repeat-again-${testInfo.project.name}.csv`,
     mimeType: "text/csv",
     buffer: Buffer.from(content),
@@ -420,7 +448,7 @@ test("invalid row handling, duplicate review, and repeated-file warning are visi
   await expect(page.getByRole("heading", { name: "CSV Preview" })).toBeVisible();
   await page.getByRole("button", { name: "Validate rows" }).click();
   await expect(page.getByText(/Exact file repeat warning/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Confirm import" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Confirm/ })).toBeDisabled();
 });
 
 test("account creation, duplicate prevention, archive, restore, and delete persist after reload", async ({

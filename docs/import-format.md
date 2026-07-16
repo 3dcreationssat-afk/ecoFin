@@ -10,7 +10,7 @@ Unsupported formats: OFX, QFX, QBO, PDF statements, OCR, direct bank connections
 - Encodings: UTF-8 and UTF-8 with BOM.
 - Delimiters: comma, semicolon, and tab.
 - Maximum file size: 512 KB.
-- Maximum data rows: 1,000.
+- Maximum data rows: 10,000.
 - Maximum field length: 500 characters.
 - Header rows are supported and recommended. Headerless files use generated `Column 1`, `Column 2`, etc.
 
@@ -103,9 +103,19 @@ Statuses are:
 - `NONE`
 - `POSSIBLE`
 - `LIKELY`
+- `EXACT_OVERLAP`
 - `EXACT`
 
-Duplicate candidates are never silently discarded. The user can import, skip, or leave a row for review. Repeated imports of the same file hash for the same account are blocked by default and require an explicit override.
+Rows with the same account, transaction date, minor-unit amount, and normalized original
+description as an existing transaction are content-exact overlaps. The importer preselects those
+rows to Skip, keeps them visible, counts them in the confirmation summary, and only applies the
+decision after explicit batch confirmation. Automatic skips are limited to the number of identical
+transactions already stored, so an additional identical charge remains a review candidate.
+
+Possible, likely, and excess same-file duplicate candidates are never silently discarded. The user
+must choose Import or Skip for each ambiguous row. Repeated imports of the same file hash for the
+same account are blocked by default and require an explicit override. A batch containing only
+confirmed overlaps is retained with `NO_CHANGES` status and an audit record.
 
 ## Undo Rules
 
@@ -133,11 +143,13 @@ inverts a signed source amount during validation, while `DEBITS_NEGATIVE` preser
 validated batch snapshots its amount mode and sign convention so later repair or audit work does
 not depend on a mutable profile.
 
-Exact duplicate identity is limited to conclusive source provenance, such as the same account,
-file hash, and source row. Fuzzy candidates require the same account and amount, transaction dates
-within three days, and matching original description or normalized merchant. A fuzzy candidate is
-never silently skipped: the user must choose Import or Skip. Choosing Import makes the transaction
-ledger-affecting while retaining the warning for review.
+Exact source identity remains limited to conclusive provenance, such as the same account, file hash,
+and source row. Content-exact overlap uses the narrower ledger fields described above and defaults
+to Skip with multiplicity protection and explicit batch confirmation. Fuzzy candidates require the
+same account and amount, transaction dates within three days, and matching original description or
+normalized merchant. A fuzzy candidate is never automatically skipped: the user must choose Import
+or Skip. Choosing Import makes the transaction ledger-affecting while retaining the warning for
+review.
 
 Semantic transaction types use reliable source type fields when available. Descriptions that may
 represent payments, refunds, credits, fees, rewards, adjustments, reversals, or chargebacks are

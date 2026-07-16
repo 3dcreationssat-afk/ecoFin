@@ -126,7 +126,7 @@ describe("csv import domain", () => {
           },
         ],
       ).status,
-    ).toBe("LIKELY");
+    ).toBe("EXACT_OVERLAP");
     expect(
       scoreDuplicate(
         {

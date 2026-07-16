@@ -130,3 +130,14 @@
   irregular-gap promotion while preserving user-created irregular records.
 - Inactivated stale unconfirmed suggestions and review records with audit history, while preserving
   the existing confirmed-pattern revalidation contract.
+
+# 2026-07-15 — Transaction-first workspace and exact-overlap imports
+
+- Moved transaction filters and the transaction ledger ahead of import history and transfer review
+  so the primary workflow is visible without scrolling through secondary activity panels.
+- Added content-exact overlap detection using account, date, integer minor-unit amount, and original
+  description. Exact overlaps default to Skip but remain visible and require batch confirmation.
+- Protected legitimate identical charges with count-aware matching: only the number already stored
+  is pre-skipped, while excess same-file occurrences remain explicit review candidates.
+- Added audited `NO_CHANGES` batches for overlap-only confirmations and retained individual decisions
+  for fuzzy candidates.
