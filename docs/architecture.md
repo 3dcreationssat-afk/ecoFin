@@ -16,6 +16,11 @@ durable planning metadata, not a source-selection mechanism.
 
 Financial-period and Cash Flow calculations live in `src/domain/cash-flow`. `src/server/data/cash-flow.ts` maps SQLite records into the pure engine; server pages pass its serializable result to focused visualization.
 
+Forecast recurrence lives in `src/domain/forecast`. `ForecastRule` is the single canonical rule;
+`ForecastOccurrence` stores sparse overrides and posted matches. Detection evidence and legacy
+planning definitions link through provenance rather than contributing a second forecast stream.
+Import confirmation reconciles existing confirmed occurrences before refreshing detection.
+
 ## Implemented
 
 - Next.js App Router renders local application screens.
@@ -47,6 +52,9 @@ Financial-period and Cash Flow calculations live in `src/domain/cash-flow`. `src
 - Confirmed transfers set directional transaction types `TRANSFER_OUT` and `TRANSFER_IN` so household reporting can neutralize the pair while account activity remains visible.
 - Recurring detection uses durable `RecurringExpense` and `RecurringExpenseTransaction` records, deterministic merchant normalization, cadence scoring, amount statistics, confidence reasons, review status, and user confirmation state.
 - Recurring scans run locally after CSV import confirmation and transaction normalization edits. Failures are recorded as recoverable warnings and never block an already confirmed import.
+- Payroll detection, forecast-rule synchronization, sparse occurrence generation, deterministic
+  transaction matching, and Confirmed/Likely/Conservative Cash Flow scenarios share one canonical
+  engine used by Cash Flow, Overview, and Decision evaluation.
 - The Overview dashboard is composed through `src/domain/overview/dashboard.ts`, which projects repository records into action items, upcoming obligations, category spending, goal snapshots, and debt snapshots before React renders them.
 - Workspace lifecycle state is represented by `Household.workspaceMode` plus per-record `isDemo` provenance on accounts, goals, and transactions. Canonical categories use `isSystem` plus a stable `systemKey` and do not make an otherwise empty workspace count as user or demonstration data. The UI reports `DEMONSTRATION`, `EMPTY`, `USER_DATA`, or `MIXED` from durable provenance rather than record names.
 - Start fresh runs server-side through the active Prisma connection in a transaction, clears financial/import/transfer/recurring/audit records and custom categories, creates one empty household, idempotently seeds canonical defaults, preserves backup records and ZIP files, and records one `workspace_start_fresh` audit event.

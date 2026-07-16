@@ -35,7 +35,8 @@ Financial Compass Phase 2B implements local backup and restore for the active SQ
 - The active SQLite file is replaced only after validation passes.
 - If post-replacement validation fails, the service copies the pre-restore recovery file back into place and records an automatic rollback audit entry.
 - Restore source metadata is recorded in `BackupRecord` with status `RESTORED_FROM`.
-- Transfer and recurring relationships are stored in SQLite and are preserved by backup and restore.
+- Transfer, recurring, forecast-rule, and sparse forecast-occurrence relationships are stored in
+  SQLite and are preserved by backup and restore.
 
 ## Validation Rules
 

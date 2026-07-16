@@ -35,6 +35,8 @@ export const backupManifestSchema = z.object({
     expectedIncomeOccurrences: z.number().int().nonnegative(),
     scheduledObligations: z.number().int().nonnegative(),
     obligationOccurrences: z.number().int().nonnegative(),
+    forecastRules: z.number().int().nonnegative(),
+    forecastOccurrences: z.number().int().nonnegative(),
     emergencyFundConfigurations: z.number().int().nonnegative(),
     emergencyFundAccounts: z.number().int().nonnegative(),
     auditLogs: z.number().int().nonnegative(),

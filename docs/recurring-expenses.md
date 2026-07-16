@@ -4,7 +4,10 @@ Phase 2D implements local, deterministic recurring-expense and subscription dete
 
 ## Scope
 
-The detector reviews local transactions already stored in SQLite. It does not connect to banks, call external AI, read email, cancel services, contact merchants, or forecast future cash flow beyond the next expected charge date for a detected pattern.
+The detector reviews local transactions already stored in SQLite. Its durable evidence synchronizes
+to the canonical forecast-rule layer, which generates future occurrences without writing a year of
+rows. It does not connect to banks, call external AI, read email, cancel services, or contact
+merchants.
 
 ## Eligibility
 
@@ -80,7 +83,10 @@ The service flags a price change when the most recent charge is materially diffe
 
 ## Import And Edit Interaction
 
-After CSV import confirmation, recurring detection runs locally and records candidate counts or a recoverable warning in the import batch summary. Transaction normalization edits trigger a recurring refresh for the household.
+After CSV import confirmation, recurring and payroll detection run locally. Confirmed forecast rules
+are reconciled against the imported transactions before detection advances a next date. Exact,
+unambiguous matches are recorded automatically; uncertain cases remain reviewable. Transaction
+normalization edits trigger a recurring refresh for the household.
 
 Undoing an import deletes imported transactions. Recurring transaction links cascade with the deleted transactions; recurring expense records remain as reviewable historical records.
 
@@ -94,7 +100,7 @@ Recurring expense records and recurring transaction links are included in backup
 - No AI categorization.
 - No automatic service cancellation.
 - No one-click merchant contact.
-- No advanced forecasting engine.
+- No external holiday-calendar feed; unusual early/late postings can be changed once.
 - No multi-currency handling.
 - No household-to-household recurring sharing.
 

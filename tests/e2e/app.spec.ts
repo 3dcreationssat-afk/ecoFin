@@ -28,35 +28,31 @@ test("overview action dashboard sections and links are functional", async ({ pag
   await expect(page).toHaveURL(/\/debt/);
 });
 
-test("validated cash flow explains projection, protection, timeline, and confidence", async ({
+test("cash-flow intelligence explains outcomes, scenarios, activity, and safe saving", async ({
   page,
 }) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
   await page.goto("/cash-flow");
-  await expect(page.getByRole("heading", { name: "Cash-Flow Timeline" })).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Safe to Save — Full Calculation" }),
-  ).toBeVisible();
-  await expect(page.getByText("Starting usable liquid cash")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Buffer and Protection" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Confidence" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Emergency runway" })).toBeVisible();
-  await page.getByText("Explain emergency runway composition", { exact: true }).click();
-  await expect(page.getByText("Emergency Fund · High-Yield Savings")).toBeVisible();
-  await expect(page.getByText("Essential monthly obligations", { exact: true })).toBeVisible();
-  await expect(page.getByText("Mortgage", { exact: true }).last()).toBeVisible();
-  await expect(page.getByLabel("Cash allocation reconciliation")).toContainText(
-    "Cash after obligations and protections",
+  await expect(page.getByText("Projected month-end", { exact: true })).toBeVisible();
+  await expect(page.getByText("Lowest projected balance", { exact: true })).toBeVisible();
+  await expect(page.getByText("Safe to spend", { exact: true })).toBeVisible();
+  await expect(page.getByText("Forecast confidence", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Projected cash-flow timeline" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Projected daily balance/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Expected activity" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+  await expect(page.getByText("Safe to save now", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Forecast setup" })).toBeVisible();
+
+  await page.getByRole("button", { name: "likely", exact: true }).click();
+  await expect(page.getByRole("button", { name: "likely", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
   );
-  await expect(page.getByLabel("Cash allocation reconciliation")).toContainText(
-    "Retained safety reserve",
-  );
-  await expect(page.getByLabel("Cash allocation reconciliation")).toContainText(
-    "Allocatable surplus",
-  );
-  await expect(page.getByText("Retained discretionary cash")).toHaveCount(0);
-  const eventList = page.locator('[tabindex="0"]').filter({ hasText: "Current usable cash" });
-  await eventList.focus();
-  await expect(eventList).toBeFocused();
+  await page.getByText("Projected month-end", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "What makes up this number" })).toBeVisible();
+  await page.getByText("Show full calculation", { exact: true }).click();
+  await expect(page.getByText(/Starting usable liquid cash/).first()).toBeVisible();
   await page.goto("/");
   await expect(page.getByText("validated projection")).toBeVisible();
   await expect(page.getByRole("link", { name: /View calculation/ })).toHaveAttribute(
@@ -65,43 +61,25 @@ test("validated cash flow explains projection, protection, timeline, and confide
   );
 });
 
-test("planning workflows add income and obligations, satisfy bills, and edit policy", async ({
-  page,
-}, testInfo) => {
+test("contextual cash-flow actions add one-time income and bills", async ({ page }, testInfo) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
   await page.goto("/cash-flow");
-  const recommendedBefore = await page
-    .getByText("Recommended Safe to Save", { exact: true })
-    .locator("..")
-    .textContent();
-  const spendBefore = await page
-    .getByText("Safe to Spend", { exact: true })
-    .last()
-    .locator("..")
-    .textContent();
-  await page.getByLabel("Income name").fill("Playwright income " + testInfo.project.name);
-  await page.getByLabel("Income amount").fill("125.00");
-  await page.getByLabel("Next expected date").fill("2026-07-27");
-  await page.getByRole("button", { name: "Add expected income" }).click();
+  await page.getByRole("button", { name: "Add one-time income" }).click();
+  let dialog = page.getByRole("dialog", { name: "Add one-time income" });
+  await dialog.getByLabel("Name").fill("Playwright income " + testInfo.project.name);
+  await dialog.getByLabel("Amount").fill("125.00");
+  await dialog.getByLabel("Next date").fill("2026-07-27");
+  await dialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Playwright income " + testInfo.project.name).first()).toBeVisible();
-  await page.getByLabel("Obligation name").fill("Playwright bill " + testInfo.project.name);
-  await page.getByLabel("Obligation amount").fill("40.00");
-  await page.getByLabel("Next due date").fill("2026-07-28");
-  await page.getByRole("button", { name: "Add obligation" }).click();
+
+  await page.getByRole("button", { name: "Add upcoming bill" }).click();
+  dialog = page.getByRole("dialog", { name: "Add upcoming bill" });
+  await dialog.getByLabel("Name").fill("Playwright bill " + testInfo.project.name);
+  await dialog.getByLabel("Amount").fill("40.00");
+  await dialog.getByLabel("Due date").fill("2026-07-28");
+  await dialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Playwright bill " + testInfo.project.name).first()).toBeVisible();
-  await page.getByRole("button", { name: "Mark paid" }).first().click();
-  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
-  await page.getByLabel("Savings target basis points").fill("4000");
-  await page.getByRole("button", { name: "Save savings policy" }).click();
-  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
-  await expect
-    .poll(() =>
-      page.getByText("Recommended Safe to Save", { exact: true }).locator("..").textContent(),
-    )
-    .not.toBe(recommendedBefore);
-  await expect
-    .poll(() => page.getByText("Safe to Spend", { exact: true }).last().locator("..").textContent())
-    .not.toBe(spendBefore);
-  await expect(page.getByText(/Equals Recommended at High confidence|Reduced by/)).toBeVisible();
+  await expect(page.getByText("Forecast updated.")).toBeVisible();
 });
 
 test("transactions drawer opens from a transaction row", async ({ page }) => {
@@ -163,9 +141,10 @@ test("explicit emergency configuration survives goal rename and validates target
   await page.getByLabel("Target runway in months").fill("4");
 
   await page.goto("/cash-flow");
-  await expect(page.getByRole("heading", { name: "Emergency runway" })).toBeVisible();
+  await page.getByText("Show full calculation", { exact: true }).click();
+  await page.getByText("Emergency runway details", { exact: true }).click();
   const before = await page
-    .getByRole("heading", { name: "Emergency runway" })
+    .getByText("Emergency runway details", { exact: true })
     .locator("..")
     .innerText();
   await page.goto("/goals");
@@ -174,8 +153,10 @@ test("explicit emergency configuration survives goal rename and validates target
   await page.getByRole("button", { name: "Save goal" }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.goto("/cash-flow");
+  await page.getByText("Show full calculation", { exact: true }).click();
+  await page.getByText("Emergency runway details", { exact: true }).click();
   const after = await page
-    .getByRole("heading", { name: "Emergency runway" })
+    .getByText("Emergency runway details", { exact: true })
     .locator("..")
     .innerText();
   expect(after).toBe(before);

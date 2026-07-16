@@ -12,7 +12,9 @@
 - Match suggestions require confirmation and use amount/date proximity; merchant-aware split allocation remains future work.
 - Conservative and Aggressive modes use documented 35% ceiling and 75% floor respectively; richer per-mode reserve presets remain future product policy work.
 
-- Cash Flow does not invent expected income from a schedule label or isolated history; explicit expected-income CRUD and a general scheduled-obligation model remain future work. Safe to Spend is zero when the full surplus is allocated to Recommended Safe to Save.
+- Cash Flow detects supported payroll patterns from transaction history, but has no external holiday
+  calendar. Employer-specific holiday shifts outside a rule's tolerance require a one-time change.
+  Safe to Spend is zero when the full surplus is allocated to Recommended Safe to Save.
 
 - Debt payoff is a validated deterministic monthly approximation; variable/promotional rates,
   balloon payments, irregular schedules, fees, and lender-specific daily interest remain unsupported.
@@ -29,7 +31,8 @@
 - Backup/restore is local-only, unencrypted, same-version/same-schema only, and has no selective restore, scheduled backup, remote provider, or merge workflow.
 - Transfer matching supports exact same-currency one-to-one matches only. Fees, partial transfers, aggregated transfers, currency conversion, investment transfers, and recurring-transfer auto-confirmation are not implemented.
 - Transfer suggestions are conservative and must be manually confirmed; no transfer is auto-confirmed.
-- Recurring detection is deterministic and local, but it does not cancel services, contact merchants, use bank-provider metadata, or run advanced forecasts.
+- Recurring and payroll detection are deterministic and local; they do not cancel services, contact
+  merchants, or use bank-provider metadata. Irregular patterns remain explicit user rules.
 - Restore demonstration data is single-household and intended for the synthetic local dataset only. It replaces database records with canonical sample data but does not delete local backup ZIP files or browser UI preferences.
 - Start fresh creates an empty single-household workspace and preserves backups/preferences, but it is not a selective Remove demo records only workflow and not a general Delete all local financial data workflow.
 - Date and duration formatting are not fully centralized.

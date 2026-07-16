@@ -8,119 +8,122 @@ datasource db {
 }
 
 model Household {
-  id                    String   @id @default(cuid())
-  name                  String
-  currency              String   @default("USD")
-  financialMonthStart   Int      @default(1)
-  incomeSchedule        String   @default("BI_WEEKLY")
-  checkingBufferMinor   Int
-  emergencyFundTargetMinor Int
-  debtStrategy          String   @default("AVALANCHE")
-  savingsRecommendationMode String @default("BALANCED")
-  savingsTargetBps      Int      @default(5000)
-  minimumDiscretionaryReserveMinor Int @default(100000)
-  extraSafetyReserveMinor Int @default(0)
-  minimumCashRetainedMinor Int @default(0)
-  includeGoalContributionsInSafeToSave Boolean @default(true)
-  emergencyShortfallIncreasesRecommendation Boolean @default(false)
-  conservativeConfidenceAdjustmentBps Int @default(2000)
-  workspaceMode         String   @default("DEMONSTRATION")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  accounts              Account[]
-  categories            Category[]
-  goals                 Goal[]
-  transactions          Transaction[]
-  importProfiles        ImportProfile[]
-  importBatches         ImportBatch[]
-  backupRecords         BackupRecord[]
-  transferMatches       TransferMatch[]
-  recurringExpenses     RecurringExpense[]
-  expectedIncomeSchedules ExpectedIncomeSchedule[]
-  scheduledObligations ScheduledObligation[]
-  expectedIncomeOccurrences ExpectedIncomeOccurrence[]
-  obligationOccurrences ObligationOccurrence[]
-  reconciliationAdjustments ReconciliationAdjustment[]
-  transactionSavedViews TransactionSavedView[]
-  merchantRules         MerchantRule[]
-  debtPlans             DebtPlan[]
-  decisionScenarios     DecisionScenario[]
-  auditLogs             AuditLog[]
-  emergencyFundConfiguration EmergencyFundConfiguration?
+  id                                        String                      @id @default(cuid())
+  name                                      String
+  currency                                  String                      @default("USD")
+  timezone                                  String                      @default("America/Chicago")
+  financialMonthStart                       Int                         @default(1)
+  incomeSchedule                            String                      @default("BI_WEEKLY")
+  checkingBufferMinor                       Int
+  emergencyFundTargetMinor                  Int
+  debtStrategy                              String                      @default("AVALANCHE")
+  savingsRecommendationMode                 String                      @default("BALANCED")
+  savingsTargetBps                          Int                         @default(5000)
+  minimumDiscretionaryReserveMinor          Int                         @default(100000)
+  extraSafetyReserveMinor                   Int                         @default(0)
+  minimumCashRetainedMinor                  Int                         @default(0)
+  includeGoalContributionsInSafeToSave      Boolean                     @default(true)
+  emergencyShortfallIncreasesRecommendation Boolean                     @default(false)
+  conservativeConfidenceAdjustmentBps       Int                         @default(2000)
+  workspaceMode                             String                      @default("DEMONSTRATION")
+  createdAt                                 DateTime                    @default(now())
+  updatedAt                                 DateTime                    @updatedAt
+  accounts                                  Account[]
+  categories                                Category[]
+  goals                                     Goal[]
+  transactions                              Transaction[]
+  importProfiles                            ImportProfile[]
+  importBatches                             ImportBatch[]
+  backupRecords                             BackupRecord[]
+  transferMatches                           TransferMatch[]
+  recurringExpenses                         RecurringExpense[]
+  expectedIncomeSchedules                   ExpectedIncomeSchedule[]
+  scheduledObligations                      ScheduledObligation[]
+  expectedIncomeOccurrences                 ExpectedIncomeOccurrence[]
+  obligationOccurrences                     ObligationOccurrence[]
+  reconciliationAdjustments                 ReconciliationAdjustment[]
+  transactionSavedViews                     TransactionSavedView[]
+  merchantRules                             MerchantRule[]
+  debtPlans                                 DebtPlan[]
+  decisionScenarios                         DecisionScenario[]
+  auditLogs                                 AuditLog[]
+  emergencyFundConfiguration                EmergencyFundConfiguration?
+  forecastRules                             ForecastRule[]
+  forecastOccurrences                       ForecastOccurrence[]
 }
 
 model EmergencyFundConfiguration {
-  id                    String   @id @default(cuid())
-  householdId           String   @unique
-  enabled               Boolean  @default(false)
-  targetAmountMinor     Int?
-  targetRunwayMonths    Int      @default(3)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  accounts              EmergencyFundAccount[]
+  id                 String                 @id @default(cuid())
+  householdId        String                 @unique
+  enabled            Boolean                @default(false)
+  targetAmountMinor  Int?
+  targetRunwayMonths Int                    @default(3)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  household          Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  accounts           EmergencyFundAccount[]
 }
 
 model EmergencyFundAccount {
-  id                           String   @id @default(cuid())
+  id                           String                     @id @default(cuid())
   emergencyFundConfigurationId String
-  accountId                    String   @unique
-  includedAmountMode           String   @default("ENTIRE_BALANCE")
+  accountId                    String                     @unique
+  includedAmountMode           String                     @default("ENTIRE_BALANCE")
   fixedProtectedAmountMinor    Int?
-  sortOrder                    Int      @default(0)
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
+  sortOrder                    Int                        @default(0)
+  createdAt                    DateTime                   @default(now())
+  updatedAt                    DateTime                   @updatedAt
   configuration                EmergencyFundConfiguration @relation(fields: [emergencyFundConfigurationId], references: [id], onDelete: Cascade)
-  account                      Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account                      Account                    @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([emergencyFundConfigurationId, accountId])
   @@index([emergencyFundConfigurationId, sortOrder])
 }
 
 model DecisionScenario {
-  id          String   @id @default(cuid())
+  id          String                      @id @default(cuid())
   householdId String
   name        String
   description String?
-  status      String   @default("DRAFT")
-  isDemo      Boolean  @default(false)
+  status      String                      @default("DRAFT")
+  isDemo      Boolean                     @default(false)
   archivedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+  household   Household                   @relation(fields: [householdId], references: [id], onDelete: Cascade)
   components  DecisionScenarioComponent[]
 
   @@index([householdId, archivedAt, updatedAt])
 }
 
 model DecisionScenarioComponent {
-  id              String   @id @default(cuid())
-  scenarioId      String
-  type            String
-  name            String
-  amountMinor     Int?
-  secondaryAmountMinor Int?
-  frequency       String?
-  startDate       DateTime?
-  endDate         DateTime?
-  durationMonths  Int?
-  essentiality    String?
-  linkedAccountId String?
-  linkedDebtAccountId String?
-  linkedGoalId    String?
-  linkedRecurringId String?
-  policyMode      String?
-  targetBasisPoints Int?
+  id                               String           @id @default(cuid())
+  scenarioId                       String
+  type                             String
+  name                             String
+  amountMinor                      Int?
+  secondaryAmountMinor             Int?
+  frequency                        String?
+  startDate                        DateTime?
+  endDate                          DateTime?
+  durationMonths                   Int?
+  essentiality                     String?
+  linkedAccountId                  String?
+  linkedDebtAccountId              String?
+  linkedGoalId                     String?
+  linkedRecurringId                String?
+  policyMode                       String?
+  targetBasisPoints                Int?
   minimumDiscretionaryReserveMinor Int?
-  extraSafetyReserveMinor Int?
-  minimumCashRetainedMinor Int?
-  insuranceIncreaseMinor Int?
-  operatingIncreaseMinor Int?
-  tradeInMinor    Int?
-  sortOrder       Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  scenario        DecisionScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  extraSafetyReserveMinor          Int?
+  minimumCashRetainedMinor         Int?
+  insuranceIncreaseMinor           Int?
+  operatingIncreaseMinor           Int?
+  tradeInMinor                     Int?
+  sortOrder                        Int              @default(0)
+  createdAt                        DateTime         @default(now())
+  updatedAt                        DateTime         @updatedAt
+  scenario                         DecisionScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
   @@index([scenarioId, sortOrder])
   @@index([linkedAccountId])
@@ -130,26 +133,26 @@ model DecisionScenarioComponent {
 }
 
 model DebtPlan {
-  id                String   @id @default(cuid())
+  id                String          @id @default(cuid())
   householdId       String
   strategy          String
-  extraPaymentMinor Int      @default(0)
-  active            Boolean  @default(true)
+  extraPaymentMinor Int             @default(0)
+  active            Boolean         @default(true)
   archivedAt        DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  household         Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
   order             DebtPlanOrder[]
 
   @@index([householdId, active, archivedAt])
 }
 
 model DebtPlanOrder {
-  id        String   @id @default(cuid())
+  id         String   @id @default(cuid())
   debtPlanId String
-  accountId String
-  position  Int
-  debtPlan  DebtPlan @relation(fields: [debtPlanId], references: [id], onDelete: Cascade)
+  accountId  String
+  position   Int
+  debtPlan   DebtPlan @relation(fields: [debtPlanId], references: [id], onDelete: Cascade)
 
   @@unique([debtPlanId, accountId])
   @@unique([debtPlanId, position])
@@ -157,43 +160,43 @@ model DebtPlanOrder {
 }
 
 model TransactionSavedView {
-  id            String   @id @default(cuid())
-  householdId   String
-  name          String
+  id             String    @id @default(cuid())
+  householdId    String
+  name           String
   normalizedName String
-  queryJson     String
-  isDefault     Boolean  @default(false)
-  isArchived    Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  queryJson      String
+  isDefault      Boolean   @default(false)
+  isArchived     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@unique([householdId, normalizedName])
   @@index([householdId, isArchived, isDefault])
 }
 
 model MerchantRule {
-  id                 String   @id @default(cuid())
-  householdId        String
-  name               String
-  normalizedName     String
-  priority           Int      @default(100)
-  active             Boolean  @default(true)
-  matchField         String
-  matchType          String
-  pattern            String
-  normalizedPattern  String
-  normalizedMerchant String?
-  categoryId         String?
-  transactionType    String?
-  markReviewed       Boolean  @default(false)
-  notes              String?
-  lastAppliedAt      DateTime?
-  archivedAt         DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  household          Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category           Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  id                  String        @id @default(cuid())
+  householdId         String
+  name                String
+  normalizedName      String
+  priority            Int           @default(100)
+  active              Boolean       @default(true)
+  matchField          String
+  matchType           String
+  pattern             String
+  normalizedPattern   String
+  normalizedMerchant  String?
+  categoryId          String?
+  transactionType     String?
+  markReviewed        Boolean       @default(false)
+  notes               String?
+  lastAppliedAt       DateTime?
+  archivedAt          DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  household           Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category            Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   appliedTransactions Transaction[]
 
   @@unique([householdId, normalizedName])
@@ -201,83 +204,84 @@ model MerchantRule {
 }
 
 model Account {
-  id                  String   @id @default(cuid())
-  householdId          String
-  name                String
-  institution          String
-  type                String
-  openingBalanceMinor  Int?
-  openingBalanceDate   DateTime?
-  openingBalanceSource String?
-  reportedBalanceMinor Int?
-  reportedAvailableMinor Int?
-  reportedBalanceAsOf  DateTime?
-  ledgerBalanceMinor   Int?
-  ledgerCalculatedAt   DateTime?
-  ledgerStatus         String @default("NEEDS_ANCHOR")
-  lastReconciledAt     DateTime?
-  reconciliationStatus String @default("NEEDS_SETUP")
+  id                            String                     @id @default(cuid())
+  householdId                   String
+  name                          String
+  institution                   String
+  type                          String
+  openingBalanceMinor           Int?
+  openingBalanceDate            DateTime?
+  openingBalanceSource          String?
+  reportedBalanceMinor          Int?
+  reportedAvailableMinor        Int?
+  reportedBalanceAsOf           DateTime?
+  ledgerBalanceMinor            Int?
+  ledgerCalculatedAt            DateTime?
+  ledgerStatus                  String                     @default("NEEDS_ANCHOR")
+  lastReconciledAt              DateTime?
+  reconciliationStatus          String                     @default("NEEDS_SETUP")
   reconciliationDifferenceMinor Int?
-  balanceConfidence    String @default("LIMITED")
-  creditLimitMinor     Int?
-  aprBasisPoints       Int?
-  minimumPaymentMinor  Int?
-  dueDay              Int?
-  statementDay        Int?
-  notes               String?
-  archivedAt          DateTime?
-  lastUpdated          DateTime
-  status              String   @default("ACTIVE")
-  isDemo              Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  household           Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  goals               Goal[]
-  transactions        Transaction[]
-  importBatches       ImportBatch[]
-  reconciliationAdjustments ReconciliationAdjustment[]
-  expectedIncomeSchedules ExpectedIncomeSchedule[]
-  paymentObligations ScheduledObligation[] @relation("ObligationPaymentAccount")
-  debtObligations ScheduledObligation[] @relation("ObligationDebtAccount")
-  emergencyFundLinks EmergencyFundAccount[]
+  balanceConfidence             String                     @default("LIMITED")
+  creditLimitMinor              Int?
+  aprBasisPoints                Int?
+  minimumPaymentMinor           Int?
+  dueDay                        Int?
+  statementDay                  Int?
+  notes                         String?
+  archivedAt                    DateTime?
+  lastUpdated                   DateTime
+  status                        String                     @default("ACTIVE")
+  isDemo                        Boolean                    @default(true)
+  createdAt                     DateTime                   @default(now())
+  updatedAt                     DateTime                   @updatedAt
+  household                     Household                  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  goals                         Goal[]
+  transactions                  Transaction[]
+  importBatches                 ImportBatch[]
+  reconciliationAdjustments     ReconciliationAdjustment[]
+  expectedIncomeSchedules       ExpectedIncomeSchedule[]
+  paymentObligations            ScheduledObligation[]      @relation("ObligationPaymentAccount")
+  debtObligations               ScheduledObligation[]      @relation("ObligationDebtAccount")
+  emergencyFundLinks            EmergencyFundAccount[]
+  forecastRules                 ForecastRule[]
 }
 
 model ReconciliationAdjustment {
-  id          String   @id @default(cuid())
-  householdId String
-  accountId   String
-  amountMinor Int
+  id            String    @id @default(cuid())
+  householdId   String
+  accountId     String
+  amountMinor   Int
   effectiveDate DateTime
-  reason      String
-  note        String?
-  createdAt   DateTime @default(now())
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  account     Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  reason        String
+  note          String?
+  createdAt     DateTime  @default(now())
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account       Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, effectiveDate])
 }
 
 model Category {
-  id              String   @id @default(cuid())
-  householdId     String
-  systemKey       String?
-  isSystem        Boolean  @default(false)
-  parentId        String?
-  name            String
-  group           String
-  type            String
-  budgetMinor     Int
-  sortOrder       Int
-  archivedAt      DateTime?
-  isDemo          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  parent          Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children        Category[] @relation("CategoryHierarchy")
-  transactions    Transaction[]
-  recurringExpenses RecurringExpense[]
-  merchantRules     MerchantRule[]
+  id                   String                @id @default(cuid())
+  householdId          String
+  systemKey            String?
+  isSystem             Boolean               @default(false)
+  parentId             String?
+  name                 String
+  group                String
+  type                 String
+  budgetMinor          Int
+  sortOrder            Int
+  archivedAt           DateTime?
+  isDemo               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  household            Household             @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  parent               Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children             Category[]            @relation("CategoryHierarchy")
+  transactions         Transaction[]
+  recurringExpenses    RecurringExpense[]
+  merchantRules        MerchantRule[]
   scheduledObligations ScheduledObligation[]
 
   @@unique([householdId, systemKey])
@@ -285,85 +289,86 @@ model Category {
 }
 
 model Goal {
-  id                    String   @id @default(cuid())
-  householdId           String
-  linkedAccountId       String?
-  name                  String
-  purpose               String   @default("GENERAL")
-  targetMinor           Int
-  currentMinor          Int      @default(0)
-  plannedMonthlyMinor   Int      @default(0)
-  requiredMonthlyMinor  Int      @default(0)
-  priority              Int      @default(100)
-  status                String   @default("ACTIVE")
-  targetDate            DateTime?
-  notes                 String?
-  archivedAt            DateTime?
-  isDemo                Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  linkedAccount         Account? @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
-  contributions         GoalContribution[]
+  id                   String                @id @default(cuid())
+  householdId          String
+  linkedAccountId      String?
+  name                 String
+  purpose              String                @default("GENERAL")
+  targetMinor          Int
+  currentMinor         Int                   @default(0)
+  plannedMonthlyMinor  Int                   @default(0)
+  requiredMonthlyMinor Int                   @default(0)
+  priority             Int                   @default(100)
+  status               String                @default("ACTIVE")
+  targetDate           DateTime?
+  notes                String?
+  archivedAt           DateTime?
+  isDemo               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  household            Household             @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  linkedAccount        Account?              @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
+  contributions        GoalContribution[]
   scheduledObligations ScheduledObligation[]
 }
 
 model GoalContribution {
-  id                String   @id @default(cuid())
-  goalId            String
-  amountMinor       Int
-  contributionDate  DateTime
-  note              String?
-  source            String   @default("user")
-  createdAt         DateTime @default(now())
-  goal              Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  goalId           String
+  amountMinor      Int
+  contributionDate DateTime
+  note             String?
+  source           String   @default("user")
+  createdAt        DateTime @default(now())
+  goal             Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
 }
 
 model Transaction {
-  id                    String   @id @default(cuid())
-  householdId           String
-  accountId             String
-  categoryId            String?
-  importBatchId         String?
-  importRowId           String?  @unique
-  sourceType            String   @default("MANUAL")
-  sourceFilename        String?
-  sourceAccountName     String?
-  sourceRowNumber       Int?
-  originalDescription   String
-  originalAmountText    String
-  originalDateText      String
-  normalizedMerchant    String
-  amountMinor           Int
-  transactionDate       DateTime
-  postedDate            DateTime?
-  type                  String
-  reviewStatus          String   @default("NEEDS_REVIEW")
-  excluded              Boolean  @default(false)
-  affectsLedger         Boolean  @default(true)
-  affectsIncomeSpendingReports Boolean @default(true)
-  clearingStatus        String   @default("CLEARED")
-  notes                 String?
-  possibleDuplicate     Boolean  @default(false)
-  merchantSource        String   @default("IMPORT_DEFAULT")
-  categorySource        String   @default("IMPORT_DEFAULT")
-  typeSource            String   @default("IMPORT_DEFAULT")
-  reviewSource          String   @default("IMPORT_DEFAULT")
-  appliedMerchantRuleId String?
-  ruleAppliedAt         DateTime?
-  isDemo                Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  account               Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  category              Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  importBatch           ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
-  outgoingTransferMatches TransferMatch[] @relation("TransferOutgoing")
-  incomingTransferMatches TransferMatch[] @relation("TransferIncoming")
-  recurringLinks          RecurringExpenseTransaction[]
-  appliedMerchantRule     MerchantRule? @relation(fields: [appliedMerchantRuleId], references: [id], onDelete: SetNull)
-  incomeOccurrence        ExpectedIncomeOccurrence? @relation("IncomeOccurrenceTransaction")
-  obligationOccurrence    ObligationOccurrence? @relation("ObligationOccurrenceTransaction")
+  id                           String                        @id @default(cuid())
+  householdId                  String
+  accountId                    String
+  categoryId                   String?
+  importBatchId                String?
+  importRowId                  String?                       @unique
+  sourceType                   String                        @default("MANUAL")
+  sourceFilename               String?
+  sourceAccountName            String?
+  sourceRowNumber              Int?
+  originalDescription          String
+  originalAmountText           String
+  originalDateText             String
+  normalizedMerchant           String
+  amountMinor                  Int
+  transactionDate              DateTime
+  postedDate                   DateTime?
+  type                         String
+  reviewStatus                 String                        @default("NEEDS_REVIEW")
+  excluded                     Boolean                       @default(false)
+  affectsLedger                Boolean                       @default(true)
+  affectsIncomeSpendingReports Boolean                       @default(true)
+  clearingStatus               String                        @default("CLEARED")
+  notes                        String?
+  possibleDuplicate            Boolean                       @default(false)
+  merchantSource               String                        @default("IMPORT_DEFAULT")
+  categorySource               String                        @default("IMPORT_DEFAULT")
+  typeSource                   String                        @default("IMPORT_DEFAULT")
+  reviewSource                 String                        @default("IMPORT_DEFAULT")
+  appliedMerchantRuleId        String?
+  ruleAppliedAt                DateTime?
+  isDemo                       Boolean                       @default(true)
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+  household                    Household                     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account                      Account                       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category                     Category?                     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  importBatch                  ImportBatch?                  @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  outgoingTransferMatches      TransferMatch[]               @relation("TransferOutgoing")
+  incomingTransferMatches      TransferMatch[]               @relation("TransferIncoming")
+  recurringLinks               RecurringExpenseTransaction[]
+  appliedMerchantRule          MerchantRule?                 @relation(fields: [appliedMerchantRuleId], references: [id], onDelete: SetNull)
+  incomeOccurrence             ExpectedIncomeOccurrence?     @relation("IncomeOccurrenceTransaction")
+  obligationOccurrence         ObligationOccurrence?         @relation("ObligationOccurrenceTransaction")
+  forecastOccurrence           ForecastOccurrence?           @relation("ForecastOccurrenceTransaction")
 
   @@index([householdId, transactionDate])
   @@index([householdId, reviewStatus, sourceType])
@@ -372,29 +377,29 @@ model Transaction {
 }
 
 model TransferMatch {
-  id                    String   @id @default(cuid())
-  householdId           String
-  outgoingTransactionId String
-  incomingTransactionId String
-  status                String
-  source                String
-  confidence            String
-  score                 Int
-  reasonsJson           String
-  createdBySource       String
-  notes                 String?
-  confirmedAt           DateTime?
-  rejectedAt            DateTime?
-  brokenAt              DateTime?
-  previousOutgoingType  String?
-  previousIncomingType  String?
+  id                           String      @id @default(cuid())
+  householdId                  String
+  outgoingTransactionId        String
+  incomingTransactionId        String
+  status                       String
+  source                       String
+  confidence                   String
+  score                        Int
+  reasonsJson                  String
+  createdBySource              String
+  notes                        String?
+  confirmedAt                  DateTime?
+  rejectedAt                   DateTime?
+  brokenAt                     DateTime?
+  previousOutgoingType         String?
+  previousIncomingType         String?
   previousOutgoingReviewStatus String?
   previousIncomingReviewStatus String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  household             Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  outgoingTransaction   Transaction @relation("TransferOutgoing", fields: [outgoingTransactionId], references: [id], onDelete: Restrict)
-  incomingTransaction   Transaction @relation("TransferIncoming", fields: [incomingTransactionId], references: [id], onDelete: Restrict)
+  createdAt                    DateTime    @default(now())
+  updatedAt                    DateTime    @updatedAt
+  household                    Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  outgoingTransaction          Transaction @relation("TransferOutgoing", fields: [outgoingTransactionId], references: [id], onDelete: Restrict)
+  incomingTransaction          Transaction @relation("TransferIncoming", fields: [incomingTransactionId], references: [id], onDelete: Restrict)
 
   @@unique([outgoingTransactionId, incomingTransactionId])
   @@index([householdId, status, confidence])
@@ -404,48 +409,49 @@ model TransferMatch {
 }
 
 model RecurringExpense {
-  id                         String   @id @default(cuid())
-  householdId                String
-  merchantKey                String
-  displayName                String
-  serviceName                String?
-  categoryId                 String?
-  frequency                  String
-  typicalAmountMinor         Int
-  minAmountMinor             Int
-  maxAmountMinor             Int
-  averageAmountMinor         Int
-  medianAmountMinor          Int
-  monthlyEquivalentMinor     Int
-  annualEquivalentMinor      Int
-  amountVariabilityBps       Int
-  confidence                 String
-  confidenceScore            Int
-  status                     String
-  classification             String
-  recommendation             String
-  recurringType              String
-  firstObservedDate          DateTime
-  lastObservedDate           DateTime
-  nextExpectedDate           DateTime?
-  priceChangeAmountMinor     Int      @default(0)
-  priceChangeBps             Int      @default(0)
-  priceChangeEffectiveDate   DateTime?
-  reasonsJson                String
-  detectionHash              String
-  userConfirmed              Boolean  @default(false)
-  userNotes                  String?
-  canceledAt                 DateTime?
-  canceledNote               String?
-  expectedFinalChargeDate    DateTime?
-  reactivateOnFutureMatch    Boolean  @default(true)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  household                  Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category                   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  transactions               RecurringExpenseTransaction[]
-  expectedIncomeSchedules    ExpectedIncomeSchedule[]
-  scheduledObligations       ScheduledObligation[]
+  id                       String                        @id @default(cuid())
+  householdId              String
+  merchantKey              String
+  displayName              String
+  serviceName              String?
+  categoryId               String?
+  frequency                String
+  typicalAmountMinor       Int
+  minAmountMinor           Int
+  maxAmountMinor           Int
+  averageAmountMinor       Int
+  medianAmountMinor        Int
+  monthlyEquivalentMinor   Int
+  annualEquivalentMinor    Int
+  amountVariabilityBps     Int
+  confidence               String
+  confidenceScore          Int
+  status                   String
+  classification           String
+  recommendation           String
+  recurringType            String
+  firstObservedDate        DateTime
+  lastObservedDate         DateTime
+  nextExpectedDate         DateTime?
+  priceChangeAmountMinor   Int                           @default(0)
+  priceChangeBps           Int                           @default(0)
+  priceChangeEffectiveDate DateTime?
+  reasonsJson              String
+  detectionHash            String
+  userConfirmed            Boolean                       @default(false)
+  userNotes                String?
+  canceledAt               DateTime?
+  canceledNote             String?
+  expectedFinalChargeDate  DateTime?
+  reactivateOnFutureMatch  Boolean                       @default(true)
+  createdAt                DateTime                      @default(now())
+  updatedAt                DateTime                      @updatedAt
+  household                Household                     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category                 Category?                     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions             RecurringExpenseTransaction[]
+  expectedIncomeSchedules  ExpectedIncomeSchedule[]
+  scheduledObligations     ScheduledObligation[]
+  forecastRules            ForecastRule[]
 
   @@unique([householdId, merchantKey, frequency])
   @@index([householdId, status, confidence])
@@ -454,154 +460,231 @@ model RecurringExpense {
 }
 
 model ExpectedIncomeSchedule {
-  id String @id @default(cuid())
-  householdId String
-  name String
-  amountMinor Int
-  frequency String
-  nextExpectedDate DateTime
-  endDate DateTime?
-  twiceMonthlyDay1 Int?
-  twiceMonthlyDay2 Int?
-  accountId String?
+  id                 String                     @id @default(cuid())
+  householdId        String
+  name               String
+  amountMinor        Int
+  frequency          String
+  nextExpectedDate   DateTime
+  endDate            DateTime?
+  twiceMonthlyDay1   Int?
+  twiceMonthlyDay2   Int?
+  accountId          String?
   recurringExpenseId String?
-  sourceType String @default("USER_ENTERED")
-  confidence String @default("HIGH")
-  active Boolean @default(true)
-  notes String?
-  archivedAt DateTime?
-  isDemo Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
-  occurrences ExpectedIncomeOccurrence[]
+  sourceType         String                     @default("USER_ENTERED")
+  confidence         String                     @default("HIGH")
+  active             Boolean                    @default(true)
+  notes              String?
+  archivedAt         DateTime?
+  isDemo             Boolean                    @default(false)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  household          Household                  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account            Account?                   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  recurringExpense   RecurringExpense?          @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  occurrences        ExpectedIncomeOccurrence[]
+
   @@index([householdId, active, archivedAt])
   @@index([nextExpectedDate])
 }
 
 model ExpectedIncomeOccurrence {
-  id String @id @default(cuid())
-  householdId String
-  scheduleId String
-  expectedDate DateTime
-  expectedAmountMinor Int
-  status String @default("UPCOMING")
-  satisfiedDate DateTime?
-  satisfiedTransactionId String? @unique
-  amountDifferenceMinor Int @default(0)
-  notes String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  schedule ExpectedIncomeSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  satisfiedTransaction Transaction? @relation("IncomeOccurrenceTransaction", fields: [satisfiedTransactionId], references: [id], onDelete: SetNull)
+  id                     String                 @id @default(cuid())
+  householdId            String
+  scheduleId             String
+  expectedDate           DateTime
+  expectedAmountMinor    Int
+  status                 String                 @default("UPCOMING")
+  satisfiedDate          DateTime?
+  satisfiedTransactionId String?                @unique
+  amountDifferenceMinor  Int                    @default(0)
+  notes                  String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  household              Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  schedule               ExpectedIncomeSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  satisfiedTransaction   Transaction?           @relation("IncomeOccurrenceTransaction", fields: [satisfiedTransactionId], references: [id], onDelete: SetNull)
+
   @@unique([scheduleId, expectedDate])
   @@index([householdId, status, expectedDate])
 }
 
 model ScheduledObligation {
-  id String @id @default(cuid())
-  householdId String
-  name String
-  amountMinor Int
-  dueDate DateTime
-  frequency String
-  accountId String?
-  categoryId String?
-  obligationType String
-  sourceType String @default("USER_ENTERED")
+  id                 String                 @id @default(cuid())
+  householdId        String
+  name               String
+  amountMinor        Int
+  dueDate            DateTime
+  frequency          String
+  accountId          String?
+  categoryId         String?
+  obligationType     String
+  sourceType         String                 @default("USER_ENTERED")
   recurringExpenseId String?
-  debtAccountId String?
-  goalId String?
-  essentiality String @default("ESSENTIAL")
-  confidence String @default("HIGH")
-  active Boolean @default(true)
-  notes String?
-  archivedAt DateTime?
-  isDemo Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  account Account? @relation("ObligationPaymentAccount", fields: [accountId], references: [id], onDelete: SetNull)
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
-  debtAccount Account? @relation("ObligationDebtAccount", fields: [debtAccountId], references: [id], onDelete: SetNull)
-  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  occurrences ObligationOccurrence[]
+  debtAccountId      String?
+  goalId             String?
+  essentiality       String                 @default("ESSENTIAL")
+  confidence         String                 @default("HIGH")
+  active             Boolean                @default(true)
+  notes              String?
+  archivedAt         DateTime?
+  isDemo             Boolean                @default(false)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  household          Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account            Account?               @relation("ObligationPaymentAccount", fields: [accountId], references: [id], onDelete: SetNull)
+  category           Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringExpense   RecurringExpense?      @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  debtAccount        Account?               @relation("ObligationDebtAccount", fields: [debtAccountId], references: [id], onDelete: SetNull)
+  goal               Goal?                  @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  occurrences        ObligationOccurrence[]
+
   @@index([householdId, active, archivedAt])
   @@index([dueDate])
 }
 
 model ObligationOccurrence {
-  id String @id @default(cuid())
-  householdId String
-  obligationId String
-  expectedDate DateTime
-  expectedAmountMinor Int
-  status String @default("UPCOMING")
-  satisfiedDate DateTime?
-  satisfiedTransactionId String? @unique
-  amountDifferenceMinor Int @default(0)
-  notes String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  obligation ScheduledObligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
-  satisfiedTransaction Transaction? @relation("ObligationOccurrenceTransaction", fields: [satisfiedTransactionId], references: [id], onDelete: SetNull)
+  id                     String              @id @default(cuid())
+  householdId            String
+  obligationId           String
+  expectedDate           DateTime
+  expectedAmountMinor    Int
+  status                 String              @default("UPCOMING")
+  satisfiedDate          DateTime?
+  satisfiedTransactionId String?             @unique
+  amountDifferenceMinor  Int                 @default(0)
+  notes                  String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  household              Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  obligation             ScheduledObligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  satisfiedTransaction   Transaction?        @relation("ObligationOccurrenceTransaction", fields: [satisfiedTransactionId], references: [id], onDelete: SetNull)
+
   @@unique([obligationId, expectedDate])
   @@index([householdId, status, expectedDate])
 }
 
 model RecurringExpenseTransaction {
-  id                   String   @id @default(cuid())
-  recurringExpenseId   String
-  transactionId        String
-  matchRole            String
-  confidence           String
-  included             Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  recurringExpense     RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
-  transaction          Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  recurringExpenseId String
+  transactionId      String
+  matchRole          String
+  confidence         String
+  included           Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  recurringExpense   RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
+  transaction        Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@unique([recurringExpenseId, transactionId])
   @@index([transactionId])
 }
 
-model ImportProfile {
-  id                   String   @id @default(cuid())
+model ForecastRule {
+  id                   String               @id @default(cuid())
   householdId          String
+  accountId            String?
+  recurringExpenseId   String?
   name                 String
-  institutionName      String?
-  accountType          String?
-  delimiter            String
-  encoding             String
-  hasHeader            Boolean  @default(true)
-  dateColumn           String
-  postedDateColumn     String?
-  descriptionColumn    String
-  merchantColumn       String?
-  amountMode           String
-  amountColumn         String?
-  debitColumn          String?
-  creditColumn         String?
-  dateFormat           String
-  decimalSeparator     String   @default(".")
-  thousandsSeparator   String   @default(",")
-  signConvention       String   @default("DEBITS_NEGATIVE")
-  currency             String   @default("USD")
+  merchantKey          String
+  direction            String
+  cadence              String
+  anchorDate           DateTime
+  lastObservedDate     DateTime?
+  nextExpectedDate     DateTime
+  typicalAmountMinor   Int
+  minAmountMinor       Int
+  maxAmountMinor       Int
+  amountVariabilityBps Int                  @default(0)
+  dateToleranceDays    Int                  @default(3)
+  amountToleranceBps   Int                  @default(1500)
+  expectedWeekday      Int?
+  semimonthlyDay1      Int?
+  semimonthlyDay2      Int?
+  confidence           String
+  confidenceScore      Int
+  state                String
+  provenance           String
+  creationSource       String
+  sourceRecordType     String?
+  sourceRecordId       String?
+  effectiveStartDate   DateTime
+  endDate              DateTime?
+  reasonsJson          String
+  detectionFingerprint String               @unique
+  userOverridesJson    String?
   archivedAt           DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  household            Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  importBatches        ImportBatch[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account              Account?             @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  recurringExpense     RecurringExpense?    @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  occurrences          ForecastOccurrence[]
+
+  @@index([householdId, state, direction])
+  @@index([householdId, nextExpectedDate])
+  @@index([accountId, state])
+  @@index([sourceRecordType, sourceRecordId])
+}
+
+model ForecastOccurrence {
+  id                    String       @id @default(cuid())
+  householdId           String
+  ruleId                String
+  expectedDate          DateTime
+  expectedAmountMinor   Int
+  status                String
+  overrideDate          DateTime?
+  overrideAmountMinor   Int?
+  matchedTransactionId  String?      @unique
+  matchedAt             DateTime?
+  dateDifferenceDays    Int          @default(0)
+  amountDifferenceMinor Int          @default(0)
+  provenanceJson        String
+  notes                 String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  household             Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  rule                  ForecastRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  matchedTransaction    Transaction? @relation("ForecastOccurrenceTransaction", fields: [matchedTransactionId], references: [id], onDelete: SetNull)
+
+  @@unique([ruleId, expectedDate])
+  @@index([householdId, status, expectedDate])
+  @@index([ruleId, status])
+}
+
+model ImportProfile {
+  id                 String        @id @default(cuid())
+  householdId        String
+  name               String
+  institutionName    String?
+  accountType        String?
+  delimiter          String
+  encoding           String
+  hasHeader          Boolean       @default(true)
+  dateColumn         String
+  postedDateColumn   String?
+  descriptionColumn  String
+  merchantColumn     String?
+  amountMode         String
+  amountColumn       String?
+  debitColumn        String?
+  creditColumn       String?
+  dateFormat         String
+  decimalSeparator   String        @default(".")
+  thousandsSeparator String        @default(",")
+  signConvention     String        @default("DEBITS_NEGATIVE")
+  currency           String        @default("USD")
+  archivedAt         DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  household          Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  importBatches      ImportBatch[]
 
   @@index([householdId, archivedAt])
 }
 
 model ImportBatch {
-  id                       String   @id @default(cuid())
+  id                       String         @id @default(cuid())
   householdId              String
   accountId                String
   sourceType               String
@@ -612,19 +695,19 @@ model ImportBatch {
   delimiter                String
   importProfileId          String?
   status                   String
-  startedAt                DateTime @default(now())
+  startedAt                DateTime       @default(now())
   completedAt              DateTime?
-  totalRowCount            Int      @default(0)
-  acceptedRowCount         Int      @default(0)
-  rejectedRowCount         Int      @default(0)
-  duplicateCandidateCount  Int      @default(0)
-  importedTransactionCount Int      @default(0)
-  repeatedFile             Boolean  @default(false)
+  totalRowCount            Int            @default(0)
+  acceptedRowCount         Int            @default(0)
+  rejectedRowCount         Int            @default(0)
+  duplicateCandidateCount  Int            @default(0)
+  importedTransactionCount Int            @default(0)
+  repeatedFile             Boolean        @default(false)
   summaryJson              String?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-  household                Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  account                  Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  household                Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  account                  Account        @relation(fields: [accountId], references: [id], onDelete: Restrict)
   importProfile            ImportProfile? @relation(fields: [importProfileId], references: [id], onDelete: SetNull)
   rows                     ImportRow[]
   transactions             Transaction[]
@@ -634,62 +717,62 @@ model ImportBatch {
 }
 
 model ImportRow {
-  id                     String   @id @default(cuid())
-  importBatchId          String
-  rowNumber              Int
-  sourceFieldsJson       String
-  parsedTransactionDate  DateTime?
-  parsedPostedDate       DateTime?
-  originalDescription    String?
-  originalAmountText     String?
-  parsedAmountMinor      Int?
-  currency               String   @default("USD")
-  suggestedCategory      String?
-  duplicateStatus        String   @default("NONE")
-  duplicateReason        String?
-  validationStatus       String
-  validationErrorsJson   String
-  importDecision         String
-  createdTransactionId   String?
-  createdAt              DateTime @default(now())
-  importBatch            ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  id                    String      @id @default(cuid())
+  importBatchId         String
+  rowNumber             Int
+  sourceFieldsJson      String
+  parsedTransactionDate DateTime?
+  parsedPostedDate      DateTime?
+  originalDescription   String?
+  originalAmountText    String?
+  parsedAmountMinor     Int?
+  currency              String      @default("USD")
+  suggestedCategory     String?
+  duplicateStatus       String      @default("NONE")
+  duplicateReason       String?
+  validationStatus      String
+  validationErrorsJson  String
+  importDecision        String
+  createdTransactionId  String?
+  createdAt             DateTime    @default(now())
+  importBatch           ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
   @@index([importBatchId, rowNumber])
 }
 
 model AuditLog {
-  id              String   @id @default(cuid())
-  householdId     String?
-  entityType      String
-  entityId        String
-  action          String
-  field           String?
-  previousValue   String?
-  newValue        String?
-  reason          String?
-  source          String   @default("user")
-  createdAt       DateTime @default(now())
-  household       Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  id            String     @id @default(cuid())
+  householdId   String?
+  entityType    String
+  entityId      String
+  action        String
+  field         String?
+  previousValue String?
+  newValue      String?
+  reason        String?
+  source        String     @default("user")
+  createdAt     DateTime   @default(now())
+  household     Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
 }
 
 model BackupRecord {
-  id                String   @id @default(cuid())
-  householdId       String?
-  filename          String
-  sizeBytes         Int
-  hash              String
-  appVersion        String
-  schemaVersion     String
-  countsJson        String
-  status            String
-  deletedAt         DateTime?
-  isRestoreSource   Boolean  @default(false)
-  isPreRestore      Boolean  @default(false)
-  validationJson    String?
-  notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  household         Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  id              String     @id @default(cuid())
+  householdId     String?
+  filename        String
+  sizeBytes       Int
+  hash            String
+  appVersion      String
+  schemaVersion   String
+  countsJson      String
+  status          String
+  deletedAt       DateTime?
+  isRestoreSource Boolean    @default(false)
+  isPreRestore    Boolean    @default(false)
+  validationJson  String?
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  household       Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([status])

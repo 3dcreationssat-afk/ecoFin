@@ -26,6 +26,7 @@ import { getHousehold, workspaceState } from "./repositories";
 import { scanRecurringExpenses } from "./recurring";
 import { scanTransferCandidates } from "./transfers";
 import { classifySemantics } from "./import-repair";
+import { reconcileForecastOccurrenceMatches, refreshForecastIntelligence } from "./forecast-rules";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -553,6 +554,10 @@ export async function confirmImport(input: unknown) {
       householdId: batch.householdId,
       transactionIds: detail.transactions.map((transaction) => transaction.id),
     });
+    const forecast = await refreshForecastIntelligence(
+      batch.householdId,
+      detail.transactions.map((transaction) => transaction.id),
+    );
     const refreshed = await batchDetail(detail.id);
     const summary = parseSummary(refreshed.summaryJson);
     await prisma.importBatch.update({
@@ -564,6 +569,8 @@ export async function confirmImport(input: unknown) {
           highConfidenceRecurringCandidates: scan.highConfidence,
           recurringPriceIncreases: scan.priceIncreases,
           recurringReviewHref: "/recurring",
+          payrollPatternsDetected: forecast.detection.payrollCandidates,
+          forecastOccurrencesMatched: forecast.matching.createdCount,
         }),
       },
     });
@@ -638,6 +645,7 @@ export async function undoImportBatch(id: string, input: unknown) {
   }
   return prisma.$transaction(async (tx) => {
     await tx.transaction.deleteMany({ where: { importBatchId: id } });
+    await reconcileForecastOccurrenceMatches(tx);
     await recalculateAccountBalances(
       [...new Set(batch.transactions.map((transaction) => transaction.accountId))],
       tx,

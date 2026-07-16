@@ -40,7 +40,12 @@ async function validateLinks(
 }
 export async function ensurePlanningOccurrences(end: Date, db: Db = prisma) {
   const incomes = await db.expectedIncomeSchedule.findMany({
-    where: { active: true, archivedAt: null, nextExpectedDate: { lt: end } },
+    where: {
+      active: true,
+      archivedAt: null,
+      frequency: "ONE_TIME",
+      nextExpectedDate: { lt: end },
+    },
   });
   for (const item of incomes)
     for (const date of occurrenceDates(
@@ -62,7 +67,7 @@ export async function ensurePlanningOccurrences(end: Date, db: Db = prisma) {
         update: {},
       });
   const obligations = await db.scheduledObligation.findMany({
-    where: { active: true, archivedAt: null, dueDate: { lt: end } },
+    where: { active: true, archivedAt: null, frequency: "ONE_TIME", dueDate: { lt: end } },
   });
   for (const item of obligations)
     for (const date of occurrenceDates(item.dueDate, item.frequency, end))
@@ -107,6 +112,7 @@ export async function createExpectedIncome(input: unknown) {
     recurringExpenseId: data.recurringExpenseId,
   });
   const record = await prisma.expectedIncomeSchedule.create({ data: { ...data, isDemo: false } });
+  if (record.frequency !== "ONE_TIME") await upsertScheduleForecastRule("income", record);
   await auditChange(prisma, {
     householdId: data.householdId,
     entityType: "ExpectedIncomeSchedule",
@@ -125,6 +131,7 @@ export async function updateExpectedIncome(id: string, input: unknown) {
     recurringExpenseId: data.recurringExpenseId,
   });
   const updated = await prisma.expectedIncomeSchedule.update({ where: { id }, data });
+  if (updated.frequency !== "ONE_TIME") await upsertScheduleForecastRule("income", updated);
   await auditFields(prisma, {
     householdId: existing.householdId,
     entityType: "ExpectedIncomeSchedule",
@@ -147,6 +154,7 @@ export async function setExpectedIncomeState(id: string, action: "PAUSE" | "RESU
       archivedAt: action === "ARCHIVE" ? new Date() : existing.archivedAt,
     },
   });
+  await setScheduleForecastRuleState("ExpectedIncomeSchedule", id, action);
   await auditChange(prisma, {
     householdId: existing.householdId,
     entityType: "ExpectedIncomeSchedule",
@@ -166,6 +174,7 @@ export async function createObligation(input: unknown) {
     goalId: data.goalId,
   });
   const record = await prisma.scheduledObligation.create({ data: { ...data, isDemo: false } });
+  if (record.frequency !== "ONE_TIME") await upsertScheduleForecastRule("obligation", record);
   await auditChange(prisma, {
     householdId: data.householdId,
     entityType: "ScheduledObligation",
@@ -187,6 +196,7 @@ export async function updateObligation(id: string, input: unknown) {
     goalId: data.goalId,
   });
   const updated = await prisma.scheduledObligation.update({ where: { id }, data });
+  if (updated.frequency !== "ONE_TIME") await upsertScheduleForecastRule("obligation", updated);
   await auditFields(prisma, {
     householdId: existing.householdId,
     entityType: "ScheduledObligation",
@@ -209,6 +219,7 @@ export async function setObligationState(id: string, action: "PAUSE" | "RESUME" 
       archivedAt: action === "ARCHIVE" ? new Date() : existing.archivedAt,
     },
   });
+  await setScheduleForecastRuleState("ScheduledObligation", id, action);
   await auditChange(prisma, {
     householdId: existing.householdId,
     entityType: "ScheduledObligation",
@@ -341,4 +352,91 @@ export async function matchSuggestions() {
       ),
   );
   return [...income, ...obligations];
+}
+
+async function upsertScheduleForecastRule(
+  kind: "income" | "obligation",
+  record: {
+    id: string;
+    householdId: string;
+    accountId: string | null;
+    recurringExpenseId: string | null;
+    name: string;
+    amountMinor: number;
+    frequency: string;
+    active: boolean;
+    archivedAt: Date | null;
+    confidence: string;
+    createdAt: Date;
+    endDate?: Date | null;
+    nextExpectedDate?: Date;
+    dueDate?: Date;
+    twiceMonthlyDay1?: number | null;
+    twiceMonthlyDay2?: number | null;
+  },
+) {
+  const sourceRecordType = kind === "income" ? "ExpectedIncomeSchedule" : "ScheduledObligation";
+  const expectedDate = record.nextExpectedDate ?? record.dueDate!;
+  const fingerprint = `${kind === "income" ? "income-schedule" : "obligation"}:${record.id}`;
+  await prisma.forecastRule.upsert({
+    where: { detectionFingerprint: fingerprint },
+    create: {
+      householdId: record.householdId,
+      accountId: record.accountId,
+      recurringExpenseId: record.recurringExpenseId,
+      name: record.name,
+      merchantKey: record.name.toLowerCase().trim(),
+      direction: kind === "income" ? "INCOME" : "EXPENSE",
+      cadence: record.frequency,
+      anchorDate: expectedDate,
+      nextExpectedDate: expectedDate,
+      typicalAmountMinor: record.amountMinor,
+      minAmountMinor: record.amountMinor,
+      maxAmountMinor: record.amountMinor,
+      confidence: normalizeForecastConfidence(record.confidence),
+      confidenceScore: record.confidence === "HIGH" ? 100 : 75,
+      state: record.archivedAt ? "ARCHIVED" : record.active ? "CONFIRMED" : "PAUSED",
+      provenance: `Created from ${sourceRecordType}.`,
+      creationSource: "USER_CREATED",
+      sourceRecordType,
+      sourceRecordId: record.id,
+      effectiveStartDate: expectedDate,
+      endDate: record.endDate,
+      semimonthlyDay1: record.twiceMonthlyDay1,
+      semimonthlyDay2: record.twiceMonthlyDay2,
+      reasonsJson: JSON.stringify(["User-created recurring planning rule."]),
+      detectionFingerprint: fingerprint,
+    },
+    update: {
+      accountId: record.accountId,
+      name: record.name,
+      cadence: record.frequency,
+      nextExpectedDate: expectedDate,
+      typicalAmountMinor: record.amountMinor,
+      minAmountMinor: record.amountMinor,
+      maxAmountMinor: record.amountMinor,
+      state: record.archivedAt ? "ARCHIVED" : record.active ? "CONFIRMED" : "PAUSED",
+      endDate: record.endDate,
+      semimonthlyDay1: record.twiceMonthlyDay1,
+      semimonthlyDay2: record.twiceMonthlyDay2,
+    },
+  });
+}
+
+async function setScheduleForecastRuleState(
+  sourceRecordType: "ExpectedIncomeSchedule" | "ScheduledObligation",
+  sourceRecordId: string,
+  action: "PAUSE" | "RESUME" | "ARCHIVE",
+) {
+  await prisma.forecastRule.updateMany({
+    where: { sourceRecordType, sourceRecordId },
+    data: {
+      state: action === "PAUSE" ? "PAUSED" : action === "RESUME" ? "CONFIRMED" : "ARCHIVED",
+      archivedAt: action === "ARCHIVE" ? new Date() : undefined,
+    },
+  });
+}
+
+function normalizeForecastConfidence(value: string) {
+  return value === "MODERATE" ? "MEDIUM" : value;
 }

@@ -1,5 +1,17 @@
 # Change Ledger
 
+## 2026-07-15 — Production cash-flow intelligence
+
+- Added additive canonical `ForecastRule` and sparse `ForecastOccurrence` persistence with legacy
+  schedule provenance, household timezone configuration, lifecycle/backup coverage, and audit logs.
+- Added local payroll-pattern detection, cadence/amount confidence, exclusions, explainable
+  transaction matching, automatic import reconciliation, undo cleanup, and idempotency tests.
+- Rebuilt Cash Flow around four decision outcomes, Confirmed/Likely/Conservative scenarios, a daily
+  balance chart, expected activity, compact attention, contextual one-time actions, rule management,
+  and an answer-first Safe to Save calculation.
+- Unified Cash Flow, Overview, and Decision evaluation on the canonical forecast engine and stopped
+  eager persistence of future recurring rows.
+
 ## 2026-07-12
 
 - Corrected CSV preview and validation error handling so expected file-format and import-limit failures return actionable validation messages instead of a generic server error; added near-limit and over-limit regression coverage.

@@ -64,6 +64,21 @@ describe("planning persistence", () => {
     ).toBeGreaterThanOrEqual(5);
   });
   it("marks received, paid, skipped, and partial occurrences without double matching", async () => {
+    const household = await db.prisma.household.findFirstOrThrow();
+    for (const [index, name] of [
+      "Paid synthetic",
+      "Skipped synthetic",
+      "Partial synthetic",
+    ].entries()) {
+      await planning.createObligation({
+        householdId: household.id,
+        name,
+        amountMinor: 1000 + index,
+        dueDate: new Date(`2026-07-${25 + index}`),
+        frequency: "ONE_TIME",
+        obligationType: "OTHER",
+      });
+    }
     await planning.ensurePlanningOccurrences(new Date("2026-08-01"));
     const income = await db.prisma.expectedIncomeOccurrence.findFirstOrThrow({
       where: { status: "UPCOMING" },

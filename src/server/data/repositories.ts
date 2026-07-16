@@ -503,6 +503,8 @@ export async function startFreshWorkspace(input: unknown) {
     await tx.transactionSavedView.deleteMany();
     await tx.merchantRule.deleteMany();
     await tx.reconciliationAdjustment.deleteMany();
+    await tx.forecastOccurrence.deleteMany();
+    await tx.forecastRule.deleteMany();
     await tx.expectedIncomeOccurrence.deleteMany();
     await tx.obligationOccurrence.deleteMany();
     await tx.expectedIncomeSchedule.deleteMany();
@@ -575,6 +577,8 @@ export async function demoResetCounts(db: Db = prisma) {
     expectedIncomeSchedules,
     scheduledObligations,
     planningOccurrences,
+    forecastRules,
+    forecastOccurrences,
     auditEvents,
   ] = await Promise.all([
     db.household.count(),
@@ -594,6 +598,8 @@ export async function demoResetCounts(db: Db = prisma) {
     Promise.all([db.expectedIncomeOccurrence.count(), db.obligationOccurrence.count()]).then(
       ([a, b]) => a + b,
     ),
+    db.forecastRule.count(),
+    db.forecastOccurrence.count(),
     db.auditLog.count(),
   ]);
   return {
@@ -612,6 +618,8 @@ export async function demoResetCounts(db: Db = prisma) {
     expectedIncomeSchedules,
     scheduledObligations,
     planningOccurrences,
+    forecastRules,
+    forecastOccurrences,
     auditEvents,
   };
 }

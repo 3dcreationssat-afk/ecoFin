@@ -14,6 +14,8 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
     await client.transactionSavedView.deleteMany();
     await client.merchantRule.deleteMany();
     await client.reconciliationAdjustment.deleteMany();
+    await client.forecastOccurrence.deleteMany();
+    await client.forecastRule.deleteMany();
     await client.expectedIncomeOccurrence.deleteMany();
     await client.obligationOccurrence.deleteMany();
     await client.expectedIncomeSchedule.deleteMany();
@@ -872,6 +874,72 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
           },
         },
       },
+    });
+
+    const [seededIncomeRules, seededObligationRules] = await Promise.all([
+      client.expectedIncomeSchedule.findMany({ where: { householdId: household.id } }),
+      client.scheduledObligation.findMany({ where: { householdId: household.id } }),
+    ]);
+    await client.forecastRule.createMany({
+      data: [
+        ...seededIncomeRules.map((item) => ({
+          householdId: household.id,
+          accountId: item.accountId,
+          recurringExpenseId: item.recurringExpenseId,
+          name: item.name,
+          merchantKey: item.name.toLowerCase(),
+          direction: "INCOME",
+          cadence: item.frequency,
+          anchorDate: item.nextExpectedDate,
+          lastObservedDate:
+            item.recurringExpenseId === payrollRecurring.id
+              ? payrollRecurring.lastObservedDate
+              : null,
+          nextExpectedDate: item.nextExpectedDate,
+          typicalAmountMinor: item.amountMinor,
+          minAmountMinor: item.amountMinor,
+          maxAmountMinor: item.amountMinor,
+          amountVariabilityBps: 0,
+          confidence: item.confidence === "MODERATE" ? "MEDIUM" : item.confidence,
+          confidenceScore: item.confidence === "HIGH" ? 100 : 75,
+          state: item.active ? "CONFIRMED" : "PAUSED",
+          provenance: "Canonical synthetic forecast rule.",
+          creationSource: "DEMO",
+          sourceRecordType: "ExpectedIncomeSchedule",
+          sourceRecordId: item.id,
+          effectiveStartDate: item.nextExpectedDate,
+          endDate: item.endDate,
+          semimonthlyDay1: item.twiceMonthlyDay1,
+          semimonthlyDay2: item.twiceMonthlyDay2,
+          reasonsJson: JSON.stringify(["Synthetic demonstration rule."]),
+          detectionFingerprint: `income-schedule:${item.id}`,
+        })),
+        ...seededObligationRules.map((item) => ({
+          householdId: household.id,
+          accountId: item.accountId,
+          recurringExpenseId: item.recurringExpenseId,
+          name: item.name,
+          merchantKey: item.name.toLowerCase(),
+          direction: "EXPENSE",
+          cadence: item.frequency,
+          anchorDate: item.dueDate,
+          nextExpectedDate: item.dueDate,
+          typicalAmountMinor: item.amountMinor,
+          minAmountMinor: item.amountMinor,
+          maxAmountMinor: item.amountMinor,
+          amountVariabilityBps: 0,
+          confidence: item.confidence === "MODERATE" ? "MEDIUM" : item.confidence,
+          confidenceScore: item.confidence === "HIGH" ? 100 : 75,
+          state: item.active ? "CONFIRMED" : "PAUSED",
+          provenance: "Canonical synthetic forecast rule.",
+          creationSource: "DEMO",
+          sourceRecordType: "ScheduledObligation",
+          sourceRecordId: item.id,
+          effectiveStartDate: item.dueDate,
+          reasonsJson: JSON.stringify(["Synthetic demonstration rule."]),
+          detectionFingerprint: `obligation:${item.id}`,
+        })),
+      ],
     });
 
     await client.auditLog.create({

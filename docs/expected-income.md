@@ -1,5 +1,14 @@
 # Expected Income
 
-Expected income is a durable schedule, never an inference from one deposit. It supports one-time, weekly, biweekly, twice-monthly explicit days, monthly, quarterly, and annual cadence with optional account and confirmed-recurring links.
+Expected income uses a durable canonical forecast rule. Explicit rules support one-time, weekly,
+biweekly, twice-monthly, monthly, quarterly, and annual cadence with an optional account link.
+Historical schedules remain migration provenance, not a second projection source.
 
-Dated occurrences carry Upcoming, Received, or Skipped state, satisfaction date, a unique matched transaction, amount difference, and notes. Received occurrences leave remaining income. Deterministic amount/date suggestions require explicit confirmation; ambiguous deposits are never silently matched.
+Payroll detection groups eligible positive deposits by account and normalized merchant, requires at
+least three occurrences, measures cadence and amount stability, and excludes transfers, refunds,
+reimbursements, bonuses, cash deposits, tax refunds, investment activity, and other non-payroll-like
+credits. Detected rules require confirmation before entering the Confirmed scenario.
+
+Only occurrence exceptions are persisted: Skipped, Changed, Cancelled, or Matched. A transaction can
+match at most one occurrence; account, direction, merchant, amount, and date must agree within the
+rule's tolerances. Ambiguous deposits are never silently matched.

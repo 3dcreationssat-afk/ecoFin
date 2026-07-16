@@ -16,6 +16,7 @@ import { prisma } from "@/server/db/prisma";
 import { auditChange, auditFields } from "./audit";
 import { AppError } from "./errors";
 import { getHousehold } from "./repositories";
+import { syncRecurringForecastRules } from "./forecast-rules";
 
 export async function scanRecurringExpenses(
   input: { householdId?: string; transactionIds?: string[] } = {},
@@ -299,6 +300,7 @@ export async function confirmRecurringExpense(id: string, input: unknown) {
         });
     }
   }
+  await syncRecurringForecastRules(updated.householdId);
   return updated;
 }
 
@@ -320,6 +322,7 @@ export async function rejectRecurringExpense(id: string, input: unknown) {
     reason: data.notes ?? undefined,
     source: "recurring",
   });
+  await syncRecurringForecastRules(updated.householdId);
   return updated;
 }
 
@@ -343,6 +346,7 @@ export async function updateRecurringExpense(id: string, input: unknown) {
     fields: Object.keys(data),
     source: "recurring",
   });
+  await syncRecurringForecastRules(updated.householdId);
   return updated;
 }
 
@@ -392,6 +396,7 @@ export async function createManualRecurringExpense(input: unknown) {
     newValue: "CONFIRMED",
     source: "recurring",
   });
+  await syncRecurringForecastRules(record.householdId);
   return record;
 }
 
@@ -419,6 +424,7 @@ export async function markRecurringCanceled(id: string, input: unknown) {
     reason: data.canceledNote ?? undefined,
     source: "recurring",
   });
+  await syncRecurringForecastRules(updated.householdId);
   return updated;
 }
 
@@ -440,6 +446,7 @@ export async function reactivateRecurringExpense(id: string, input: unknown) {
     reason: data.notes ?? undefined,
     source: "recurring",
   });
+  await syncRecurringForecastRules(updated.householdId);
   return updated;
 }
 

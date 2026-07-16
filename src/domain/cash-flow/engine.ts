@@ -1,6 +1,7 @@
 import { dueDateInPeriod, financialPeriod } from "./period";
 import { savingsRecommendation } from "@/domain/planning/occurrences";
 import { calculateEmergencyRunway } from "@/domain/planning/emergency-runway";
+import { generateForecastOccurrences } from "@/domain/forecast/occurrences";
 
 export type ConfidenceLevel = "HIGH" | "MODERATE" | "LIMITED";
 export type CashFlowEvent = {
@@ -8,9 +9,11 @@ export type CashFlowEvent = {
   date: Date;
   label: string;
   amountMinor: number;
-  kind: "RECORDED" | "SCHEDULED" | "FORECAST" | "ASSUMPTION";
+  kind: "RECORDED" | "SCHEDULED" | "FORECAST" | "INFERRED" | "ASSUMPTION";
   source: string;
   confidence: ConfidenceLevel;
+  status?: string;
+  ruleId?: string;
 };
 export type ReserveComponent = {
   id: string;
@@ -79,6 +82,7 @@ export type CashFlowGoal = {
 };
 export type CashFlowInput = {
   asOf: Date;
+  timezone?: string;
   financialMonthStart: number;
   checkingBufferMinor: number;
   emergencyFundTargetMinor: number;
@@ -126,6 +130,34 @@ export type CashFlowInput = {
       expectedAmountMinor: number;
       status: string;
       amountDifferenceMinor?: number;
+    }[];
+  }[];
+  forecastRules?: {
+    id: string;
+    accountId: string | null;
+    recurringExpenseId: string | null;
+    name: string;
+    merchantKey: string;
+    direction: string;
+    cadence: string;
+    nextExpectedDate: Date;
+    typicalAmountMinor: number;
+    confidence: string;
+    confidenceScore: number;
+    state: string;
+    sourceRecordType: string | null;
+    sourceRecordId: string | null;
+    semimonthlyDay1: number | null;
+    semimonthlyDay2: number | null;
+    endDate: Date | null;
+    occurrences: {
+      id: string;
+      expectedDate: Date;
+      expectedAmountMinor: number;
+      status: string;
+      overrideDate: Date | null;
+      overrideAmountMinor: number | null;
+      matchedTransactionId: string | null;
     }[];
   }[];
   savingsPolicy?: {
@@ -245,8 +277,22 @@ export function calculateCashFlow(input: CashFlowInput) {
   let remainingExpectedIncomeMinor = 0;
   let remainingEssentialObligationsMinor = 0;
   let conservativeExtraMinor = 0;
+  let inferredIncomeMinor = 0;
+  let inferredExpenseMinor = 0;
+  const inferredEvents: CashFlowEvent[] = [];
+  const canonicalIncomeSources = new Set(
+    (input.forecastRules ?? [])
+      .filter((rule) => rule.sourceRecordType === "ExpectedIncomeSchedule")
+      .map((rule) => rule.sourceRecordId),
+  );
+  const canonicalObligationSources = new Set(
+    (input.forecastRules ?? [])
+      .filter((rule) => rule.sourceRecordType === "ScheduledObligation")
+      .map((rule) => rule.sourceRecordId),
+  );
   for (const schedule of input.expectedIncomeSchedules ?? []) {
-    if (!schedule.active || schedule.archivedAt) continue;
+    if (!schedule.active || schedule.archivedAt || canonicalIncomeSources.has(schedule.id))
+      continue;
     for (const occurrence of schedule.occurrences.filter(
       (o) =>
         ["UPCOMING", "OVERDUE"].includes(o.status) &&
@@ -276,7 +322,8 @@ export function calculateCashFlow(input: CashFlowInput) {
     (input.scheduledObligations ?? []).map((o) => o.goalId).filter(Boolean),
   );
   for (const schedule of input.scheduledObligations ?? []) {
-    if (!schedule.active || schedule.archivedAt) continue;
+    if (!schedule.active || schedule.archivedAt || canonicalObligationSources.has(schedule.id))
+      continue;
     for (const occurrence of schedule.occurrences.filter(
       (o) =>
         ["UPCOMING", "OVERDUE", "PARTIALLY_PAID"].includes(o.status) && o.expectedDate < period.end,
@@ -297,6 +344,69 @@ export function calculateCashFlow(input: CashFlowInput) {
       });
     }
   }
+  const forecastRecurringIds = new Set(
+    (input.forecastRules ?? []).map((rule) => rule.recurringExpenseId).filter(Boolean),
+  );
+  let detectedIncomeCount = 0;
+  let detectedExpenseCount = 0;
+  for (const rule of input.forecastRules ?? []) {
+    if (["IGNORED", "PAUSED", "ENDED", "ARCHIVED"].includes(rule.state)) continue;
+    const occurrences = generateForecastOccurrences(
+      rule,
+      input.asOf,
+      period.end,
+      rule.occurrences,
+    ).filter(
+      (occurrence) =>
+        !["MATCHED", "POSTED", "SKIPPED", "CANCELLED", "SUPERSEDED"].includes(occurrence.status),
+    );
+    const confirmed = rule.state === "CONFIRMED";
+    const inferred = rule.state === "DETECTED" && rule.confidence === "HIGH";
+    if (!confirmed && !inferred) {
+      if (rule.direction === "INCOME") detectedIncomeCount += 1;
+      else detectedExpenseCount += 1;
+      continue;
+    }
+    for (const occurrence of occurrences) {
+      const amount = Math.abs(occurrence.effectiveAmountMinor);
+      const income = rule.direction === "INCOME";
+      const event: CashFlowEvent = {
+        id: occurrence.id,
+        date: occurrence.effectiveDate,
+        label: rule.name,
+        amountMinor: income ? amount : -amount,
+        kind: confirmed ? "FORECAST" : "INFERRED",
+        source: confirmed ? "Confirmed forecast rule" : "High-confidence detected pattern",
+        confidence:
+          rule.confidence === "HIGH"
+            ? "HIGH"
+            : rule.confidence === "MEDIUM"
+              ? "MODERATE"
+              : "LIMITED",
+        status: occurrence.status === "CHANGED" ? "CHANGED" : confirmed ? "CONFIRMED" : "INFERRED",
+        ruleId: rule.id,
+      };
+      if (confirmed) {
+        if (income) remainingExpectedIncomeMinor += amount;
+        else remainingEssentialObligationsMinor += amount;
+        events.push(event);
+      } else {
+        if (income) inferredIncomeMinor += amount;
+        else inferredExpenseMinor += amount;
+        inferredEvents.push(event);
+      }
+    }
+  }
+  if (detectedIncomeCount || detectedExpenseCount || inferredEvents.length) {
+    factors.push({
+      positive: false,
+      label: "Forecast patterns need confirmation",
+      explanation: `${detectedIncomeCount + inferredEvents.filter((event) => event.amountMinor > 0).length} income and ${detectedExpenseCount + inferredEvents.filter((event) => event.amountMinor < 0).length} expense pattern(s) remain inferred or unconfirmed.`,
+      href: "/cash-flow#needs-attention",
+    });
+  }
+  conservativeExtraMinor += inferredExpenseMinor;
+  let unconfirmedRecurringCount = 0;
   for (const item of input.recurring) {
     const date = item.nextExpectedDate;
     if (
@@ -308,15 +418,10 @@ export function calculateCashFlow(input: CashFlowInput) {
       continue;
     const amount = Math.abs(item.typicalAmountMinor);
     const confirmed = item.userConfirmed && item.status === "CONFIRMED";
-    if (linkedRecurringIds.has(item.id)) continue;
+    if (linkedRecurringIds.has(item.id) || forecastRecurringIds.has(item.id)) continue;
     if (!confirmed) {
       if (item.recurringType !== "INCOME") conservativeExtraMinor += amount;
-      factors.push({
-        positive: false,
-        label: `${item.displayName} is unconfirmed`,
-        explanation: "It appears only in uncertainty protection, not certain forecasts.",
-        href: "/recurring",
-      });
+      unconfirmedRecurringCount += 1;
       continue;
     }
     const income = item.recurringType === "INCOME";
@@ -332,6 +437,14 @@ export function calculateCashFlow(input: CashFlowInput) {
       confidence: item.confidence === "HIGH" ? "HIGH" : "MODERATE",
     });
   }
+  if (unconfirmedRecurringCount)
+    factors.push({
+      positive: false,
+      label: `${unconfirmedRecurringCount} recurring candidate${unconfirmedRecurringCount === 1 ? "" : "s"} need review`,
+      explanation:
+        "Unconfirmed recurring evidence is summarized here and reviewed in Forecast Setup.",
+      href: "/recurring",
+    });
 
   let debtMinimumPaymentsMinor = 0;
   for (const account of input.accounts.filter(
@@ -463,6 +576,9 @@ export function calculateCashFlow(input: CashFlowInput) {
     remainingEssentialObligationsMinor -
     debtMinimumPaymentsMinor -
     committedPlannedSavingsMinor;
+  const likelyProjectedMonthEndMinor =
+    projectedMonthEndMinor + inferredIncomeMinor - inferredExpenseMinor;
+  const conservativeProjectedMonthEndMinor = projectedMonthEndMinor - inferredExpenseMinor;
   const lines: CalculationLine[] = [
     {
       label: "Starting usable liquid cash",
@@ -514,6 +630,31 @@ export function calculateCashFlow(input: CashFlowInput) {
     source: "Derived liquid ledgers",
     confidence,
   });
+  const confirmedFutureEvents = events.filter(
+    (event) => event.date >= input.asOf && event.id !== "current" && event.kind !== "RECORDED",
+  );
+  const confirmedLow = lowestBalance(
+    startingUsableLiquidCashMinor,
+    confirmedFutureEvents,
+    input.asOf,
+  );
+  const likelyLow = lowestBalance(
+    startingUsableLiquidCashMinor,
+    [...confirmedFutureEvents, ...inferredEvents],
+    input.asOf,
+  );
+  const conservativeLow = lowestBalance(
+    startingUsableLiquidCashMinor,
+    [...confirmedFutureEvents, ...inferredEvents.filter((event) => event.amountMinor < 0)],
+    input.asOf,
+  );
+  const dailyTimeline = buildDailyTimeline(
+    input.asOf,
+    period.end,
+    startingUsableLiquidCashMinor,
+    confirmedFutureEvents,
+    inferredEvents,
+  );
   events.sort((a, b) => a.date.getTime() - b.date.getTime() || a.id.localeCompare(b.id));
   return {
     period,
@@ -535,6 +676,29 @@ export function calculateCashFlow(input: CashFlowInput) {
     maximumAvailableSurplusMinor: recommendation.allocatableSurplusMinor,
     allocatableSurplusMinor: recommendation.allocatableSurplusMinor,
     projectedMonthEndMinor,
+    likelyProjectedMonthEndMinor,
+    conservativeProjectedMonthEndMinor,
+    lowestProjectedBalanceMinor: confirmedLow.amountMinor,
+    lowestProjectedBalanceDate: confirmedLow.date,
+    inferredIncomeMinor,
+    inferredExpenseMinor,
+    scenarios: {
+      confirmed: {
+        projectedMonthEndMinor,
+        lowestBalanceMinor: confirmedLow.amountMinor,
+        lowestBalanceDate: confirmedLow.date,
+      },
+      likely: {
+        projectedMonthEndMinor: likelyProjectedMonthEndMinor,
+        lowestBalanceMinor: likelyLow.amountMinor,
+        lowestBalanceDate: likelyLow.date,
+      },
+      conservative: {
+        projectedMonthEndMinor: conservativeProjectedMonthEndMinor,
+        lowestBalanceMinor: conservativeLow.amountMinor,
+        lowestBalanceDate: conservativeLow.date,
+      },
+    },
     recommendedSafeToSaveMinor,
     conservativeSafeToSaveMinor,
     safeToSpendMinor,
@@ -551,9 +715,97 @@ export function calculateCashFlow(input: CashFlowInput) {
     reserveComponents: reserves,
     calculationLines: lines,
     events,
+    inferredEvents,
+    dailyTimeline,
+    headlineExplanations: {
+      projectedMonthEnd: confirmedFutureEvents.map(eventComponent),
+      lowestBalance: confirmedFutureEvents
+        .filter((event) => event.date <= confirmedLow.date)
+        .map(eventComponent),
+      safeToSpend: lines,
+      expectedIncome: confirmedFutureEvents
+        .filter((event) => event.amountMinor > 0)
+        .map(eventComponent),
+      upcomingCommitments: confirmedFutureEvents
+        .filter((event) => event.amountMinor < 0)
+        .map(eventComponent),
+    },
     workspaceWarning:
       input.workspaceMode === "MIXED"
         ? "Mixed demo and user provenance lowers confidence; review source records."
         : null,
   };
+}
+
+function eventComponent(event: CashFlowEvent) {
+  return {
+    id: event.id,
+    label: event.label,
+    date: event.date,
+    amountMinor: event.amountMinor,
+    source: event.source,
+    status: event.status ?? event.kind,
+  };
+}
+
+function lowestBalance(startingMinor: number, events: CashFlowEvent[], asOf: Date) {
+  let balance = startingMinor;
+  let lowest = startingMinor;
+  let date = asOf;
+  for (const event of [...events].sort(
+    (a, b) => a.date.getTime() - b.date.getTime() || a.id.localeCompare(b.id),
+  )) {
+    balance += event.amountMinor;
+    if (balance < lowest) {
+      lowest = balance;
+      date = event.date;
+    }
+  }
+  return { amountMinor: lowest, date };
+}
+
+function buildDailyTimeline(
+  start: Date,
+  end: Date,
+  startingMinor: number,
+  confirmed: CashFlowEvent[],
+  inferred: CashFlowEvent[],
+) {
+  const rows: {
+    date: Date;
+    confirmedBalanceMinor: number;
+    likelyBalanceMinor: number;
+    conservativeBalanceMinor: number;
+  }[] = [];
+  let confirmedBalance = startingMinor;
+  let likelyBalance = startingMinor;
+  let conservativeBalance = startingMinor;
+  for (
+    let cursor = new Date(
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()),
+    );
+    cursor < end;
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    const key = cursor.toISOString().slice(0, 10);
+    const confirmedToday = confirmed
+      .filter((event) => event.date.toISOString().slice(0, 10) === key)
+      .reduce((sum, event) => sum + event.amountMinor, 0);
+    const inferredToday = inferred
+      .filter((event) => event.date.toISOString().slice(0, 10) === key)
+      .reduce((sum, event) => sum + event.amountMinor, 0);
+    const inferredExpenseToday = inferred
+      .filter((event) => event.date.toISOString().slice(0, 10) === key && event.amountMinor < 0)
+      .reduce((sum, event) => sum + event.amountMinor, 0);
+    confirmedBalance += confirmedToday;
+    likelyBalance += confirmedToday + inferredToday;
+    conservativeBalance += confirmedToday + inferredExpenseToday;
+    rows.push({
+      date: new Date(cursor),
+      confirmedBalanceMinor: confirmedBalance,
+      likelyBalanceMinor: likelyBalance,
+      conservativeBalanceMinor: conservativeBalance,
+    });
+  }
+  return rows;
 }

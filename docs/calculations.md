@@ -19,6 +19,9 @@
 - Cash allocation reconciles exactly: cash after obligations/protections minus retained safety reserve equals allocatable surplus; allocatable surplus equals recommended saving plus Safe to Spend plus explicit unallocated surplus.
 
 - Validated Cash Flow, projected month-end, Recommended and Conservative Safe to Save, Safe to Spend, explicit uncertainty reserves, and deterministic confidence follow `cash-flow-engine.md` and `safe-to-save.md`.
+- Forecast rules generate virtual daily activity through the period; only user overrides and posted
+  matches persist. Confirmed, Likely, and Conservative scenarios use the same starting ledger and
+  differ only in documented inclusion of inferred rules.
 
 - Account ledger balance equals the explicit opening balance plus cleared, nonduplicate, ledger-affecting transaction effects after the anchor plus explicit reconciliation adjustments. Assets are positive owned amounts; liabilities are positive amounts owed.
 - Institution-reported and available balances are comparison snapshots and never drive ledger calculation. Reconciliation difference is `reported - ledger`.

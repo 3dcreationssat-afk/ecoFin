@@ -44,6 +44,8 @@ describe("backup domain helpers", () => {
           expectedIncomeOccurrences: 0,
           scheduledObligations: 0,
           obligationOccurrences: 0,
+          forecastRules: 0,
+          forecastOccurrences: 0,
           emergencyFundConfigurations: 1,
           emergencyFundAccounts: 1,
           auditLogs: 1,

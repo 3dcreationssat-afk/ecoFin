@@ -2,6 +2,7 @@ import { calculateCashFlow } from "@/domain/cash-flow/engine";
 import { prisma } from "@/server/db/prisma";
 import { AppError } from "./errors";
 import { ensurePlanningOccurrences } from "./planning";
+import { financialPeriod } from "@/domain/cash-flow/period";
 
 export async function getCashFlowProjection(asOf = new Date()) {
   return calculateCashFlow(await getCashFlowInput(asOf));
@@ -14,30 +15,41 @@ export async function getCashFlowInput(asOf = new Date()) {
   const household = await prisma.household.findFirst({
     include: {
       accounts: true,
-      transactions: true,
       recurringExpenses: true,
       goals: { include: { contributions: true } },
       importBatches: { orderBy: { createdAt: "desc" }, take: 50 },
       expectedIncomeSchedules: { include: { occurrences: true } },
       scheduledObligations: { include: { occurrences: true } },
       emergencyFundConfiguration: { include: { accounts: true } },
+      forecastRules: { include: { occurrences: true } },
     },
   });
   if (!household) throw new AppError("Household not found. Run npm run db:seed.", 404);
+  const period = financialPeriod(asOf, household.financialMonthStart);
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      householdId: household.id,
+      OR: [{ transactionDate: { gte: period.start, lt: asOf } }, { possibleDuplicate: true }],
+    },
+    orderBy: [{ transactionDate: "asc" }, { id: "asc" }],
+    take: 25_000,
+  });
   return {
     asOf,
+    timezone: household.timezone,
     financialMonthStart: household.financialMonthStart,
     checkingBufferMinor: household.checkingBufferMinor,
     emergencyFundTargetMinor: household.emergencyFundTargetMinor,
     emergencyFundConfiguration: household.emergencyFundConfiguration,
     workspaceMode: household.workspaceMode,
     accounts: household.accounts,
-    transactions: household.transactions,
+    transactions,
     recurring: household.recurringExpenses,
     goals: household.goals,
     importBatches: household.importBatches,
     expectedIncomeSchedules: household.expectedIncomeSchedules,
     scheduledObligations: household.scheduledObligations,
+    forecastRules: household.forecastRules,
     savingsPolicy: {
       mode: household.savingsRecommendationMode,
       targetBps: household.savingsTargetBps,

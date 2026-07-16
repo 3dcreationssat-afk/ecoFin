@@ -3,18 +3,18 @@ import { Card, PageHeader } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { getHousehold, workspaceState } from "@/server/data/repositories";
 import { getCashFlowProjection } from "@/server/data/cash-flow";
-import { matchSuggestions, planningDashboard } from "@/server/data/planning";
-import { PlanningClient } from "./planning-client";
-import { CashFlowClient } from "./cash-flow-client";
+import { forecastRuleDashboard } from "@/server/data/forecast-rules";
+import { CashFlowIntelligenceClient } from "./cash-flow-intelligence-client";
+import { detectForecastRules } from "@/server/data/forecast-rules";
 
 export const dynamic = "force-dynamic";
 
 export default async function CashFlowPage() {
   await getHousehold();
   const state = await workspaceState();
+  if (state !== "EMPTY") await detectForecastRules();
   const projection = state === "EMPTY" ? null : await getCashFlowProjection();
-  const planning = state === "EMPTY" ? null : await planningDashboard();
-  const suggestions = state === "EMPTY" ? [] : await matchSuggestions();
+  const setup = state === "EMPTY" ? null : await forecastRuleDashboard();
   return (
     <AppShell>
       <PageHeader
@@ -42,13 +42,11 @@ export default async function CashFlowPage() {
         </Card>
       ) : (
         <>
-          <CashFlowClient projection={projection!} />
-          <PlanningClient
-            householdId={planning!.id}
-            incomes={planning!.expectedIncomeSchedules}
-            obligations={planning!.scheduledObligations}
-            policy={planning!}
-            suggestions={suggestions}
+          <CashFlowIntelligenceClient
+            projection={projection!}
+            householdId={setup!.household.id}
+            rules={setup!.rules}
+            accounts={setup!.accounts}
           />
         </>
       )}

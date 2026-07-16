@@ -172,4 +172,60 @@ describe("cash-flow engine", () => {
     input.accounts[0].reportedBalanceAsOf = new Date("2026-01-01");
     expect(calculateCashFlow(input).confidence).toBe("LIMITED");
   });
+
+  it("separates confirmed, likely, and conservative canonical forecast scenarios", () => {
+    const input = base();
+    input.forecastRules = [
+      forecastRule({
+        id: "confirmed-pay",
+        direction: "INCOME",
+        state: "CONFIRMED",
+        amount: 200000,
+      }),
+      forecastRule({ id: "inferred-pay", direction: "INCOME", state: "DETECTED", amount: 50000 }),
+      forecastRule({ id: "inferred-bill", direction: "EXPENSE", state: "DETECTED", amount: 20000 }),
+    ];
+    const result = calculateCashFlow(input);
+    expect(result.inferredIncomeMinor).toBe(50000);
+    expect(result.inferredExpenseMinor).toBe(20000);
+    expect(result.scenarios.likely.projectedMonthEndMinor).toBe(
+      result.scenarios.confirmed.projectedMonthEndMinor + 30000,
+    );
+    expect(result.scenarios.conservative.projectedMonthEndMinor).toBe(
+      result.scenarios.confirmed.projectedMonthEndMinor - 20000,
+    );
+  });
 });
+
+function forecastRule({
+  id,
+  direction,
+  state,
+  amount,
+}: {
+  id: string;
+  direction: "INCOME" | "EXPENSE";
+  state: "CONFIRMED" | "DETECTED";
+  amount: number;
+}): NonNullable<CashFlowInput["forecastRules"]>[number] {
+  return {
+    id,
+    accountId: "checking",
+    recurringExpenseId: null,
+    name: id,
+    merchantKey: id,
+    direction,
+    cadence: "ONE_TIME",
+    nextExpectedDate: new Date("2026-07-20T00:00:00.000Z"),
+    typicalAmountMinor: amount,
+    confidence: "HIGH",
+    confidenceScore: 90,
+    state,
+    sourceRecordType: null,
+    sourceRecordId: null,
+    semimonthlyDay1: null,
+    semimonthlyDay2: null,
+    endDate: null,
+    occurrences: [],
+  };
+}
