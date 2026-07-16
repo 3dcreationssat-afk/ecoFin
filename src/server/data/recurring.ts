@@ -172,6 +172,14 @@ export async function recurringDashboard() {
       include: {
         category: true,
         _count: { select: { transactions: true } },
+        transactions: {
+          where: { included: true },
+          include: {
+            transaction: { select: { amountMinor: true, transactionDate: true } },
+          },
+          orderBy: { transaction: { transactionDate: "desc" } },
+          take: 10,
+        },
       },
       orderBy: [{ status: "asc" }, { confidenceScore: "desc" }, { monthlyEquivalentMinor: "desc" }],
       take: 250,
@@ -187,12 +195,17 @@ export async function recurringDashboard() {
   return {
     household,
     categories,
-    items: items.map((item) => ({
-      ...item,
-      reasons: parseJsonArray(item.reasonsJson),
-      supportCount: item._count.transactions,
-      _count: undefined,
-    })),
+    items: items.map((item) => {
+      const priceSnapshot = recurringPriceSnapshot(item.transactions, item.priceChangeAmountMinor);
+      return {
+        ...item,
+        ...priceSnapshot,
+        reasons: parseJsonArray(item.reasonsJson),
+        supportCount: item._count.transactions,
+        _count: undefined,
+        transactions: undefined,
+      };
+    }),
     summary: {
       monthlyTotalMinor: active.reduce((total, item) => total + item.monthlyEquivalentMinor, 0),
       annualTotalMinor: active.reduce((total, item) => total + item.annualEquivalentMinor, 0),
@@ -689,4 +702,26 @@ function parseJsonArray(value: string) {
   } catch {
     return [];
   }
+}
+
+function recurringPriceSnapshot(
+  links: Array<{ transaction: { amountMinor: number; transactionDate: Date } }>,
+  increaseMinor: number,
+) {
+  if (increaseMinor <= 0 || !links.length) return {};
+  const currentAmountMinor = Math.abs(links[0].transaction.amountMinor);
+  const currentDate = links[0].transaction.transactionDate.toISOString().slice(0, 10);
+  const previous =
+    links.find(
+      (link) =>
+        link.transaction.transactionDate.toISOString().slice(0, 10) !== currentDate &&
+        currentAmountMinor - Math.abs(link.transaction.amountMinor) === increaseMinor,
+    ) ??
+    links.find(
+      (link) => link.transaction.transactionDate.toISOString().slice(0, 10) !== currentDate,
+    );
+  return {
+    priceChangeCurrentAmountMinor: currentAmountMinor,
+    priceChangePreviousAmountMinor: previous ? Math.abs(previous.transaction.amountMinor) : null,
+  };
 }

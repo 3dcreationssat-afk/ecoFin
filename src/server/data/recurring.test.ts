@@ -88,6 +88,17 @@ describe("recurring expense service", () => {
     expect(dashboard.items.every((item) => "supportCount" in item && !("support" in item))).toBe(
       true,
     );
+    const priceIncrease = dashboard.items.find((item) => item.priceChangeAmountMinor > 0);
+    if (priceIncrease) {
+      expect(priceIncrease.priceChangePreviousAmountMinor).toBeGreaterThan(0);
+      expect(priceIncrease.priceChangeCurrentAmountMinor).toBeGreaterThan(
+        priceIncrease.priceChangePreviousAmountMinor ?? 0,
+      );
+      expect(
+        (priceIncrease.priceChangeCurrentAmountMinor ?? 0) -
+          (priceIncrease.priceChangePreviousAmountMinor ?? 0),
+      ).toBe(priceIncrease.priceChangeAmountMinor);
+    }
     const candidate = await prismaModule.prisma.recurringExpense.findFirstOrThrow({
       where: { status: "SUGGESTED" },
       include: { transactions: true },

@@ -764,6 +764,19 @@ test("recurring scan, review, confirm, reject, manual create, and savings work",
   await expect(page.getByRole("columnheader", { name: "Decision" })).toBeAttached();
   await page.getByRole("button", { name: "Run scan" }).click();
   await expect(page.getByText(/Scan complete/)).toBeVisible();
+  const priceIncreaseFilter = page.getByRole("button", {
+    name: /Show \d+ recurring price increase/,
+  });
+  await expect(priceIncreaseFilter).toBeVisible();
+  await priceIncreaseFilter.click();
+  await expect(page.getByText("Price increased", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review increase" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Review increase" }).first().click();
+  await expect(
+    page.getByRole("heading", { name: "Detected recurring price change" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close recurring drawer" }).click();
+  await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByText("Netflix").first()).toBeVisible();
   await expect(page.getByText("Spotify").first()).toBeVisible();
   await page

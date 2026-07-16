@@ -44,6 +44,9 @@ type RecurringDto = {
   nextExpectedDate?: string | null;
   priceChangeAmountMinor: number;
   priceChangeBps: number;
+  priceChangeEffectiveDate?: string | null;
+  priceChangeCurrentAmountMinor?: number | null;
+  priceChangePreviousAmountMinor?: number | null;
   userNotes?: string | null;
   canceledAt?: string | null;
   expectedFinalChargeDate?: string | null;
@@ -122,6 +125,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("CURRENT");
   const [classification, setClassification] = useState("");
+  const [priceIncreasesOnly, setPriceIncreasesOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<RecurringDto | null>(null);
   const [message, setMessage] = useState("");
@@ -140,10 +144,11 @@ export function RecurringClient({ data }: { data: RecurringData }) {
         (!q || text.includes(q)) &&
         (!status ||
           (status === "CURRENT" ? !isHistoricalStatus(item.status) : item.status === status)) &&
-        (!classification || item.classification === classification)
+        (!classification || item.classification === classification) &&
+        (!priceIncreasesOnly || item.priceChangeAmountMinor > 0)
       );
     });
-  }, [classification, data.items, query, status]);
+  }, [classification, data.items, priceIncreasesOnly, query, status]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible = filtered.slice((Math.min(page, totalPages) - 1) * pageSize, page * pageSize);
 
@@ -230,7 +235,21 @@ export function RecurringClient({ data }: { data: RecurringData }) {
               <Pill tone="info">{data.summary.underReview} under review</Pill>
             ) : null}
             {data.summary.priceIncreases ? (
-              <Pill tone="warn">{data.summary.priceIncreases} price increases</Pill>
+              <button
+                type="button"
+                aria-pressed={priceIncreasesOnly}
+                aria-label={`Show ${data.summary.priceIncreases} recurring price ${data.summary.priceIncreases === 1 ? "increase" : "increases"}`}
+                onClick={() => {
+                  setPriceIncreasesOnly(true);
+                  setStatus("");
+                  setPage(1);
+                }}
+              >
+                <Pill tone="warn">
+                  View {data.summary.priceIncreases} price{" "}
+                  {data.summary.priceIncreases === 1 ? "increase" : "increases"}
+                </Pill>
+              </button>
             ) : null}
             {isPending ? <Pill tone="info">Refreshing</Pill> : null}
           </div>
@@ -288,13 +307,14 @@ export function RecurringClient({ data }: { data: RecurringData }) {
           />
           <div className="flex min-h-11 items-center justify-between gap-3 text-sm text-[var(--muted)] lg:justify-end">
             <span>{resultRange(page, totalPages, pageSize, visible.length, filtered.length)}</span>
-            {query || status !== "CURRENT" || classification ? (
+            {query || status !== "CURRENT" || classification || priceIncreasesOnly ? (
               <button
                 className="whitespace-nowrap font-semibold text-[var(--teal)]"
                 onClick={() => {
                   setQuery("");
                   setStatus("CURRENT");
                   setClassification("");
+                  setPriceIncreasesOnly(false);
                   setPage(1);
                 }}
               >
@@ -337,7 +357,10 @@ export function RecurringClient({ data }: { data: RecurringData }) {
             </thead>
             <tbody>
               {visible.map((item) => (
-                <tr key={item.id} className="border-t border-[var(--border)] align-top">
+                <tr
+                  key={item.id}
+                  className={`border-t border-[var(--border)] align-top ${item.priceChangeAmountMinor > 0 ? "bg-[color-mix(in_srgb,var(--amber)_6%,transparent)]" : ""}`}
+                >
                   <td className="px-4 py-4">
                     <input
                       aria-label={`Select ${item.displayName} for savings`}
@@ -367,16 +390,41 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                         {statusLabels[item.status] ?? item.status}
                       </Pill>
                     </div>
+                    {item.priceChangeAmountMinor > 0 ? (
+                      <div className="mt-2">
+                        <Pill tone="warn">Price increased</Pill>
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-4">
-                    <div>{formatMoney(item.typicalAmountMinor)}</div>
+                    {item.priceChangeAmountMinor > 0 &&
+                    item.priceChangeCurrentAmountMinor != null ? (
+                      <div className="font-semibold">
+                        {item.priceChangePreviousAmountMinor != null ? (
+                          <span className="mr-1 text-[var(--muted)] line-through">
+                            {formatMoney(item.priceChangePreviousAmountMinor)}
+                          </span>
+                        ) : null}
+                        <span>→ {formatMoney(item.priceChangeCurrentAmountMinor)}</span>
+                      </div>
+                    ) : (
+                      <div>{formatMoney(item.typicalAmountMinor)}</div>
+                    )}
                     <div className="text-xs text-[var(--muted)]">
                       {formatMoney(item.monthlyEquivalentMinor)}/mo
                     </div>
                     {item.priceChangeAmountMinor > 0 ? (
-                      <div className="mt-1 text-xs font-semibold text-[var(--amber)]">
-                        +{formatMoney(item.priceChangeAmountMinor)} recent change
-                      </div>
+                      <>
+                        <div className="mt-1 text-xs font-semibold text-[var(--amber)]">
+                          +{formatMoney(item.priceChangeAmountMinor)} (+
+                          {(item.priceChangeBps / 100).toFixed(1)}%)
+                        </div>
+                        {item.priceChangeEffectiveDate ? (
+                          <div className="mt-1 text-xs text-[var(--muted)]">
+                            Detected {shortDate(item.priceChangeEffectiveDate)}
+                          </div>
+                        ) : null}
+                      </>
                     ) : null}
                   </td>
                   <td className="px-4 py-4">
@@ -487,6 +535,14 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                           <X className="h-4 w-4" />
                         </RowActionButton>
                       )}
+                      {item.priceChangeAmountMinor > 0 ? (
+                        <RowActionButton
+                          label="Review increase"
+                          onClick={() => openRecurring(item)}
+                        >
+                          <CircleDollarSign className="h-4 w-4" />
+                        </RowActionButton>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -501,6 +557,7 @@ export function RecurringClient({ data }: { data: RecurringData }) {
                         setQuery("");
                         setStatus("CURRENT");
                         setClassification("");
+                        setPriceIncreasesOnly(false);
                         setPage(1);
                       }}
                     >
@@ -594,6 +651,26 @@ function RecurringDrawer({
         <p className="mt-2 text-sm text-[var(--muted)]">
           Review the supporting transactions before confirming or changing the classification.
         </p>
+        {item.priceChangeAmountMinor > 0 ? (
+          <section className="mt-6 rounded-lg border border-[var(--amber)] bg-[color-mix(in_srgb,var(--amber)_8%,transparent)] p-4">
+            <Pill tone="warn">Price increased</Pill>
+            <h3 className="mt-3 font-semibold">Detected recurring price change</h3>
+            <p className="mt-1 text-sm">
+              {item.priceChangePreviousAmountMinor != null &&
+              item.priceChangeCurrentAmountMinor != null
+                ? `${formatMoney(item.priceChangePreviousAmountMinor)} → ${formatMoney(item.priceChangeCurrentAmountMinor)}`
+                : `Increase of ${formatMoney(item.priceChangeAmountMinor)}`}
+              {` · +${(item.priceChangeBps / 100).toFixed(1)}%`}
+              {item.priceChangeEffectiveDate
+                ? ` · detected ${shortDate(item.priceChangeEffectiveDate)}`
+                : ""}
+            </p>
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              Review the supporting transactions below before changing its classification or
+              recommendation.
+            </p>
+          </section>
+        ) : null}
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Field
             label="Display name"

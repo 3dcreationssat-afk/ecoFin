@@ -2,6 +2,9 @@
 
 ## 2026-07-15 — Production cash-flow intelligence
 
+- Made the recurring price-increase count actionable: it now filters directly to affected items,
+  highlights each row, shows previous/current charge, delta, percentage and detection date, and
+  opens a focused evidence review.
 - Added additive canonical `ForecastRule` and sparse `ForecastOccurrence` persistence with legacy
   schedule provenance, household timezone configuration, lifecycle/backup coverage, and audit logs.
 - Added local payroll-pattern detection, cadence/amount confidence, exclusions, explainable
