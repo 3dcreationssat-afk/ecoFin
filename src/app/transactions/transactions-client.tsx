@@ -178,6 +178,16 @@ const amountModeLabels: Record<string, string> = {
   DEBIT_CREDIT_COLUMNS: "Separate debit and credit columns",
 };
 
+const dateFormatLabels: Record<string, string> = {
+  "MM/DD/YYYY": "MM/DD/YYYY — month/day/year",
+  "M/D/YYYY": "M/D/YYYY — month/day/year",
+  "YYYY-MM-DD": "YYYY-MM-DD — year-month-day",
+  "DD/MM/YYYY": "DD/MM/YYYY — day/month/year",
+  "D/M/YYYY": "D/M/YYYY — day/month/year",
+  "MM/DD/YY": "MM/DD/YY — month/day/year",
+  "DD/MM/YY": "DD/MM/YY — day/month/year",
+};
+
 const signConventionLabels: Record<string, string> = {
   DEBITS_NEGATIVE: "Debits are negative",
   DEBITS_POSITIVE: "Debits are positive",
@@ -1208,6 +1218,7 @@ function ImportDialog({
                     label="Date format"
                     value={mapping.dateFormat}
                     values={dateFormats}
+                    labels={dateFormatLabels}
                     onChange={(dateFormat) => setMapping({ ...mapping, dateFormat })}
                   />
                   <Select
@@ -1262,6 +1273,15 @@ function ImportDialog({
           {step >= 6 && step <= 8 ? (
             <div className="space-y-5">
               <ValidationSummary batch={batch} />
+              <div
+                role="status"
+                aria-label="Date interpretation"
+                className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900"
+              >
+                <span className="font-semibold">Date interpretation:</span>{" "}
+                {dateFormatLabels[mapping.dateFormat] ?? mapping.dateFormat}. Valid dates matching
+                this selection are accepted without individual ambiguity warnings.
+              </div>
               {batch?.rows.some(
                 (row) =>
                   row.duplicateStatus === "EXACT_OVERLAP" &&

@@ -176,3 +176,6 @@
   the global header Import control now opens the implemented importer instead of remaining disabled.
   Repeated header clicks on the Transactions page reopen a dismissed importer without requiring a
   URL change or page reload.
+- Simplified explicit CSV date handling: date-format choices now include plain-language ordering,
+  the review screen shows one batch-level interpretation notice, and successfully parsed dates no
+  longer produce repetitive row-level ambiguity warnings after the user selected a format.

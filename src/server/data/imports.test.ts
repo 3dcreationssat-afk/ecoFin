@@ -164,6 +164,9 @@ describe("csv import repositories", () => {
       },
     });
     expect(validated.acceptedRowCount).toBe(2);
+    expect(
+      validated.rows.flatMap((row) => JSON.parse(row.validationErrorsJson) as string[]),
+    ).not.toContain("Ambiguous slash date; explicit format was applied.");
     expect(JSON.parse(validated.summaryJson ?? "{}").mapping).toMatchObject({
       amountMode: "SIGNED_AMOUNT",
       signConvention: "DEBITS_NEGATIVE",

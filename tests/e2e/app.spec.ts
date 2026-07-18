@@ -329,9 +329,14 @@ test("complete signed amount CSV import workflow and undo", async ({ page }, tes
   await expect(page.getByRole("heading", { name: "CSV Preview" })).toBeVisible();
   await page.getByRole("button", { name: "Validate rows" }).click();
   await expect(page.getByText("Ready to import")).toBeVisible();
+  await expect(page.getByRole("status", { name: "Date interpretation" })).toContainText(
+    "month/day/year",
+  );
+  await expect(page.getByText(/Ambiguous slash date/)).toHaveCount(0);
+  await expect(page.getByText("Ready", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Confirm import" }).click();
   await expect(page.getByRole("heading", { name: "Import Summary" })).toBeVisible();
-  await expect(page.getByText("Imported", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Imported", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "View imported transactions" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.reload();

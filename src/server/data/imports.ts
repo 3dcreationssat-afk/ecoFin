@@ -1,6 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import {
-  isAmbiguousSlashDate,
   parseCsv,
   parseDateOnly,
   parseDebitCreditAmount,
@@ -721,9 +720,6 @@ function validateRow(input: {
 
   if (!description.trim()) errors.push("Description is required.");
   if (!dateText.trim()) errors.push("Transaction date is required.");
-  if (dateText && isAmbiguousSlashDate(dateText)) {
-    sourceFields.__dateWarning = "Ambiguous slash date; explicit format was applied.";
-  }
   try {
     transactionDate = parseDateOnly(dateText, input.mapping.dateFormat);
   } catch (error) {
@@ -781,10 +777,7 @@ function validateRow(input: {
           })),
         )
       : { status: "NONE" as const, reason: "" };
-  const warning =
-    duplicate.status !== "NONE" ||
-    Boolean(sourceFields.__dateWarning) ||
-    Boolean(sourceFields.__semanticWarning);
+  const warning = duplicate.status !== "NONE" || Boolean(sourceFields.__semanticWarning);
   return {
     rowNumber: input.rowNumber,
     sourceFields,
@@ -799,7 +792,7 @@ function validateRow(input: {
     errors: errors.length
       ? errors
       : warning
-        ? [duplicate.reason || sourceFields.__dateWarning || sourceFields.__semanticWarning]
+        ? [duplicate.reason || sourceFields.__semanticWarning]
         : [],
     importDecision: errors.length
       ? "SKIP"
