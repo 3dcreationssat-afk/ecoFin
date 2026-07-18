@@ -52,36 +52,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] p-0 sm:p-3">
+    <div className="min-h-screen bg-[var(--background)] p-0 sm:p-2">
       <a
         href="#main-content"
         className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-[var(--teal)] px-4 py-3 font-semibold text-white shadow-lg focus:translate-y-0"
       >
         Skip to main content
       </a>
-      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1900px] items-stretch rounded-lg border border-[var(--border)] bg-[var(--shell)] shadow-[var(--shadow)]">
+      <div className="mx-auto flex min-h-[calc(100vh-1rem)] max-w-[1900px] items-stretch rounded-lg border border-[var(--border)] bg-[var(--shell)] shadow-[var(--shadow)]">
         <Sidebar collapsed={collapsed} pathname={pathname} onToggle={toggleCollapsed} />
         {mobileOpen ? <MobileNav pathname={pathname} onClose={closeMobileNav} /> : null}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[72px] min-w-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 sm:gap-3 md:px-6">
+          <header className="flex h-[60px] min-w-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 sm:gap-3 md:px-5">
             <button
               ref={mobileTriggerRef}
-              className="grid h-10 w-10 place-items-center rounded-md border border-[var(--border)] bg-white lg:hidden"
+              className="grid h-9 w-9 place-items-center rounded-md border border-[var(--border)] bg-white lg:hidden"
               aria-label="Open navigation"
               onClick={() => setMobileOpen(true)}
             >
               <Menu className="h-5 w-5" />
             </button>
-            <select className="hidden h-10 rounded-md border border-[var(--border)] bg-white px-3 text-sm sm:block">
+            <select className="hidden h-9 rounded-md border border-[var(--border)] bg-white px-3 text-sm sm:block">
               <option>This Month · Jul 2026</option>
             </select>
-            <select className="hidden h-10 rounded-md border-0 bg-transparent px-3 text-sm md:block">
+            <select className="hidden h-9 rounded-md border-0 bg-transparent px-3 text-sm md:block">
               <option>Our Household</option>
             </select>
             <div className="relative min-w-0 flex-1 sm:min-w-[160px]">
               <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
               <input
-                className="h-10 w-full rounded-md border border-transparent bg-[var(--surface-muted)] pl-10 pr-3 text-sm"
+                className="h-9 w-full rounded-md border border-transparent bg-[var(--surface-muted)] pl-10 pr-3 text-sm"
                 placeholder="Search transactions and merchants"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -98,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               disabled
               title="Add workflows are planned for a later phase"
-              className="hidden h-10 cursor-not-allowed items-center gap-2 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white opacity-60 xl:flex"
+              className="hidden h-9 cursor-not-allowed items-center gap-2 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white opacity-60 xl:flex"
             >
               <Plus className="h-4 w-4" /> Add
             </button>
@@ -109,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 event.preventDefault();
                 window.dispatchEvent(new CustomEvent("financial-compass:open-import"));
               }}
-              className="hidden h-10 items-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold hover:bg-[var(--surface-muted)] xl:flex"
+              className="hidden h-9 items-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold hover:bg-[var(--surface-muted)] xl:flex"
             >
               <Upload className="h-4 w-4" /> Import
             </Link>
@@ -118,12 +118,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Bell className="h-5 w-5 text-slate-700" />
               <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[var(--amber)]" />
             </div>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--teal)] text-sm font-semibold text-white">
+            <button className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--teal)] text-sm font-semibold text-white">
               JD
             </button>
             <ChevronDown className="hidden h-4 w-4 text-slate-500 lg:block" />
           </header>
-          <main id="main-content" className="min-w-0 flex-1 px-4 py-6 md:px-7 lg:px-8">
+          <main id="main-content" className="min-w-0 flex-1 px-4 py-5 md:px-6 lg:px-7">
             <div className="mx-auto w-full max-w-[1600px]">{children}</div>
           </main>
         </div>
@@ -146,18 +146,18 @@ function Sidebar({
       data-testid="desktop-sidebar"
       data-state={collapsed ? "collapsed" : "expanded"}
       className={cn(
-        "sticky top-3 hidden max-h-[calc(100vh-1.5rem)] shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 lg:flex lg:flex-col motion-reduce:transition-none",
-        collapsed ? "w-[76px] max-w-[76px] basis-[76px]" : "w-[282px] max-w-[282px] basis-[282px]",
+        "sticky top-2 hidden max-h-[calc(100vh-1rem)] shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 lg:flex lg:flex-col motion-reduce:transition-none",
+        collapsed ? "w-[64px] max-w-[64px] basis-[64px]" : "w-[224px] max-w-[224px] basis-[224px]",
       )}
     >
       <div
         className={cn(
-          "flex h-[72px] shrink-0 items-center gap-3 border-b border-[var(--border)] px-5",
+          "flex h-[60px] shrink-0 items-center gap-3 border-b border-[var(--border)] px-4",
           collapsed && "justify-center px-0",
         )}
       >
         <div
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--teal)] text-white"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--teal)] text-white"
           aria-hidden="true"
         >
           ◉
@@ -168,8 +168,8 @@ function Sidebar({
       <nav
         aria-label="Primary navigation"
         className={cn(
-          "min-h-0 flex-1 py-4",
-          collapsed ? "overflow-visible px-3" : "overflow-y-auto px-4",
+          "min-h-0 flex-1 py-3",
+          collapsed ? "overflow-visible px-2" : "overflow-y-auto px-3",
         )}
       >
         {navSections.map((section, index) => (
@@ -181,7 +181,7 @@ function Sidebar({
           />
         ))}
       </nav>
-      <div className="shrink-0 border-t border-[var(--border)] p-4">
+      <div className="shrink-0 border-t border-[var(--border)] p-3">
         <LocalDataIndicator collapsed={collapsed} />
         <SidebarToggle collapsed={collapsed} onToggle={onToggle} />
       </div>
@@ -202,7 +202,7 @@ function SidebarGroup({
   const items = section?.items ?? navSections.find((candidate) => !candidate.title)?.items ?? [];
 
   return (
-    <div className={cn("mb-5", collapsed && "mb-3")}>
+    <div className={cn("mb-4", collapsed && "mb-3")}>
       {title && !collapsed ? (
         <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
           {title}
@@ -239,7 +239,7 @@ function SidebarItem({
         aria-current={active ? "page" : undefined}
         aria-label={collapsed ? item.label : undefined}
         className={cn(
-          "relative flex h-11 items-center rounded-md text-sm font-medium text-slate-700 focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(37_139_127_/_0.35)]",
+          "relative flex h-9 items-center rounded-md text-sm font-medium text-slate-700 focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(37_139_127_/_0.35)]",
           collapsed ? "justify-center px-0" : "gap-3 px-3",
           active && "bg-[var(--teal)] text-white shadow-sm",
         )}
@@ -289,8 +289,8 @@ function LocalDataIndicator({ collapsed }: { collapsed: boolean }) {
         role="status"
         aria-label="Local data stored on this device"
         className={cn(
-          "flex items-center gap-3 rounded-md bg-[var(--teal-soft)] p-3 text-sm",
-          collapsed && "h-11 justify-center px-0",
+          "flex items-center gap-3 rounded-md bg-[var(--teal-soft)] p-2.5 text-sm",
+          collapsed && "h-9 justify-center px-0",
         )}
       >
         <Shield className="h-5 w-5 shrink-0 text-[var(--green)]" />

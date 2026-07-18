@@ -1,5 +1,12 @@
 # Change Ledger
 
+## 2026-07-18 — Base44-aligned desktop density
+
+- Matched the approved Base44 desktop proportions at 100% browser zoom with a 224px navigation
+  rail, 60px application header, compact desktop typography, controls, cards, and content spacing.
+- Kept the existing mobile type scale and navigation behavior unchanged, and added desktop shell
+  dimension and overflow regression coverage.
+
 ## 2026-07-15 — Production cash-flow intelligence
 
 - Made the recurring price-increase count actionable: it now filters directly to affected items,

@@ -14,18 +14,16 @@ export function PageHeader({
 }) {
   const badge = workspaceBadges[workspaceState];
   return (
-    <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">
-            {title}
-          </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">{title}</h1>
           <span
             role="status"
             aria-label={`${badge.label}: ${badge.description}`}
             title={badge.description}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-semibold",
+              "rounded-full border px-2.5 py-0.5 text-xs font-semibold",
               workspaceState === "DEMONSTRATION" &&
                 "border-[#efd9ae] bg-[var(--amber-soft)] text-[var(--amber)]",
               workspaceState === "EMPTY" && "border-sky-200 bg-sky-50 text-sky-700",
@@ -36,7 +34,7 @@ export function PageHeader({
             {badge.label}
           </span>
         </div>
-        <p className="mt-1 text-base text-[var(--muted)]">{subtitle}</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">{subtitle}</p>
       </div>
       {action}
     </div>
@@ -95,7 +93,7 @@ export function MetricCard({
   return (
     <Card
       className={cn(
-        "flex min-h-[132px] min-w-0 flex-col p-5 sm:p-6",
+        "flex min-h-[126px] min-w-0 flex-col p-4 sm:p-5",
         featured && "border-2 border-[rgb(37_139_127_/_0.45)]",
         tone === "warning" && "bg-[var(--amber-soft)]",
       )}
@@ -104,10 +102,10 @@ export function MetricCard({
       <div
         data-metric-value
         className={cn(
-          "mt-3 font-semibold tracking-tight text-[var(--text)]",
+          "mt-2.5 font-semibold tracking-tight text-[var(--text)]",
           isStatus
             ? "text-lg leading-6 sm:text-xl"
-            : "whitespace-nowrap text-[clamp(1.5rem,2vw,1.875rem)] leading-none tabular-nums",
+            : "whitespace-nowrap text-[clamp(1.5rem,2vw,1.75rem)] leading-none tabular-nums",
           tone === "positive" && "text-[var(--green)]",
           tone === "critical" && "text-[var(--red)]",
           tone === "warning" && "text-[var(--amber)]",
@@ -132,7 +130,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium",
+        "inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium",
         tone === "neutral" && "border-slate-200 bg-slate-50 text-slate-600",
         tone === "good" && "border-emerald-200 bg-emerald-50 text-emerald-700",
         tone === "warn" && "border-amber-200 bg-amber-50 text-amber-700",
@@ -167,7 +165,7 @@ export function Button({
       title={title}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-11 whitespace-nowrap items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-[background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px motion-reduce:transition-none",
+        "inline-flex min-h-10 whitespace-nowrap items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-[background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px motion-reduce:transition-none",
         variant === "primary" && "bg-[var(--teal)] text-white hover:bg-[var(--teal-dark)]",
         variant === "secondary" &&
           "border border-[var(--border)] bg-white text-[var(--text)] hover:border-slate-300 hover:bg-[var(--surface-muted)]",

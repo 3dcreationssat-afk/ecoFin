@@ -123,16 +123,16 @@ export default async function Home() {
         </Card>
       ) : (
         <>
-          <div className="metric-grid mb-7">
+          <div className="metric-grid mb-5">
             {summaryCards.map((card) => (
               <MetricCard key={card.label} {...card} />
             ))}
           </div>
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
             <Card>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5">
                 <div>
-                  <h2 className="text-xl font-semibold">Monthly Cash Flow</h2>
+                  <h2 className="text-lg font-semibold">Monthly Cash Flow</h2>
                   <p className="text-sm text-[var(--muted)]">
                     Recorded income and spending this month; confirmed transfers excluded
                   </p>
@@ -144,7 +144,7 @@ export default async function Home() {
                   View calculation <ArrowRight className="h-4 w-4" />
                 </a>
               </div>
-              <div className="space-y-5 p-6">
+              <div className="space-y-4 p-5">
                 {[
                   {
                     label: "Income received",
@@ -164,12 +164,12 @@ export default async function Home() {
                 ].map(({ label, value, color }) => (
                   <div
                     key={label}
-                    className="grid gap-3 md:grid-cols-[190px_1fr_130px] md:items-center"
+                    className="grid gap-3 md:grid-cols-[160px_1fr_120px] md:items-center"
                   >
                     <div className="text-sm text-[var(--muted)]">{label}</div>
-                    <div className="h-9 rounded-md bg-[var(--surface-muted)]">
+                    <div className="h-7 rounded-md bg-[var(--surface-muted)]">
                       <div
-                        className={`${color} h-9 rounded-md`}
+                        className={`${color} h-7 rounded-md`}
                         style={{
                           width: `${Math.max(
                             6,
@@ -192,10 +192,10 @@ export default async function Home() {
                 ))}
               </div>
             </Card>
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold">vs. Last Month</h2>
-              <p className="mb-8 text-sm text-[var(--muted)]">Prior month comparison</p>
-              <div className="space-y-5">
+            <Card className="p-5">
+              <h2 className="text-lg font-semibold">vs. Last Month</h2>
+              <p className="mb-6 text-sm text-[var(--muted)]">Prior month comparison</p>
+              <div className="space-y-4">
                 {[
                   {
                     label: "Income",
@@ -235,14 +235,14 @@ export default async function Home() {
                   </div>
                 ))}
               </div>
-              <div className="mt-8">
+              <div className="mt-6">
                 <Pill tone={cashFlow?.confidence === "HIGH" ? "good" : "warn"}>
                   {cashFlow?.confidence ?? "LIMITED"} confidence
                 </Pill>
               </div>
             </Card>
           </div>
-          <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
             <Card className="p-6">
               <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                 <div>

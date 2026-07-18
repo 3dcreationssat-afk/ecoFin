@@ -7,6 +7,31 @@ test("overview renders the local-first shell", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Spending by Category" })).toBeVisible();
 });
 
+test("desktop shell uses the approved compact density at 100 percent zoom", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop density is covered in Chromium.");
+  await page.setViewportSize({ width: 2048, height: 1152 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByTestId("desktop-sidebar")).toBeVisible();
+
+  const sidebarBox = await page.getByTestId("desktop-sidebar").boundingBox();
+  const headerBox = await page.locator("header").first().boundingBox();
+  expect(sidebarBox?.width).toBeGreaterThanOrEqual(223);
+  expect(sidebarBox?.width).toBeLessThanOrEqual(225);
+  expect(headerBox?.height).toBeGreaterThanOrEqual(59);
+  expect(headerBox?.height).toBeLessThanOrEqual(61);
+
+  const titleSize = await page
+    .getByRole("heading", { name: "Overview" })
+    .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+  expect(titleSize).toBeGreaterThanOrEqual(20);
+  expect(titleSize).toBeLessThanOrEqual(22);
+  await expect(page.getByRole("heading", { name: "Monthly Cash Flow" })).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(2048);
+});
+
 test("overview action dashboard sections and links are functional", async ({ page }) => {
   await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
   await page.goto("/");
