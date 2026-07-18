@@ -174,8 +174,9 @@ The following completed successfully during recovery:
 - read-only SQLite `integrity_check` and `foreign_key_check` on the selected, migrated, and recovered
   databases
 
-Full format, lint, typecheck, unit, build, and E2E results are recorded in the final handoff after the
-prevention commit.
+Final validation: formatting, lint, typecheck, and production build passed; all 40 Vitest files and
+243 tests passed; the two focused isolated Playwright recovery regressions passed. The prevention
+implementation commit is `5a65a36` (`fix(data): recover real workspace and isolate databases`).
 
 ## Remaining risks
 
