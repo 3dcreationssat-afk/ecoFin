@@ -174,3 +174,5 @@
 - Added an accessible floating account-created confirmation with direct Import transactions and
   View account actions. The import action opens the CSV workflow with the new account selected, and
   the global header Import control now opens the implemented importer instead of remaining disabled.
+  Repeated header clicks on the Transactions page reopen a dismissed importer without requiring a
+  URL change or page reload.

@@ -245,6 +245,14 @@ export function TransactionsClient({
   const [drawerTransfers, setDrawerTransfers] = useState<TransferMatchDto[]>([]);
   const [transferNote, setTransferNote] = useState("");
   const [announcement, setAnnouncement] = useState("");
+
+  useEffect(() => {
+    function openImport() {
+      setImportOpen(true);
+    }
+    window.addEventListener("financial-compass:open-import", openImport);
+    return () => window.removeEventListener("financial-compass:open-import", openImport);
+  }, []);
   const [transferError, setTransferError] = useState("");
   const [pendingTransferActionId, setPendingTransferActionId] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);

@@ -438,9 +438,14 @@ test("account creation, duplicate prevention, archive, restore, and delete persi
   const accountName = `Playwright Checking ${testInfo.project.name} ${Date.now()}`;
   await page.goto("/accounts");
   await expect(page.getByRole("heading", { name: "Add Account" })).toBeVisible();
-  await page.getByRole("link", { name: "Import", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "CSV Transaction Import" })).toBeVisible();
-  await page.goto("/accounts");
+  if (testInfo.project.name !== "mobile") {
+    await page.getByRole("link", { name: "Import", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "CSV Transaction Import" })).toBeVisible();
+    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByRole("link", { name: "Import", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "CSV Transaction Import" })).toBeVisible();
+    await page.goto("/accounts");
+  }
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(accountName);
   await page.getByLabel("Institution", { exact: true }).selectOption("Other institution");
   await page.getByLabel("Other institution name").fill("Test Bank");

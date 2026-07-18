@@ -104,6 +104,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <Link
               href="/transactions?import=1"
+              onClick={(event) => {
+                if (pathname !== "/transactions") return;
+                event.preventDefault();
+                window.dispatchEvent(new CustomEvent("financial-compass:open-import"));
+              }}
               className="hidden h-10 items-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold hover:bg-[var(--surface-muted)] xl:flex"
             >
               <Upload className="h-4 w-4" /> Import
