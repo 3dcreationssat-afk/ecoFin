@@ -1461,29 +1461,41 @@ function ImportDialog({
                 </div>
               ) : null}
               <ReviewRows batch={batch} decisions={decisions} setDecisions={setDecisions} />
-              <Button
-                onClick={confirm}
-                disabled={
-                  busy ||
-                  (batch?.repeatedFile && !allowRepeated) ||
-                  Boolean(
-                    batch?.rows.some(
-                      (row) =>
-                        row.validationStatus !== "INVALID" &&
-                        row.duplicateStatus !== "NONE" &&
-                        (decisions[row.id] ?? row.importDecision) === "REVIEW",
-                    ),
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    setError("");
+                    setStep(3);
+                  }}
+                >
+                  Back to mapping
+                </Button>
+                <Button
+                  onClick={confirm}
+                  disabled={
+                    busy ||
+                    (batch?.repeatedFile && !allowRepeated) ||
+                    Boolean(
+                      batch?.rows.some(
+                        (row) =>
+                          row.validationStatus !== "INVALID" &&
+                          row.duplicateStatus !== "NONE" &&
+                          (decisions[row.id] ?? row.importDecision) === "REVIEW",
+                      ),
+                    )
+                  }
+                >
+                  {batch?.rows.some(
+                    (row) =>
+                      row.validationStatus !== "INVALID" &&
+                      (decisions[row.id] ?? row.importDecision) === "IMPORT",
                   )
-                }
-              >
-                {batch?.rows.some(
-                  (row) =>
-                    row.validationStatus !== "INVALID" &&
-                    (decisions[row.id] ?? row.importDecision) === "IMPORT",
-                )
-                  ? "Confirm import"
-                  : "Confirm no new transactions"}
-              </Button>
+                    ? "Confirm import"
+                    : "Confirm no new transactions"}
+                </Button>
+              </div>
             </div>
           ) : null}
           {step === 9 && batch ? (

@@ -10,6 +10,8 @@
   detection, inactivates unsupported detected payroll patterns, and reports cleanup warnings.
 - Added service and browser regression coverage for payment semantics, protected review recovery,
   derived-rule cleanup, recurring recomputation, and stale-pattern inactivation.
+- Added a Back to mapping action so a staged review can be corrected and revalidated without
+  abandoning the batch or creating another preview record.
 
 ## 2026-07-18 — Base44-aligned desktop density
 
