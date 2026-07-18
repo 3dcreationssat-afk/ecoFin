@@ -156,3 +156,18 @@
   is pre-skipped, while excess same-file occurrences remain explicit review candidates.
 - Added audited `NO_CHANGES` batches for overlap-only confirmations and retained individual decisions
   for fuzzy candidates.
+
+# 2026-07-18 — Real-workspace recovery and database isolation
+
+- Recovered the latest valid real household database from a hash-verified local backup to a stable
+  absolute AppData path, preserved immutable incident evidence, applied only proven additive
+  migrations, validated the restored ledger/configuration, and created a verified post-recovery
+  backup.
+- Added persistent workspace identity (`REAL`, `DEMO`, or `TEST`), visible Settings diagnostics,
+  expected-ID startup verification, mandatory deterministic database configuration, and visible
+  startup failure instead of relative-path/demo fallback behavior.
+- Guarded demo seed/reset and Start Fresh by workspace identity, added automatic pre-Start-Fresh
+  backup for real workspaces, required identity-preserving backup/restore, and isolated unit and
+  Playwright database paths with server reuse disabled.
+- Added database-path, destructive-action, migration preservation, recurring read-safety, and
+  backup identity regressions. See `docs/incident-2026-07-demo-reset-recovery.md`.

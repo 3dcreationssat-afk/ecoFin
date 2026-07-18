@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { canonicalRepairAmount, classifySemantics } from "./import-repair";
+
+process.env.DATABASE_URL = "file:./vitest-import-repair.db";
+const { canonicalRepairAmount, classifySemantics } = await import("./import-repair");
 
 describe("import semantics repair", () => {
   it("normalizes the economic sign independently from account type", () => {

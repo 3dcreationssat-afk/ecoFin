@@ -84,7 +84,13 @@ describe("recurring expense service", () => {
 
   it("keeps dashboard payloads bounded and revalidates confirmed patterns that become ineligible", async () => {
     await recurring.scanRecurringExpenses();
+    const workspaceBefore = await prismaModule.prisma.workspaceMetadata.findFirstOrThrow();
+    const transactionCountBefore = await prismaModule.prisma.transaction.count();
     const dashboard = await recurring.recurringDashboard();
+    expect((await prismaModule.prisma.workspaceMetadata.findFirstOrThrow()).id).toBe(
+      workspaceBefore.id,
+    );
+    expect(await prismaModule.prisma.transaction.count()).toBe(transactionCountBefore);
     expect(dashboard.items.every((item) => "supportCount" in item && !("support" in item))).toBe(
       true,
     );

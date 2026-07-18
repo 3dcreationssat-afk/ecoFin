@@ -1,34 +1,17 @@
 import { execSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function sqlitePathFromUrl(databaseUrl: string) {
-  if (!databaseUrl.startsWith("file:")) {
-    throw new Error("db:reset only supports local SQLite file: URLs.");
-  }
-
-  const rawPath = databaseUrl.replace(/^file:/, "");
-  const resolved = resolve(__dirname, rawPath);
-  const prismaDir = resolve(__dirname);
-
-  if (!resolved.startsWith(prismaDir)) {
-    throw new Error("Refusing to reset a SQLite database outside the prisma directory.");
-  }
-
-  return resolved;
-}
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { dirname } from "node:path";
+import { assertTestDatabase } from "../src/server/db/database-url";
 
 async function main() {
-  const databaseUrl = process.env.DATABASE_URL ?? "file:./dev.db";
-  process.env.DATABASE_URL = databaseUrl;
-  const databasePath = sqlitePathFromUrl(databaseUrl);
+  const configured = assertTestDatabase();
+  process.env.DATABASE_URL = configured.url;
+  const databasePath = configured.path;
 
   if (existsSync(databasePath)) {
     rmSync(databasePath, { force: true });
   }
+  mkdirSync(dirname(databasePath), { recursive: true });
 
   const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
   execSync(`${npmCommand} run db:migrate`, { stdio: "inherit", env: process.env });

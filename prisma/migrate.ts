@@ -2,9 +2,14 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { loadEnvConfig } from "@next/env";
+import {
+  configureDatabaseUrl,
+  FINANCIAL_COMPASS_PROJECT_ROOT,
+} from "../src/server/db/database-url";
 
-const databaseUrl = process.env.DATABASE_URL ?? "file:./dev.db";
-process.env.DATABASE_URL = databaseUrl;
+loadEnvConfig(FINANCIAL_COMPASS_PROJECT_ROOT);
+configureDatabaseUrl();
 const prisma = new PrismaClient();
 const prismaCli = join(process.cwd(), "node_modules", "prisma", "build", "index.js");
 

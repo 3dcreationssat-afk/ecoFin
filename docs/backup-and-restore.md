@@ -15,7 +15,8 @@ Financial Compass Phase 2B implements local backup and restore for the active SQ
 
 ## Backup Behavior
 
-- Backups are created only from local SQLite `file:` databases under `prisma/`.
+- Backups are created only from the explicitly configured local SQLite `file:` database. The active
+  database may use a stable absolute path outside the repository.
 - Backup packages are written to `backups/local/` and are ignored by Git.
 - Each package is a ZIP file containing:
   - `database.sqlite`
@@ -25,6 +26,21 @@ Financial Compass Phase 2B implements local backup and restore for the active SQ
 - Backups are validated before being marked `READY`.
 - Backup metadata is stored in the `BackupRecord` table. Backup files remain local filesystem artifacts.
 - Backup creation writes audit records for requested, completed, failed, downloaded, and deleted backup actions.
+- Every current backup contains exactly one persistent `WorkspaceMetadata` identity. Validation
+  rejects missing or ambiguous workspace identity.
+
+## Database Path And Identity
+
+- `DATABASE_URL` is required. Application startup never falls back to `file:./dev.db`, creates a
+  replacement database, or seeds demonstration data.
+- Normal real development uses an absolute SQLite URL. A `file:./name.db` URL is accepted for
+  isolated tests and resolves deterministically relative to the repository's `prisma/` directory,
+  not the shell's current directory.
+- Startup resolves and logs the absolute database path, reads the stable workspace ID/type, and can
+  enforce `FINANCIAL_COMPASS_EXPECTED_WORKSPACE_ID` as a non-sensitive smoke assertion.
+- Unit reset requires `FINANCIAL_COMPASS_WORKSPACE_TYPE=TEST` and a `vitest-*` or `test-results`
+  path. Playwright uses its own database under `test-results/playwright` and never reuses a running
+  server.
 
 ## Restore Behavior
 
@@ -35,6 +51,8 @@ Financial Compass Phase 2B implements local backup and restore for the active SQ
 - The active SQLite file is replaced only after validation passes.
 - If post-replacement validation fails, the service copies the pre-restore recovery file back into place and records an automatic rollback audit entry.
 - Restore source metadata is recorded in `BackupRecord` with status `RESTORED_FROM`.
+- Workspace ID, type, creation source, name, and timestamp are restored with the database and
+  validated after extraction.
 - Transfer, recurring, forecast-rule, and sparse forecast-occurrence relationships are stored in
   SQLite and are preserved by backup and restore.
 

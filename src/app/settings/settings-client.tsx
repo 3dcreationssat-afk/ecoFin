@@ -74,6 +74,13 @@ type BackupDashboardDto = {
     recurringLinks?: number;
     auditLogs: number;
   };
+  workspace: {
+    id: string;
+    type: string;
+    name?: string | null;
+    creationSource: string;
+    databasePath: string;
+  } | null;
   storageLabel: string;
   encryptionStatus: string;
 };
@@ -1134,6 +1141,25 @@ export function SettingsClient({
             They contain sensitive, unencrypted financial data. Store them on an encrypted drive or
             another secure local location.
           </p>
+          {backup.workspace ? (
+            <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">Active workspace</span>
+                <Pill tone={backup.workspace.type === "REAL" ? "good" : "warn"}>
+                  {backup.workspace.type}
+                </Pill>
+                <span>{backup.workspace.name ?? "Unnamed workspace"}</span>
+              </div>
+              <p className="mt-2 break-all text-xs text-[var(--muted)]">
+                ID: {backup.workspace.id} · Created by {backup.workspace.creationSource}
+              </p>
+              <p className="mt-1 break-all text-xs text-[var(--muted)]">
+                Database: {backup.workspace.databasePath}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-5 text-sm text-[var(--danger)]">Workspace identity is missing.</p>
+          )}
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             <Metric label="Households" value={String(backup.counts.households)} />
             <Metric label="Accounts" value={String(backup.counts.accounts)} />

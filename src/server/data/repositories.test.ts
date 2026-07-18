@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -458,6 +460,9 @@ describe("persistent repositories", () => {
     });
     expect(await repositories.workspaceState()).toBe("USER_DATA");
 
+    await prismaModule.prisma.workspaceMetadata.updateMany({
+      data: { workspaceType: "DEMO", databaseCreationSource: "TEST_FIXTURE" },
+    });
     await repositories.resetDemoDataWithResult({ confirmation: "RESET DEMO DATA" });
     const demoHousehold = await repositories.getHousehold();
     await repositories.createAccount({
@@ -474,5 +479,42 @@ describe("persistent repositories", () => {
       lastUpdated: new Date(),
     });
     expect(await repositories.workspaceState()).toBe("MIXED");
+  });
+
+  it("refuses demo reset against a REAL workspace without changing records", async () => {
+    await prismaModule.prisma.workspaceMetadata.updateMany({
+      data: { workspaceType: "REAL", databaseCreationSource: "TEST_REAL_GUARD" },
+    });
+    const before = await prismaModule.prisma.transaction.count();
+    await expect(
+      repositories.resetDemoDataWithResult({ confirmation: "RESET DEMO DATA" }),
+    ).rejects.toThrow(/only in an identified DEMO workspace/);
+    const { seedDemoData } = await import("./seed-demo");
+    await expect(seedDemoData("test", prismaModule.prisma)).rejects.toThrow(
+      /against a REAL workspace/,
+    );
+    expect(await prismaModule.prisma.transaction.count()).toBe(before);
+  });
+
+  it("keeps real workspace identity and records unchanged across an idempotent migration", async () => {
+    const identity = await prismaModule.prisma.workspaceMetadata.findFirstOrThrow();
+    const before = {
+      households: await prismaModule.prisma.household.count(),
+      accounts: await prismaModule.prisma.account.count(),
+      transactions: await prismaModule.prisma.transaction.count(),
+    };
+    execSync("npm run db:migrate", {
+      stdio: "pipe",
+      env: { ...process.env, DATABASE_URL: "file:./vitest-integration.db" },
+    });
+    expect(await prismaModule.prisma.workspaceMetadata.findFirstOrThrow()).toMatchObject({
+      id: identity.id,
+      workspaceType: "REAL",
+    });
+    expect({
+      households: await prismaModule.prisma.household.count(),
+      accounts: await prismaModule.prisma.account.count(),
+      transactions: await prismaModule.prisma.transaction.count(),
+    }).toEqual(before);
   });
 });

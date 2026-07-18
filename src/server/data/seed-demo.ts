@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { seedDefaultCategories } from "./default-categories";
 
 type SeedClient = PrismaClient | Prisma.TransactionClient;
@@ -7,6 +8,26 @@ type SeedClient = PrismaClient | Prisma.TransactionClient;
 export async function seedDemoData(source = "seed", db?: SeedClient) {
   const client = db ?? new PrismaClient();
   try {
+    const identities = await client.workspaceMetadata.findMany({ take: 2 });
+    if (identities.length > 1) {
+      throw new Error("Refusing demo seed: database has multiple workspace identities.");
+    }
+    if (identities[0]?.workspaceType === "REAL") {
+      throw new Error("Refusing demo seed against a REAL workspace.");
+    }
+    if (!identities.length && (await client.household.count()) > 0) {
+      throw new Error("Refusing demo seed against an existing unidentified workspace.");
+    }
+    if (!identities.length) {
+      await client.workspaceMetadata.create({
+        data: {
+          id: randomUUID(),
+          workspaceType: "DEMO",
+          databaseCreationSource: source === "reset" ? "DEMO_RESET" : "DEMO_SEED",
+          workspaceName: "Demonstration workspace",
+        },
+      });
+    }
     await client.auditLog.deleteMany();
     await client.backupRecord.deleteMany();
     await client.decisionScenario.deleteMany();

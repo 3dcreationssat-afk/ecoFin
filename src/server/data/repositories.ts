@@ -461,6 +461,10 @@ export async function resetDemoDataWithResult(input: unknown) {
   if (data.simulateFailure) {
     throw new AppError("Simulated demo reset failure.", 500);
   }
+  const identity = await prisma.workspaceMetadata.findFirst();
+  if (!identity || identity.workspaceType !== "DEMO") {
+    throw new AppError("Demo reset is allowed only in an identified DEMO workspace.", 409);
+  }
   const { seedDemoData } = await import("./seed-demo");
   const result = await prisma.$transaction(async (tx) => {
     const household = await seedDemoData("reset", tx);
@@ -494,6 +498,18 @@ export async function startFreshWorkspace(input: unknown) {
     throw new AppError("Start-fresh failure simulation is only available in tests.", 403);
   }
   if (data.simulateFailure) throw new AppError("Simulated start-fresh failure.", 500);
+
+  const identity = await prisma.workspaceMetadata.findFirst();
+  if (!identity || identity.workspaceType === "TEST") {
+    throw new AppError("Start Fresh requires an identified REAL or DEMO workspace.", 409);
+  }
+  if (identity.workspaceType === "REAL") {
+    const { createLocalBackup } = await import("./backup");
+    await createLocalBackup({
+      preRestore: true,
+      notes: "Automatic safety backup before Start Fresh",
+    });
+  }
 
   return prisma.$transaction(async (tx) => {
     const before = await demoResetCounts(tx);
@@ -534,6 +550,14 @@ export async function startFreshWorkspace(input: unknown) {
         emergencyFundConfiguration: {
           create: { enabled: false, targetAmountMinor: null, targetRunwayMonths: 3 },
         },
+      },
+    });
+    await tx.workspaceMetadata.update({
+      where: { id: identity.id },
+      data: {
+        workspaceType: "REAL",
+        databaseCreationSource: "START_FRESH",
+        workspaceName: household.name,
       },
     });
     await seedDefaultCategories(tx, household.id, { isDemo: false });

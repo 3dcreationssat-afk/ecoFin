@@ -1,6 +1,14 @@
 import { PrismaClient } from "@prisma/client";
+import { loadEnvConfig } from "@next/env";
+import {
+  assertTestDatabase,
+  configureDatabaseUrl,
+  FINANCIAL_COMPASS_PROJECT_ROOT,
+} from "./database-url";
 
-process.env.DATABASE_URL ??= "file:./dev.db";
+loadEnvConfig(FINANCIAL_COMPASS_PROJECT_ROOT);
+configureDatabaseUrl();
+if (process.env.FINANCIAL_COMPASS_WORKSPACE_TYPE === "TEST") assertTestDatabase();
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 

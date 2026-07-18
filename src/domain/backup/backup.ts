@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { z } from "zod";
 
 export const BACKUP_FORMAT_VERSION = 1;
@@ -100,14 +100,13 @@ export function resolveBackupPath(filename: string) {
   return resolved;
 }
 
-export function activeSqlitePath(databaseUrl = process.env.DATABASE_URL ?? "file:./dev.db") {
+export function activeSqlitePath(databaseUrl = process.env.DATABASE_URL) {
+  if (!databaseUrl) throw new Error("DATABASE_URL is required for backup operations.");
   if (!databaseUrl.startsWith("file:"))
     throw new Error("Backups only support local SQLite file: URLs.");
-  const raw = databaseUrl.replace(/^file:/, "");
+  const raw = decodeURIComponent(databaseUrl.replace(/^file:/, "").split("?", 1)[0]);
   const prismaDir = resolve(process.cwd(), "prisma");
-  const resolved = resolve(prismaDir, raw);
-  if (!resolved.startsWith(prismaDir))
-    throw new Error("Refusing SQLite database outside prisma directory.");
+  const resolved = isAbsolute(raw) ? resolve(raw) : resolve(prismaDir, raw);
   return resolved;
 }
 

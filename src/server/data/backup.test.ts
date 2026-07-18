@@ -50,6 +50,7 @@ describe("backup and restore service", () => {
 
   it("previews and restores a valid backup with a mandatory safety backup", async () => {
     const scenario = await prismaModule.prisma.decisionScenario.findFirstOrThrow();
+    const workspaceBeforeBackup = await prismaModule.prisma.workspaceMetadata.findFirstOrThrow();
     const householdBeforeBackup = await repositories.getHousehold();
     const backedCustomCategory = await repositories.createCategory({
       householdId: householdBeforeBackup.id,
@@ -126,6 +127,11 @@ describe("backup and restore service", () => {
         0,
       );
       expect(await restoredClient.category.count({ where: { isSystem: true } })).toBe(14);
+      expect(await restoredClient.workspaceMetadata.findFirstOrThrow()).toMatchObject({
+        id: workspaceBeforeBackup.id,
+        workspaceType: workspaceBeforeBackup.workspaceType,
+        databaseCreationSource: workspaceBeforeBackup.databaseCreationSource,
+      });
     } finally {
       await restoredClient.$disconnect();
     }

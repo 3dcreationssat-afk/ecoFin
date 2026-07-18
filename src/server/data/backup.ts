@@ -39,13 +39,23 @@ import { AppError } from "./errors";
 type Counts = BackupManifest["counts"];
 
 export async function backupDashboard() {
-  const [records, counts] = await Promise.all([
+  const [records, counts, workspace] = await Promise.all([
     prisma.backupRecord.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
     currentCounts(prisma),
+    prisma.workspaceMetadata.findFirst(),
   ]);
   return {
     records,
     counts,
+    workspace: workspace
+      ? {
+          id: workspace.id,
+          type: workspace.workspaceType,
+          name: workspace.workspaceName,
+          creationSource: workspace.databaseCreationSource,
+          databasePath: activeSqlitePath(),
+        }
+      : null,
     storageLabel: "Application-controlled local backup directory",
     encryptionStatus: "Backups are not encrypted by the application.",
   };
@@ -435,12 +445,20 @@ async function validateDatabaseFile(path: string) {
       "ObligationOccurrence",
       "ForecastRule",
       "ForecastOccurrence",
+      "WorkspaceMetadata",
       "EmergencyFundConfiguration",
       "EmergencyFundAccount",
       "AuditLog",
     ]) {
       if (!tables.some((entry) => entry.name === table))
         throw new AppError(`Backup database missing ${table}.`, 422);
+    }
+    const workspaceCount = await client.workspaceMetadata.count();
+    if (workspaceCount !== 1) {
+      throw new AppError(
+        `Backup database must contain exactly one workspace identity; found ${workspaceCount}.`,
+        422,
+      );
     }
     const counts = await currentCounts(client);
     return { integrityCheck, counts };
