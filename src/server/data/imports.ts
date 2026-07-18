@@ -10,6 +10,7 @@ import {
 } from "@/domain/imports/csv";
 import {
   confirmImportSchema,
+  discardReviewChangesForUndoSchema,
   importProfileSchema,
   importProfileUpdateSchema,
   previewImportSchema,
@@ -637,9 +638,22 @@ export async function undoImportBatch(id: string, input: unknown) {
     );
   });
   if (changed.length) {
+    const reviewOnlyRecoveryAvailable =
+      batch.transactions.some((transaction) =>
+        ["USER", "BULK_USER"].includes(transaction.reviewSource),
+      ) &&
+      batch.transactions.every(
+        (transaction) =>
+          !transaction.notes &&
+          !transaction.excluded &&
+          ![transaction.categorySource, transaction.merchantSource, transaction.typeSource].some(
+            (source) => source === "USER" || source === "BULK_USER",
+          ),
+      );
     throw new AppError(
       "Undo is blocked because imported transactions were materially edited.",
       409,
+      reviewOnlyRecoveryAvailable ? [{ path: "recovery", message: "DISCARD_REVIEW_CHANGES" }] : [],
     );
   }
   return prisma.$transaction(async (tx) => {
@@ -665,6 +679,84 @@ export async function undoImportBatch(id: string, input: unknown) {
     });
     return batchDetail(updated.id, tx);
   });
+}
+
+export async function discardReviewChangesForUndo(id: string, input: unknown) {
+  discardReviewChangesForUndoSchema.parse(input);
+  const batch = await prisma.importBatch.findUnique({
+    where: { id },
+    include: { transactions: true },
+  });
+  if (!batch) throw new AppError("Import batch not found.", 404);
+  if (!["IMPORTED", "PARTIALLY_IMPORTED"].includes(batch.status)) {
+    throw new AppError("Only imported batches can be prepared for undo.", 409);
+  }
+  const transactionIds = batch.transactions.map((transaction) => transaction.id);
+  const confirmedTransfers = await prisma.transferMatch.count({
+    where: {
+      status: "CONFIRMED",
+      OR: [
+        { outgoingTransactionId: { in: transactionIds } },
+        { incomingTransactionId: { in: transactionIds } },
+      ],
+    },
+  });
+  if (confirmedTransfers) {
+    throw new AppError(
+      "Review changes cannot be discarded while imported transactions participate in confirmed transfers. Unmatch transfers first.",
+      409,
+    );
+  }
+  const nonReviewEdits = batch.transactions.filter(
+    (transaction) =>
+      transaction.notes ||
+      transaction.excluded ||
+      [transaction.categorySource, transaction.merchantSource, transaction.typeSource].some(
+        (source) => source === "USER" || source === "BULK_USER",
+      ),
+  );
+  if (nonReviewEdits.length) {
+    throw new AppError(
+      "Safe review reset is unavailable because this batch also contains category, merchant, type, note, or exclusion edits.",
+      409,
+    );
+  }
+  const reviewEdits = batch.transactions.filter((transaction) =>
+    ["USER", "BULK_USER"].includes(transaction.reviewSource),
+  );
+  if (!reviewEdits.length) {
+    throw new AppError("This batch has no review-only changes to discard.", 409);
+  }
+  await prisma.$transaction(async (tx) => {
+    for (const transaction of reviewEdits) {
+      const updated = await tx.transaction.update({
+        where: { id: transaction.id },
+        data: { reviewStatus: "NEEDS_REVIEW", reviewSource: "IMPORT_DEFAULT" },
+      });
+      await auditFields(tx, {
+        householdId: transaction.householdId,
+        entityType: "Transaction",
+        entityId: transaction.id,
+        action: "discard_review_change_for_import_undo",
+        before: transaction,
+        after: updated,
+        fields: ["reviewStatus", "reviewSource"],
+        source: "import_undo_recovery",
+      });
+    }
+    await auditChange(tx, {
+      householdId: batch.householdId,
+      entityType: "ImportBatch",
+      entityId: batch.id,
+      action: "review_changes_discarded_for_undo",
+      field: "transactionCount",
+      previousValue: reviewEdits.length,
+      newValue: 0,
+      reason: "Explicit web confirmation before protected import undo.",
+      source: "import_undo_recovery",
+    });
+  });
+  return { discardedReviewChanges: reviewEdits.length };
 }
 
 export async function batchDetail(id: string, db: Db = prisma) {

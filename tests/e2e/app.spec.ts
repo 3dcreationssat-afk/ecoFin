@@ -341,6 +341,24 @@ test("complete signed amount CSV import workflow and undo", async ({ page }, tes
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("button", { name: marker })).toBeVisible();
+  await page.getByRole("checkbox", { name: `Select ${marker}` }).check();
+  await page.getByLabel("Bulk action").selectOption("MARK_REVIEWED");
+  await page.getByRole("button", { name: "Apply to selected" }).click();
+  await expect(page.getByText(/Bulk action complete/)).toBeAttached();
+  await page.getByRole("button", { name: "Undo import" }).first().click();
+  await expect(page.getByRole("region", { name: "Confirm import undo" })).toBeVisible();
+  await page
+    .getByLabel("I understand that this removes the transactions created by this import.")
+    .check();
+  await page.getByRole("button", { name: "Confirm undo" }).click();
+  await expect(page.getByRole("alert", { name: "Confirm import undo" })).toContainText(
+    "materially edited",
+  );
+  await page
+    .getByLabel(
+      "I understand that my review-status changes will be discarded before this import is undone.",
+    )
+    .check();
   await Promise.all([
     page.waitForResponse(
       (response) =>
@@ -349,7 +367,7 @@ test("complete signed amount CSV import workflow and undo", async ({ page }, tes
         response.request().method() === "POST" &&
         response.ok(),
     ),
-    page.getByRole("button", { name: "Undo import" }).first().click(),
+    page.getByRole("button", { name: "Discard reviews and safely undo" }).click(),
   ]);
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();

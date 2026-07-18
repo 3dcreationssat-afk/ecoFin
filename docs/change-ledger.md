@@ -181,3 +181,7 @@
   longer produce repetitive row-level ambiguity warnings after the user selected a format.
 - Made the recurring price-increase filter self-reversing: while active, its trigger becomes a
   clearly labeled `Exit price-increase view` action that restores the normal current-items view.
+- Added an explicit web confirmation flow for import undo. Server blockers are now visible; batches
+  with review-status changes only can discard those review decisions through a separately confirmed,
+  audited reset and then use the existing protected undo. Categories, merchants, types, notes,
+  exclusions, and confirmed transfers remain hard blockers.

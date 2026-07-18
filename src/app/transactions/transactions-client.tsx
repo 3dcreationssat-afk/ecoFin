@@ -251,6 +251,10 @@ export function TransactionsClient({
   const [selected, setSelected] = useState<TransactionDto | null>(null);
   const [audit, setAudit] = useState<AuditDto[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [pendingUndoBatchId, setPendingUndoBatchId] = useState("");
+  const [undoRecovery, setUndoRecovery] = useState(false);
+  const [undoConfirmed, setUndoConfirmed] = useState(false);
+  const [undoError, setUndoError] = useState("");
   const [importOpen, setImportOpen] = useState(initialImportOpen);
   const [drawerTransfers, setDrawerTransfers] = useState<TransferMatchDto[]>([]);
   const [transferNote, setTransferNote] = useState("");
@@ -392,13 +396,82 @@ export function TransactionsClient({
     startTransition(() => router.refresh());
   }
 
-  async function undoBatch(batchId: string) {
-    const response = await fetch(`/api/imports/${batchId}/undo`, {
+  function beginUndo(batchId: string) {
+    setPendingUndoBatchId(batchId);
+    setUndoRecovery(false);
+    setUndoConfirmed(false);
+    setUndoError("");
+  }
+
+  async function confirmUndo() {
+    if (!pendingUndoBatchId || !undoConfirmed) return;
+    setStatus("saving");
+    const response = await fetch(`/api/imports/${pendingUndoBatchId}/undo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirm: "UNDO IMPORT" }),
     });
-    setStatus(response.ok ? "saved" : "error");
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const recoveryAvailable = Array.isArray(payload.issues)
+        ? payload.issues.some(
+            (issue: { path?: string; message?: string }) =>
+              issue.path === "recovery" && issue.message === "DISCARD_REVIEW_CHANGES",
+          )
+        : false;
+      setStatus("error");
+      setUndoError(payload.error ?? "Import undo failed.");
+      setUndoRecovery(recoveryAvailable);
+      setUndoConfirmed(false);
+      return;
+    }
+    setStatus("saved");
+    setAnnouncement("Import safely undone.");
+    setPendingUndoBatchId("");
+    setUndoRecovery(false);
+    setUndoConfirmed(false);
+    setUndoError("");
+    startTransition(() => router.refresh());
+  }
+
+  async function discardReviewsAndUndo() {
+    if (!pendingUndoBatchId || !undoConfirmed) return;
+    setStatus("saving");
+    const resetResponse = await fetch(`/api/imports/${pendingUndoBatchId}/discard-review-changes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: "DISCARD REVIEW CHANGES" }),
+    });
+    const resetPayload = await resetResponse.json().catch(() => ({}));
+    if (!resetResponse.ok) {
+      setStatus("error");
+      setUndoError(resetPayload.error ?? "Review changes could not be discarded safely.");
+      setUndoConfirmed(false);
+      return;
+    }
+    const undoResponse = await fetch(`/api/imports/${pendingUndoBatchId}/undo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: "UNDO IMPORT" }),
+    });
+    const undoPayload = await undoResponse.json().catch(() => ({}));
+    if (!undoResponse.ok) {
+      setStatus("error");
+      setUndoError(
+        undoPayload.error ??
+          "Review changes were discarded, but the import remains protected by another blocker.",
+      );
+      setUndoRecovery(false);
+      setUndoConfirmed(false);
+      startTransition(() => router.refresh());
+      return;
+    }
+    setStatus("saved");
+    setAnnouncement("Review-only changes were discarded and the import was safely undone.");
+    setPendingUndoBatchId("");
+    setUndoRecovery(false);
+    setUndoConfirmed(false);
+    setUndoError("");
     startTransition(() => router.refresh());
   }
 
@@ -458,7 +531,56 @@ export function TransactionsClient({
         onSelection={setSelectedIds}
       />
       <div className="mt-5 space-y-4" aria-label="Import and transfer activity">
-        <ImportHistory batches={batches} onUndo={undoBatch} />
+        {pendingUndoBatchId ? (
+          <div
+            role={undoError ? "alert" : "region"}
+            aria-label="Confirm import undo"
+            className={`rounded-lg border p-4 text-sm ${undoError ? "border-amber-200 bg-amber-50 text-amber-950" : "border-red-200 bg-red-50 text-red-950"}`}
+          >
+            <p className="font-semibold">
+              {undoRecovery ? "Review changes are blocking this undo" : "Undo this import?"}
+            </p>
+            <p className="mt-1">
+              {undoRecovery
+                ? `${undoError} This batch contains review-status changes only. You can explicitly discard those review decisions and then safely undo the import.`
+                : `This will permanently remove the ${batches.find((batch) => batch.id === pendingUndoBatchId)?.importedTransactionCount ?? "imported"} transactions created by this batch. Historical batch metadata and the audit record will remain.`}
+            </p>
+            <label className="mt-3 flex items-start gap-2 font-medium">
+              <input
+                className="mt-0.5"
+                type="checkbox"
+                checked={undoConfirmed}
+                onChange={(event) => setUndoConfirmed(event.target.checked)}
+              />
+              {undoRecovery
+                ? "I understand that my review-status changes will be discarded before this import is undone."
+                : "I understand that this removes the transactions created by this import."}
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                disabled={!undoConfirmed || status === "saving"}
+                onClick={undoRecovery ? discardReviewsAndUndo : confirmUndo}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {undoRecovery ? "Discard reviews and safely undo" : "Confirm undo"}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={status === "saving"}
+                onClick={() => {
+                  setPendingUndoBatchId("");
+                  setUndoRecovery(false);
+                  setUndoConfirmed(false);
+                  setUndoError("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        <ImportHistory batches={batches} onUndo={beginUndo} />
         <TransferReviewPanel
           matches={displayedTransferMatches}
           transactions={transactions}
@@ -505,6 +627,10 @@ export function TransactionsClient({
           profiles={profiles}
           initialAccountId={initialImportAccountId}
           onClose={() => setImportOpen(false)}
+          onRequestUndo={(batchId) => {
+            setImportOpen(false);
+            beginUndo(batchId);
+          }}
           onComplete={() => {
             setImportOpen(false);
             startTransition(() => router.refresh());
@@ -833,12 +959,14 @@ function ImportDialog({
   profiles,
   initialAccountId,
   onClose,
+  onRequestUndo,
   onComplete,
 }: {
   accounts: AccountDto[];
   profiles: ProfileDto[];
   initialAccountId?: string;
   onClose: () => void;
+  onRequestUndo: (batchId: string) => void;
   onComplete: () => void;
 }) {
   const firstAccount =
@@ -1396,14 +1524,7 @@ function ImportDialog({
                   {batch.importedTransactionCount ? "View imported transactions" : "Done"}
                 </Button>
                 {["IMPORTED", "PARTIALLY_IMPORTED"].includes(batch.status) ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      postJson(`/api/imports/${batch.id}/undo`, { confirm: "UNDO IMPORT" }).then(
-                        onComplete,
-                      )
-                    }
-                  >
+                  <Button variant="secondary" onClick={() => onRequestUndo(batch.id)}>
                     Undo import
                   </Button>
                 ) : null}

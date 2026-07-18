@@ -99,3 +99,7 @@ export const confirmImportSchema = z.object({
 export const undoImportSchema = z.object({
   confirm: z.literal("UNDO IMPORT"),
 });
+
+export const discardReviewChangesForUndoSchema = z.object({
+  confirm: z.literal("DISCARD REVIEW CHANGES"),
+});

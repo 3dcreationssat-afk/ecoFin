@@ -8,6 +8,7 @@ let repositories: typeof import("./repositories");
 let prismaModule: typeof import("@/server/db/prisma");
 let merchantRules: typeof import("./merchant-rules");
 let accountBalances: typeof import("./account-balances");
+let transactionBulk: typeof import("./transaction-bulk");
 
 const signedCsv =
   "Date,Description,Amount\n07/10/2026,Synthetic Coffee,-4.25\n07/11/2026,Synthetic Payroll,1250.00";
@@ -26,6 +27,7 @@ describe("csv import repositories", () => {
     prismaModule = await import("@/server/db/prisma");
     merchantRules = await import("./merchant-rules");
     accountBalances = await import("./account-balances");
+    transactionBulk = await import("./transaction-bulk");
   }, 120_000);
 
   afterAll(async () => {
@@ -223,6 +225,79 @@ describe("csv import repositories", () => {
       (await prismaModule.prisma.account.findUnique({ where: { id: account.id } }))
         ?.ledgerBalanceMinor,
     ).toBe(ledgerBefore);
+    expect(
+      await prismaModule.prisma.transaction.count({ where: { importBatchId: imported.id } }),
+    ).toBe(0);
+  });
+
+  it("discards review-only changes explicitly before a protected web undo", async () => {
+    const dashboard = await imports.importDashboard();
+    const account = dashboard.accounts[0];
+    const content = "Date,Description,Amount\n07/12/2026,Synthetic review-only undo,-8.75";
+    const validated = await imports.validateImport({
+      accountId: account.id,
+      filename: "synthetic-review-only-undo.csv",
+      fileSize: content.length,
+      content,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+      mapping: {
+        delimiter: ",",
+        encoding: "UTF-8",
+        hasHeader: true,
+        dateColumn: "Date",
+        descriptionColumn: "Description",
+        amountMode: "SIGNED_AMOUNT",
+        amountColumn: "Amount",
+        dateFormat: "MM/DD/YYYY",
+        decimalSeparator: ".",
+        thousandsSeparator: ",",
+        signConvention: "DEBITS_NEGATIVE",
+        currency: "USD",
+        saveProfile: false,
+      },
+    });
+    const imported = await imports.confirmImport({
+      batchId: validated.id,
+      decisions: validated.rows.map((row) => ({ rowId: row.id, decision: "IMPORT" })),
+      confirm: "IMPORT CSV",
+    });
+    await transactionBulk.bulkUpdateTransactions({
+      transactionIds: imported.transactions.map((transaction) => transaction.id),
+      action: "MARK_REVIEWED",
+    });
+
+    await expect(
+      imports.undoImportBatch(imported.id, { confirm: "UNDO IMPORT" }),
+    ).rejects.toMatchObject({
+      status: 409,
+      issues: [{ path: "recovery", message: "DISCARD_REVIEW_CHANGES" }],
+    });
+
+    await expect(
+      imports.discardReviewChangesForUndo(imported.id, {
+        confirm: "DISCARD REVIEW CHANGES",
+      }),
+    ).resolves.toEqual({ discardedReviewChanges: 1 });
+    expect(
+      await prismaModule.prisma.transaction.findFirstOrThrow({
+        where: { importBatchId: imported.id },
+        select: { reviewStatus: true, reviewSource: true },
+      }),
+    ).toEqual({ reviewStatus: "NEEDS_REVIEW", reviewSource: "IMPORT_DEFAULT" });
+    expect(
+      await prismaModule.prisma.auditLog.count({
+        where: {
+          entityType: "ImportBatch",
+          entityId: imported.id,
+          action: "review_changes_discarded_for_undo",
+        },
+      }),
+    ).toBe(1);
+
+    const undone = await imports.undoImportBatch(imported.id, { confirm: "UNDO IMPORT" });
+    expect(undone.status).toBe("UNDONE");
     expect(
       await prismaModule.prisma.transaction.count({ where: { importBatchId: imported.id } }),
     ).toBe(0);
