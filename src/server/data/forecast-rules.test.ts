@@ -127,6 +127,35 @@ describe("forecast rule persistence and matching", () => {
     expect(audits.some((audit) => audit.action === "transaction_auto_matched")).toBe(true);
     expect(audits.some((audit) => audit.action === "occurrence_skip")).toBe(true);
     expect(audits.some((audit) => audit.action === "automatic_match_removed")).toBe(true);
+
+    const staleRule = await prismaModule.prisma.forecastRule.create({
+      data: {
+        householdId: household.id,
+        accountId: account.id,
+        name: "Stale imported payroll",
+        merchantKey: "stale imported payroll",
+        direction: "INCOME",
+        cadence: "MONTHLY",
+        anchorDate: new Date("2026-05-01T00:00:00.000Z"),
+        lastObservedDate: new Date("2026-06-01T00:00:00.000Z"),
+        nextExpectedDate: new Date("2026-08-01T00:00:00.000Z"),
+        typicalAmountMinor: 10000,
+        minAmountMinor: 10000,
+        maxAmountMinor: 10000,
+        confidence: "LOW",
+        confidenceScore: 40,
+        state: "DETECTED",
+        provenance: "Detected from an import that was undone.",
+        creationSource: "DETECTED",
+        effectiveStartDate: new Date("2026-05-01T00:00:00.000Z"),
+        reasonsJson: "[]",
+        detectionFingerprint: "stale-imported-payroll-test",
+      },
+    });
+    await service.detectForecastRules(household.id, new Date("2026-07-18T00:00:00.000Z"));
+    expect(
+      await prismaModule.prisma.forecastRule.findUniqueOrThrow({ where: { id: staleRule.id } }),
+    ).toMatchObject({ state: "PAUSED" });
   });
 });
 

@@ -1,5 +1,16 @@
 # Change Ledger
 
+## 2026-07-18 — Credit-card payment semantics and complete import undo
+
+- Recognized positive credit-card-side payments such as Apple Card ACH transfers using the selected
+  account and source transaction type, labeled them as credit-card payments, and excluded them from
+  household income/spending without an unnecessary ambiguity warning.
+- Extended import provenance to record derived recurring and forecast identifiers. Safe undo now
+  removes untouched forecast rules created by the batch, recomputes recurring and forecast
+  detection, inactivates unsupported detected payroll patterns, and reports cleanup warnings.
+- Added service and browser regression coverage for payment semantics, protected review recovery,
+  derived-rule cleanup, recurring recomputation, and stale-pattern inactivation.
+
 ## 2026-07-18 — Base44-aligned desktop density
 
 - Matched the approved Base44 desktop proportions at 100% browser zoom with a 224px navigation

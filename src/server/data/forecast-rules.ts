@@ -13,6 +13,9 @@ import { getHousehold } from "./repositories";
 
 type Db = typeof prisma | Prisma.TransactionClient;
 
+const AUTO_PAUSED_PROVENANCE =
+  "Automatically paused because current transactions no longer support this detected pattern.";
+
 export async function detectForecastRules(householdId?: string, asOf = new Date()) {
   const household = householdId
     ? await prisma.household.findUnique({ where: { id: householdId } })
@@ -30,6 +33,9 @@ export async function detectForecastRules(householdId?: string, asOf = new Date(
   const payroll = detectPayrollCandidates(transactions, asOf);
   let createdCount = 0;
   let refreshedCount = 0;
+  const createdRuleIds: string[] = [];
+  const refreshedRuleIds: string[] = [];
+  const detectedFingerprints = new Set(payroll.map((candidate) => candidate.fingerprint));
   for (const candidate of payroll) {
     const existing = await prisma.forecastRule.findUnique({
       where: { detectionFingerprint: candidate.fingerprint },
@@ -74,12 +80,19 @@ export async function detectForecastRules(householdId?: string, asOf = new Date(
         source: "forecast",
       });
       createdCount += 1;
+      createdRuleIds.push(created.id);
     } else {
+      const wasAutomaticallyPaused =
+        existing.state === "PAUSED" && existing.provenance === AUTO_PAUSED_PROVENANCE;
       const material =
         existing.nextExpectedDate.getTime() !== candidate.nextExpectedDate.getTime() ||
         existing.typicalAmountMinor !== candidate.typicalAmountMinor ||
-        existing.confidence !== candidate.confidence;
-      await prisma.forecastRule.update({ where: { id: existing.id }, data });
+        existing.confidence !== candidate.confidence ||
+        wasAutomaticallyPaused;
+      await prisma.forecastRule.update({
+        where: { id: existing.id },
+        data: { ...data, ...(wasAutomaticallyPaused ? { state: "DETECTED" } : {}) },
+      });
       if (material) {
         await auditChange(prisma, {
           householdId: household.id,
@@ -92,11 +105,47 @@ export async function detectForecastRules(householdId?: string, asOf = new Date(
           source: "forecast",
         });
         refreshedCount += 1;
+        refreshedRuleIds.push(existing.id);
       }
     }
   }
+  const staleDetectedRules = await prisma.forecastRule.findMany({
+    where: {
+      householdId: household.id,
+      state: "DETECTED",
+      creationSource: "DETECTED",
+      recurringExpenseId: null,
+      sourceRecordType: null,
+    },
+  });
+  for (const rule of staleDetectedRules) {
+    if (detectedFingerprints.has(rule.detectionFingerprint)) continue;
+    await prisma.forecastRule.update({
+      where: { id: rule.id },
+      data: { state: "PAUSED", provenance: AUTO_PAUSED_PROVENANCE },
+    });
+    await auditChange(prisma, {
+      householdId: household.id,
+      entityType: "ForecastRule",
+      entityId: rule.id,
+      action: "detected_pattern_inactivated",
+      field: "state",
+      previousValue: "DETECTED",
+      newValue: "PAUSED",
+      reason: "Current transactions no longer meet payroll-pattern detection requirements.",
+      source: "forecast",
+    });
+    refreshedCount += 1;
+    refreshedRuleIds.push(rule.id);
+  }
   await syncRecurringForecastRules(household.id);
-  return { createdCount, refreshedCount, payrollCandidates: payroll.length };
+  return {
+    createdCount,
+    refreshedCount,
+    createdRuleIds,
+    refreshedRuleIds,
+    payrollCandidates: payroll.length,
+  };
 }
 
 export async function syncRecurringForecastRules(householdId: string) {

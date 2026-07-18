@@ -158,6 +158,8 @@ export async function scanRecurringExpenses(
   return {
     createdCount: created.length,
     refreshedCount: refreshed.length,
+    createdIds: created,
+    refreshedIds: refreshed,
     candidateIds: [...created, ...refreshed],
     highConfidence: candidates.filter((candidate) => candidate.confidence === "HIGH").length,
     priceIncreases: candidates.filter((candidate) => candidate.priceChangeAmountMinor > 0).length,

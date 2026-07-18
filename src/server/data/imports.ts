@@ -282,6 +282,7 @@ export async function validateImport(input: unknown) {
         rowNumber: index + 1,
         mapping,
         accountId: account.id,
+        accountType: account.type,
         fileHash,
         existingTransactions,
       }),
@@ -401,6 +402,7 @@ export async function confirmImport(input: unknown) {
         row.originalDescription,
         sourceFields,
         row.parsedAmountMinor,
+        batch.account.type,
       );
       const transaction = await tx.transaction.create({
         data: {
@@ -430,6 +432,7 @@ export async function confirmImport(input: unknown) {
             semantic.ambiguous || row.duplicateStatus !== "NONE" ? "FLAGGED" : "NEEDS_REVIEW",
           possibleDuplicate: row.duplicateStatus !== "NONE",
           affectsLedger: true,
+          affectsIncomeSpendingReports: semantic.type !== "CREDIT_CARD_PAYMENT",
           isDemo: false,
         },
       });
@@ -568,8 +571,12 @@ export async function confirmImport(input: unknown) {
           recurringCandidatesFound: scan.createdCount + scan.refreshedCount,
           highConfidenceRecurringCandidates: scan.highConfidence,
           recurringPriceIncreases: scan.priceIncreases,
+          recurringCreatedCandidateIds: scan.createdIds,
+          recurringRefreshedCandidateIds: scan.refreshedIds,
           recurringReviewHref: "/recurring",
           payrollPatternsDetected: forecast.detection.payrollCandidates,
+          forecastCreatedRuleIds: forecast.detection.createdRuleIds,
+          forecastRefreshedRuleIds: forecast.detection.refreshedRuleIds,
           forecastOccurrencesMatched: forecast.matching.createdCount,
         }),
       },
@@ -656,7 +663,46 @@ export async function undoImportBatch(id: string, input: unknown) {
       reviewOnlyRecoveryAvailable ? [{ path: "recovery", message: "DISCARD_REVIEW_CHANGES" }] : [],
     );
   }
-  return prisma.$transaction(async (tx) => {
+  const summary = parseSummary(batch.summaryJson);
+  const forecastCreatedRuleIds = stringArray(summary.forecastCreatedRuleIds);
+  const protectedForecastRules = forecastCreatedRuleIds.length
+    ? await prisma.forecastRule.count({
+        where: {
+          id: { in: forecastCreatedRuleIds },
+          OR: [
+            { state: { not: "DETECTED" } },
+            { userOverridesJson: { not: null } },
+            { occurrences: { some: { provenanceJson: { contains: '"source":"user"' } } } },
+          ],
+        },
+      })
+    : 0;
+  if (protectedForecastRules) {
+    throw new AppError(
+      "Undo is blocked because forecast rules created by this import were changed. Review or archive those forecast rules first.",
+      409,
+    );
+  }
+  const updated = await prisma.$transaction(async (tx) => {
+    if (forecastCreatedRuleIds.length) {
+      const removedRules = await tx.forecastRule.deleteMany({
+        where: {
+          id: { in: forecastCreatedRuleIds },
+          state: "DETECTED",
+          userOverridesJson: null,
+        },
+      });
+      await auditChange(tx, {
+        householdId: batch.householdId,
+        entityType: "ImportBatch",
+        entityId: id,
+        action: "derived_forecast_rules_removed_for_undo",
+        field: "forecastRuleCount",
+        previousValue: removedRules.count,
+        newValue: 0,
+        source: "import",
+      });
+    }
     await tx.transaction.deleteMany({ where: { importBatchId: id } });
     await reconcileForecastOccurrenceMatches(tx);
     await recalculateAccountBalances(
@@ -679,6 +725,44 @@ export async function undoImportBatch(id: string, input: unknown) {
     });
     return batchDetail(updated.id, tx);
   });
+  try {
+    const recurring = await scanRecurringExpenses({ householdId: batch.householdId });
+    const forecast = await refreshForecastIntelligence(batch.householdId);
+    await prisma.importBatch.update({
+      where: { id },
+      data: {
+        summaryJson: JSON.stringify({
+          ...summary,
+          undoCleanup: {
+            recurringCandidatesRecomputed: recurring.createdCount + recurring.refreshedCount,
+            forecastRulesRecomputed:
+              forecast.detection.createdCount + forecast.detection.refreshedCount,
+          },
+        }),
+      },
+    });
+    await auditChange(prisma, {
+      householdId: batch.householdId,
+      entityType: "ImportBatch",
+      entityId: id,
+      action: "derived_detection_recomputed_after_undo",
+      field: "cleanupStatus",
+      newValue: "COMPLETE",
+      source: "import",
+    });
+  } catch (error) {
+    await prisma.importBatch.update({
+      where: { id },
+      data: {
+        summaryJson: JSON.stringify({
+          ...summary,
+          undoCleanupWarning:
+            error instanceof Error ? error.message : "Derived detection cleanup failed.",
+        }),
+      },
+    });
+  }
+  return batchDetail(updated.id);
 }
 
 export async function discardReviewChangesForUndo(id: string, input: unknown) {
@@ -779,6 +863,7 @@ function validateRow(input: {
   rowNumber: number;
   mapping: Mapping;
   accountId: string;
+  accountType: string;
   fileHash: string;
   existingTransactions: Array<{
     accountId: string;
@@ -843,7 +928,9 @@ function validateRow(input: {
   sourceFields.__merchant = merchant;
   sourceFields.__kind = amountMinor === null ? "Unknown" : transactionKind(amountMinor);
   const semantic =
-    amountMinor === null ? null : classifySemantics(description, sourceFields, amountMinor);
+    amountMinor === null
+      ? null
+      : classifySemantics(description, sourceFields, amountMinor, input.accountType);
   if (semantic?.ambiguous) {
     sourceFields.__semanticWarning =
       "Transaction semantics require review; source context may represent a payment, refund, credit, fee, reward, adjustment, reversal, or chargeback.";
@@ -1009,6 +1096,12 @@ function parseSummary(value: string | null | undefined) {
   } catch {
     return {};
   }
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 export async function actionableImportBatches(householdId: string) {

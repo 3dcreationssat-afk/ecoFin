@@ -39,4 +39,22 @@ describe("import semantics repair", () => {
       ambiguous: false,
     });
   });
+
+  it("recognizes a positive Apple Card ACH transfer as a debt payment", () => {
+    expect(
+      classifySemantics(
+        "ACH DEPOSIT INTERNET TRANSFER FROM ACCOUNT ENDING IN 0143",
+        { Type: "Payment" },
+        8915,
+        "CREDIT",
+      ),
+    ).toEqual({
+      type: "CREDIT_CARD_PAYMENT",
+      source: "IMPORT_ACCOUNT_CONTEXT",
+      ambiguous: false,
+    });
+    expect(
+      classifySemantics("ACH DEPOSIT INTERNET TRANSFER FROM ACCOUNT ENDING IN 0143", {}, 8915),
+    ).toMatchObject({ type: "CREDIT", ambiguous: false });
+  });
 });

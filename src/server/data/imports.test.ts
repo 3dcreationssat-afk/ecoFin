@@ -207,6 +207,39 @@ describe("csv import repositories", () => {
       where: { entityType: "ImportBatch", entityId: imported.id },
     });
     expect(audits.some((audit) => audit.action === "confirm")).toBe(true);
+    const derivedRule = await prismaModule.prisma.forecastRule.create({
+      data: {
+        householdId: account.householdId,
+        accountId: account.id,
+        name: "Synthetic import-derived forecast",
+        merchantKey: `synthetic-import-${imported.id}`,
+        direction: "INCOME",
+        cadence: "MONTHLY",
+        anchorDate: new Date("2026-07-11T00:00:00.000Z"),
+        lastObservedDate: new Date("2026-07-11T00:00:00.000Z"),
+        nextExpectedDate: new Date("2026-08-11T00:00:00.000Z"),
+        typicalAmountMinor: 125000,
+        minAmountMinor: 125000,
+        maxAmountMinor: 125000,
+        confidence: "LOW",
+        confidenceScore: 40,
+        state: "DETECTED",
+        provenance: "Created from this synthetic import.",
+        creationSource: "DETECTED",
+        effectiveStartDate: new Date("2026-07-11T00:00:00.000Z"),
+        reasonsJson: "[]",
+        detectionFingerprint: `synthetic-import-${imported.id}`,
+      },
+    });
+    await prismaModule.prisma.importBatch.update({
+      where: { id: imported.id },
+      data: {
+        summaryJson: JSON.stringify({
+          ...(JSON.parse(imported.summaryJson ?? "{}") as Record<string, unknown>),
+          forecastCreatedRuleIds: [derivedRule.id],
+        }),
+      },
+    });
 
     const repeat = await imports.previewImport({
       accountId: account.id,
@@ -228,6 +261,18 @@ describe("csv import repositories", () => {
     expect(
       await prismaModule.prisma.transaction.count({ where: { importBatchId: imported.id } }),
     ).toBe(0);
+    expect(
+      await prismaModule.prisma.forecastRule.findUnique({ where: { id: derivedRule.id } }),
+    ).toBeNull();
+    expect(
+      await prismaModule.prisma.auditLog.findFirst({
+        where: {
+          entityType: "ImportBatch",
+          entityId: imported.id,
+          action: "derived_detection_recomputed_after_undo",
+        },
+      }),
+    ).toBeTruthy();
   });
 
   it("discards review-only changes explicitly before a protected web undo", async () => {
@@ -301,6 +346,56 @@ describe("csv import repositories", () => {
     expect(
       await prismaModule.prisma.transaction.count({ where: { importBatchId: imported.id } }),
     ).toBe(0);
+  });
+
+  it("imports a positive Apple Card ACH transfer as a debt payment without an ambiguity warning", async () => {
+    const dashboard = await imports.importDashboard();
+    const account = dashboard.accounts.find((item) => item.type === "CREDIT")!;
+    const content = [
+      "Transaction Date,Description,Type,Amount (USD)",
+      '07/12/2026,"ACH DEPOSIT INTERNET TRANSFER FROM ACCOUNT ENDING IN 0143",Payment,-89.15',
+    ].join("\n");
+    const validated = await imports.validateImport({
+      accountId: account.id,
+      filename: "synthetic-apple-card.csv",
+      fileSize: content.length,
+      content,
+      delimiter: ",",
+      encoding: "UTF-8",
+      hasHeader: true,
+      mapping: {
+        saveProfile: false,
+        delimiter: ",",
+        encoding: "UTF-8",
+        hasHeader: true,
+        dateColumn: "Transaction Date",
+        descriptionColumn: "Description",
+        amountMode: "SIGNED_AMOUNT",
+        amountColumn: "Amount (USD)",
+        dateFormat: "MM/DD/YYYY",
+        decimalSeparator: ".",
+        thousandsSeparator: ",",
+        signConvention: "DEBITS_POSITIVE",
+        currency: "USD",
+      },
+    });
+    expect(validated.rows[0]).toMatchObject({
+      parsedAmountMinor: 8915,
+      validationStatus: "VALID",
+      validationErrorsJson: "[]",
+    });
+    const imported = await imports.confirmImport({
+      batchId: validated.id,
+      decisions: [{ rowId: validated.rows[0].id, decision: "IMPORT" }],
+      confirm: "IMPORT CSV",
+    });
+    expect(imported.transactions[0]).toMatchObject({
+      amountMinor: 8915,
+      type: "CREDIT_CARD_PAYMENT",
+      typeSource: "IMPORT_ACCOUNT_CONTEXT",
+      affectsIncomeSpendingReports: false,
+      reviewStatus: "NEEDS_REVIEW",
+    });
   });
 
   it("requires an explicit Import or Skip decision for every duplicate candidate", async () => {

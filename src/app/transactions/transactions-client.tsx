@@ -426,7 +426,11 @@ export function TransactionsClient({
       return;
     }
     setStatus("saved");
-    setAnnouncement("Import safely undone.");
+    setAnnouncement(
+      undoCleanupWarning(payload)
+        ? `Import transactions were undone, but derived detection cleanup needs attention: ${undoCleanupWarning(payload)}`
+        : "Import safely undone. Recurring and forecast detection were recomputed.",
+    );
     setPendingUndoBatchId("");
     setUndoRecovery(false);
     setUndoConfirmed(false);
@@ -467,7 +471,11 @@ export function TransactionsClient({
       return;
     }
     setStatus("saved");
-    setAnnouncement("Review-only changes were discarded and the import was safely undone.");
+    setAnnouncement(
+      undoCleanupWarning(undoPayload)
+        ? `Import transactions were undone, but derived detection cleanup needs attention: ${undoCleanupWarning(undoPayload)}`
+        : "Review-only changes were discarded, the import was safely undone, and derived detection was recomputed.",
+    );
     setPendingUndoBatchId("");
     setUndoRecovery(false);
     setUndoConfirmed(false);
@@ -543,7 +551,7 @@ export function TransactionsClient({
             <p className="mt-1">
               {undoRecovery
                 ? `${undoError} This batch contains review-status changes only. You can explicitly discard those review decisions and then safely undo the import.`
-                : `This will permanently remove the ${batches.find((batch) => batch.id === pendingUndoBatchId)?.importedTransactionCount ?? "imported"} transactions created by this batch. Historical batch metadata and the audit record will remain.`}
+                : `This will permanently remove the ${batches.find((batch) => batch.id === pendingUndoBatchId)?.importedTransactionCount ?? "imported"} transactions created by this batch, remove untouched forecast rules created by it, and recompute recurring detection. Historical batch metadata and audit records will remain.`}
             </p>
             <label className="mt-3 flex items-start gap-2 font-medium">
               <input
@@ -2868,6 +2876,18 @@ async function postJson(url: string, body: unknown) {
   return response.ok
     ? { ok: true, ...json }
     : { ok: false, error: json.error ?? "Request failed." };
+}
+
+function undoCleanupWarning(payload: unknown) {
+  if (!payload || typeof payload !== "object" || !("summaryJson" in payload)) return "";
+  const summaryJson = (payload as { summaryJson?: unknown }).summaryJson;
+  if (typeof summaryJson !== "string") return "";
+  try {
+    const summary = JSON.parse(summaryJson) as { undoCleanupWarning?: unknown };
+    return typeof summary.undoCleanupWarning === "string" ? summary.undoCleanupWarning : "";
+  } catch {
+    return "";
+  }
 }
 
 function parseSummary(batch: BatchDto | null): {

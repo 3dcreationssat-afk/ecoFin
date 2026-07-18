@@ -252,12 +252,24 @@ export function classifySemantics(
   description: string,
   sourceFields: Record<string, unknown>,
   canonicalAmountMinor: number,
+  accountType?: string,
 ) {
   const explicit = Object.entries(sourceFields).find(([key]) =>
     ["type", "transactiontype", "transaction type"].includes(key.trim().toLowerCase()),
   )?.[1];
   const normalized =
     typeof explicit === "string" ? explicit.trim().toUpperCase().replace(/[ -]+/g, "_") : null;
+  const isCreditCardPayment =
+    accountType === "CREDIT" &&
+    canonicalAmountMinor > 0 &&
+    (normalized === "PAYMENT" ||
+      /\bach\s+deposit\b.*\btransfer\s+from\s+account\b/i.test(description));
+  if (isCreditCardPayment)
+    return {
+      type: "CREDIT_CARD_PAYMENT",
+      source: "IMPORT_ACCOUNT_CONTEXT",
+      ambiguous: false,
+    };
   const reliable: Record<string, string> = {
     PURCHASE: "DEBIT",
     SALE: "DEBIT",
