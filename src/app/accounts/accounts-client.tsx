@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, Pill } from "@/components/data-display/primitives";
 import { formatMoney, minorToDecimalString, parseMoneyToMinor } from "@/domain/money/money";
@@ -64,6 +65,7 @@ export function AccountsClient({
   const [editingId, setEditingId] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
+  const [createdAccount, setCreatedAccount] = useState<AccountDto | null>(null);
   const [form, setForm] = useState(accountForm(undefined, householdId));
   const [reconcile, setReconcile] = useState({
     reported: "",
@@ -84,6 +86,7 @@ export function AccountsClient({
     setMode("add");
     setEditingId("");
     setError("");
+    setCreatedAccount(null);
     setForm(accountForm(undefined, householdId));
   }
 
@@ -104,6 +107,11 @@ export function AccountsClient({
       setError(formatAccountError(payload));
       setStatus("error");
       return;
+    }
+    const payload = (await response.json()) as { account?: AccountDto };
+    if (mode === "add" && payload.account) {
+      setCreatedAccount(payload.account);
+      setForm(accountForm(undefined, householdId));
     }
     setStatus("saved");
     startTransition(() => router.refresh());
@@ -173,6 +181,44 @@ export function AccountsClient({
 
   return (
     <>
+      {createdAccount ? (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-label={`${createdAccount.name} created successfully`}
+          className="fixed bottom-5 right-5 z-[80] w-[min(420px,calc(100vw-2.5rem))] rounded-xl border border-emerald-200 bg-white p-5 shadow-xl"
+        >
+          <p className="font-semibold text-[var(--text)]">
+            {createdAccount.name} was created successfully.
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Import its transaction history now, or review the saved account first.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={`/transactions?import=1&accountId=${encodeURIComponent(createdAccount.id)}`}
+              className="rounded-md bg-[var(--teal)] px-4 py-2 text-sm font-semibold text-white"
+            >
+              Import transactions
+            </Link>
+            <button
+              className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold"
+              onClick={() => {
+                choose(createdAccount);
+                setCreatedAccount(null);
+              }}
+            >
+              View account
+            </button>
+            <button
+              className="px-3 py-2 text-sm text-[var(--muted)]"
+              onClick={() => setCreatedAccount(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
       <Card className="mb-7 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>

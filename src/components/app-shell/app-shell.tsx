@@ -102,13 +102,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Plus className="h-4 w-4" /> Add
             </button>
-            <button
-              disabled
-              title="Import is planned for a later phase"
-              className="hidden h-10 cursor-not-allowed items-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold opacity-60 xl:flex"
+            <Link
+              href="/transactions?import=1"
+              className="hidden h-10 items-center gap-2 rounded-md border border-[var(--border)] bg-white px-4 text-sm font-semibold hover:bg-[var(--surface-muted)] xl:flex"
             >
               <Upload className="h-4 w-4" /> Import
-            </button>
+            </Link>
             <Moon className="hidden h-5 w-5 text-slate-700 lg:block" />
             <div className="relative hidden lg:block">
               <Bell className="h-5 w-5 text-slate-700" />

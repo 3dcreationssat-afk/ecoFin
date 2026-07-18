@@ -438,6 +438,9 @@ test("account creation, duplicate prevention, archive, restore, and delete persi
   const accountName = `Playwright Checking ${testInfo.project.name} ${Date.now()}`;
   await page.goto("/accounts");
   await expect(page.getByRole("heading", { name: "Add Account" })).toBeVisible();
+  await page.getByRole("link", { name: "Import", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "CSV Transaction Import" })).toBeVisible();
+  await page.goto("/accounts");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill(accountName);
   await page.getByLabel("Institution", { exact: true }).selectOption("Other institution");
   await page.getByLabel("Other institution name").fill("Test Bank");
@@ -449,6 +452,20 @@ test("account creation, duplicate prevention, archive, restore, and delete persi
   await page.getByLabel("Current balance", { exact: true }).fill("123.45");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  const creationNotice = page.getByRole("status", {
+    name: `${accountName} created successfully`,
+  });
+  await expect(creationNotice).toBeVisible();
+  await creationNotice.getByRole("link", { name: "Import transactions" }).click();
+  await expect(page).toHaveURL(/\/transactions\?import=1&accountId=/);
+  await expect(page.getByRole("heading", { name: "CSV Transaction Import" })).toBeVisible();
+  await expect(page.getByLabel("Destination account")).toHaveValue(
+    (await page
+      .getByLabel("Destination account")
+      .locator("option", { hasText: accountName })
+      .getAttribute("value")) ?? "",
+  );
+  await page.goto("/accounts");
   await page.reload();
   await expect(page.getByRole("button", { name: accountName })).toBeVisible();
   await page

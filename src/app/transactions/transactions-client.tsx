@@ -219,6 +219,8 @@ export function TransactionsClient({
   totalPages,
   query,
   savedViews,
+  initialImportOpen = false,
+  initialImportAccountId,
 }: {
   transactions: TransactionDto[];
   categories: CategoryDto[];
@@ -231,13 +233,15 @@ export function TransactionsClient({
   totalPages: number;
   query: TransactionQuery;
   savedViews: { id: string; name: string; queryJson: string; isDefault: boolean }[];
+  initialImportOpen?: boolean;
+  initialImportAccountId?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<TransactionDto | null>(null);
   const [audit, setAudit] = useState<AuditDto[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [importOpen, setImportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(initialImportOpen);
   const [drawerTransfers, setDrawerTransfers] = useState<TransferMatchDto[]>([]);
   const [transferNote, setTransferNote] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -481,6 +485,7 @@ export function TransactionsClient({
         <ImportDialog
           accounts={accounts}
           profiles={profiles}
+          initialAccountId={initialImportAccountId}
           onClose={() => setImportOpen(false)}
           onComplete={() => {
             setImportOpen(false);
@@ -808,15 +813,18 @@ function TransferReviewPanel({
 function ImportDialog({
   accounts,
   profiles,
+  initialAccountId,
   onClose,
   onComplete,
 }: {
   accounts: AccountDto[];
   profiles: ProfileDto[];
+  initialAccountId?: string;
   onClose: () => void;
   onComplete: () => void;
 }) {
-  const firstAccount = accounts[0]?.id ?? "";
+  const firstAccount =
+    accounts.find((account) => account.id === initialAccountId)?.id ?? accounts[0]?.id ?? "";
   const [step, setStep] = useState(1);
   const [accountId, setAccountId] = useState(firstAccount);
   const [profileId, setProfileId] = useState("");

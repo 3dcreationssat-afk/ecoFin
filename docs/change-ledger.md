@@ -171,3 +171,6 @@
   Playwright database paths with server reuse disabled.
 - Added database-path, destructive-action, migration preservation, recurring read-safety, and
   backup identity regressions. See `docs/incident-2026-07-demo-reset-recovery.md`.
+- Added an accessible floating account-created confirmation with direct Import transactions and
+  View account actions. The import action opens the CSV workflow with the new account selected, and
+  the global header Import control now opens the implemented importer instead of remaining disabled.

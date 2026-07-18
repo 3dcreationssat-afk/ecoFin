@@ -22,7 +22,9 @@ export const dynamic = "force-dynamic";
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const raw = await searchParams;
-  if (!hasExplicitTransactionState(raw)) {
+  const importRequested = raw.import === "1";
+  const requestedAccountId = typeof raw.accountId === "string" ? raw.accountId : undefined;
+  if (!importRequested && !hasExplicitTransactionState(raw)) {
     const savedDefault = await defaultSavedView();
     if (savedDefault) {
       const params = serializeTransactionQuery(parseSavedViewQuery(savedDefault.queryJson));
@@ -61,6 +63,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         profiles={JSON.parse(JSON.stringify(profiles))}
         batches={JSON.parse(JSON.stringify(batches))}
         transferMatches={JSON.parse(JSON.stringify(transferQueue.matches))}
+        initialImportOpen={importRequested}
+        initialImportAccountId={requestedAccountId}
       />
     </AppShell>
   );
