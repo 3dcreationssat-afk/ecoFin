@@ -179,3 +179,5 @@
 - Simplified explicit CSV date handling: date-format choices now include plain-language ordering,
   the review screen shows one batch-level interpretation notice, and successfully parsed dates no
   longer produce repetitive row-level ambiguity warnings after the user selected a format.
+- Made the recurring price-increase filter self-reversing: while active, its trigger becomes a
+  clearly labeled `Exit price-increase view` action that restores the normal current-items view.

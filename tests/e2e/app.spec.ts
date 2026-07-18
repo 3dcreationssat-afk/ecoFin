@@ -803,7 +803,8 @@ test("recurring scan, review, confirm, reject, manual create, and savings work",
     page.getByRole("heading", { name: "Detected recurring price change" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close recurring drawer" }).click();
-  await page.getByRole("button", { name: "Clear filters" }).click();
+  await page.getByRole("button", { name: "Exit price-increase view" }).click();
+  await expect(priceIncreaseFilter).toBeVisible();
   await expect(page.getByText("Netflix").first()).toBeVisible();
   await expect(page.getByText("Spotify").first()).toBeVisible();
   await page

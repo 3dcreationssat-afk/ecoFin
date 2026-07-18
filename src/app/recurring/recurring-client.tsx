@@ -238,16 +238,28 @@ export function RecurringClient({ data }: { data: RecurringData }) {
               <button
                 type="button"
                 aria-pressed={priceIncreasesOnly}
-                aria-label={`Show ${data.summary.priceIncreases} recurring price ${data.summary.priceIncreases === 1 ? "increase" : "increases"}`}
+                aria-label={
+                  priceIncreasesOnly
+                    ? "Exit price-increase view"
+                    : `Show ${data.summary.priceIncreases} recurring price ${data.summary.priceIncreases === 1 ? "increase" : "increases"}`
+                }
                 onClick={() => {
-                  setPriceIncreasesOnly(true);
-                  setStatus("");
+                  setPriceIncreasesOnly((current) => !current);
+                  setStatus(priceIncreasesOnly ? "CURRENT" : "");
                   setPage(1);
                 }}
               >
                 <Pill tone="warn">
-                  View {data.summary.priceIncreases} price{" "}
-                  {data.summary.priceIncreases === 1 ? "increase" : "increases"}
+                  {priceIncreasesOnly ? (
+                    <span className="inline-flex items-center gap-1">
+                      <X className="h-3.5 w-3.5" /> Exit price-increase view
+                    </span>
+                  ) : (
+                    <>
+                      View {data.summary.priceIncreases} price{" "}
+                      {data.summary.priceIncreases === 1 ? "increase" : "increases"}
+                    </>
+                  )}
                 </Pill>
               </button>
             ) : null}
