@@ -99,6 +99,26 @@ type EmergencyFundDto = {
   eligibleAccounts: { id: string; name: string; type: string; ledgerBalanceMinor: number | null }[];
 };
 
+type PlaidSetupDto = {
+  integrationStatus: string;
+  configured: boolean;
+  environment: string | null;
+  missing: string[];
+  variables: Record<string, boolean>;
+  encryption: { valid: boolean; status: string; message: string };
+  workspaceType: string;
+  realAccess: string;
+  realConnectivityEnabled: boolean;
+  lastConnectivityCheck: string | null;
+  connectivityStatus: string;
+  connectivityCode: string | null;
+  connectedInstitutionCount: number;
+  connectedAccountCount: number;
+  lastSuccessfulSync: string | null;
+  localOperation: string;
+  activeErrors: { itemId: string; institutionName: string; code: string | null }[];
+};
+
 const incomeScheduleLabels: Record<string, string> = {
   WEEKLY: "Weekly",
   BI_WEEKLY: "Every other week",
@@ -137,12 +157,14 @@ export function SettingsClient({
   merchantRules,
   emergencyFund,
   emergencyRunway,
+  plaidSetup,
 }: {
   household: HouseholdDto;
   categories: CategoryDto[];
   backup: BackupDashboardDto;
   merchantRules: MerchantRuleDto[];
   emergencyFund: EmergencyFundDto;
+  plaidSetup: PlaidSetupDto;
   emergencyRunway: {
     eligibleBalanceMinor: number;
     runwayBasisPoints: number | null;
@@ -175,6 +197,14 @@ export function SettingsClient({
     provider: string;
     filename: string;
     urlHash: string;
+  }>(null);
+  const [selectiveScope, setSelectiveScope] = useState<
+    "TRANSACTIONS" | "CSV_HISTORY" | "PLAID_CONNECTIONS" | "HOUSEHOLD_FINANCIAL"
+  >("TRANSACTIONS");
+  const [selectiveConfirmation, setSelectiveConfirmation] = useState("");
+  const [selectiveResult, setSelectiveResult] = useState<null | {
+    safetyBackup: string;
+    preserved: string[];
   }>(null);
   const [deleteBackupConfirmation, setDeleteBackupConfirmation] = useState("");
   const [restoreConfirmation, setRestoreConfirmation] = useState("");
@@ -245,6 +275,9 @@ export function SettingsClient({
     conflictingRuleNames: string[];
     samples: { id: string; merchant: string; type: string; protections: string[] }[];
   }>(null);
+  const [plaidConfirmation, setPlaidConfirmation] = useState("");
+  const [plaidDashboardConfirmed, setPlaidDashboardConfirmed] = useState(false);
+  const [plaidTestMessage, setPlaidTestMessage] = useState("");
 
   useEffect(() => {
     const readHash = () => setActiveTab(window.location.hash.replace("#", "") || "household");
@@ -256,6 +289,50 @@ export function SettingsClient({
   function chooseTab(tab: string) {
     setActiveTab(tab);
     window.history.pushState(null, "", `#${tab}`);
+  }
+
+  async function testPlaidSetup() {
+    setStatus("saving");
+    setError("");
+    setPlaidTestMessage("");
+    const response = await fetch("/api/plaid/setup/test", { method: "POST" });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "Plaid configuration test failed.");
+      setStatus("error");
+      return;
+    }
+    setPlaidTestMessage(body.message);
+    setStatus("saved");
+    startTransition(() => router.refresh());
+  }
+
+  async function setRealPlaid(enabled: boolean) {
+    setStatus("saving");
+    setError("");
+    const response = await fetch("/api/plaid/setup/gate", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        enabled
+          ? {
+              enabled: true,
+              dashboardRealAccessConfirmed: plaidDashboardConfirmed,
+              confirmation: plaidConfirmation,
+            }
+          : { enabled: false },
+      ),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "Real Plaid connectivity could not be changed.");
+      setStatus("error");
+      return;
+    }
+    setPlaidConfirmation("");
+    setPlaidDashboardConfirmed(false);
+    setStatus("saved");
+    startTransition(() => router.refresh());
   }
 
   async function saveHousehold() {
@@ -424,6 +501,26 @@ export function SettingsClient({
     startTransition(() => {
       router.refresh();
     });
+  }
+
+  async function selectiveReset() {
+    setStatus("saving");
+    setError("");
+    const response = await fetch("/api/workspace/selective-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope: selectiveScope, confirmation: selectiveConfirmation }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "Selective reset failed.");
+      setStatus("error");
+      return;
+    }
+    setSelectiveResult(body);
+    setSelectiveConfirmation("");
+    setStatus("saved");
+    startTransition(() => router.refresh());
   }
 
   async function createBackup() {
@@ -604,6 +701,7 @@ export function SettingsClient({
           ["household", "Household"],
           ["categories", "Categories"],
           ["merchant-rules", "Merchant Rules"],
+          ["plaid", "Plaid"],
           ["backup", "Backup & Data"],
           ["privacy", "Privacy"],
         ].map(([tab, label]) => (
@@ -1134,6 +1232,157 @@ export function SettingsClient({
           </Card>
         </div>
       ) : null}
+      {activeTab === "plaid" ? (
+        <div className="space-y-7">
+          <Card className="p-7">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Plaid setup and status</h2>
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  Secrets stay in the server-only .env.local file. This page shows presence and
+                  validation status only; it never returns credential or token values.
+                </p>
+              </div>
+              <Pill
+                tone={
+                  plaidSetup.integrationStatus === "REAL_CONNECTIVITY_ENABLED"
+                    ? "good"
+                    : plaidSetup.configured
+                      ? "info"
+                      : "warn"
+                }
+              >
+                {plaidSetup.integrationStatus.replaceAll("_", " ")}
+              </Pill>
+            </div>
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              <Metric label="Environment" value={plaidSetup.environment ?? "Not configured"} />
+              <Metric label="Workspace" value={plaidSetup.workspaceType} />
+              <Metric label="Token encryption" value={plaidSetup.encryption.status} />
+              <Metric label="Plaid reachability" value={plaidSetup.connectivityStatus} />
+              <Metric label="Real-data access" value={plaidSetup.realAccess.replaceAll("_", " ")} />
+              <Metric
+                label="Real connectivity"
+                value={plaidSetup.realConnectivityEnabled ? "Enabled" : "Disabled"}
+              />
+              <Metric label="Institutions" value={String(plaidSetup.connectedInstitutionCount)} />
+              <Metric label="Connected accounts" value={String(plaidSetup.connectedAccountCount)} />
+              <Metric
+                label="Last successful sync"
+                value={
+                  plaidSetup.lastSuccessfulSync
+                    ? new Date(plaidSetup.lastSuccessfulSync).toLocaleString()
+                    : "Never"
+                }
+              />
+            </div>
+            <div className="mt-6 rounded-md border border-[var(--border)] p-4 text-sm">
+              <h3 className="font-semibold">Required server configuration</h3>
+              <ul className="mt-3 grid gap-2 md:grid-cols-2">
+                {Object.entries(plaidSetup.variables).map(([name, present]) => (
+                  <li key={name} className="flex items-center justify-between gap-3">
+                    <span>{name}</span>
+                    <Pill tone={present ? "good" : "warn"}>{present ? "Present" : "Missing"}</Pill>
+                  </li>
+                ))}
+              </ul>
+              {plaidSetup.missing.length ? (
+                <p className="mt-3 text-[var(--red)]">
+                  Missing required variables: {plaidSetup.missing.join(", ")}
+                </p>
+              ) : null}
+              <p className="mt-3 text-[var(--muted)]">{plaidSetup.encryption.message}</p>
+              <p className="mt-1 text-[var(--muted)]">
+                Sync mode: {plaidSetup.localOperation.replaceAll("_", " ")}. Last check:{" "}
+                {plaidSetup.lastConnectivityCheck
+                  ? new Date(plaidSetup.lastConnectivityCheck).toLocaleString()
+                  : "not run"}
+                {plaidSetup.connectivityCode ? ` (${plaidSetup.connectivityCode})` : ""}.
+              </p>
+            </div>
+            <button
+              className="mt-5 h-10 rounded-md border border-[var(--border)] px-4 text-sm font-semibold"
+              onClick={testPlaidSetup}
+              disabled={status === "saving" || !plaidSetup.configured}
+            >
+              Test Plaid configuration
+            </button>
+            {plaidTestMessage ? (
+              <p
+                role="status"
+                className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm"
+              >
+                {plaidTestMessage}
+              </p>
+            ) : null}
+          </Card>
+          <Card className="p-7">
+            <h2 className="text-xl font-semibold">Real-data connectivity gate</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Enabling this gate does not connect an institution. You must still launch Plaid Link,
+              authenticate, select accounts, review matches, and confirm the import from Accounts.
+            </p>
+            {plaidSetup.realConnectivityEnabled ? (
+              <button
+                className="mt-5 h-10 rounded-md border border-[var(--red)] px-4 text-sm font-semibold text-[var(--red)]"
+                onClick={() => setRealPlaid(false)}
+              >
+                Disable real connectivity
+              </button>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <label className="flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={plaidDashboardConfirmed}
+                    onChange={(event) => setPlaidDashboardConfirmed(event.target.checked)}
+                  />
+                  <span>
+                    I confirmed in the Plaid Dashboard that this application has real-data access,
+                    the Transactions product, United States access, and any required approval or
+                    billing setup.
+                  </span>
+                </label>
+                <input
+                  aria-label="Real Plaid confirmation"
+                  className="h-10 rounded-md border border-[var(--border)] px-3"
+                  value={plaidConfirmation}
+                  onChange={(event) => setPlaidConfirmation(event.target.value)}
+                  placeholder="ENABLE REAL PLAID"
+                />
+                <div>
+                  <button
+                    className="h-10 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                    onClick={() => setRealPlaid(true)}
+                    disabled={
+                      status === "saving" ||
+                      !plaidDashboardConfirmed ||
+                      plaidConfirmation !== "ENABLE REAL PLAID" ||
+                      plaidSetup.environment !== "production" ||
+                      plaidSetup.connectivityStatus !== "SUCCEEDED" ||
+                      plaidSetup.workspaceType !== "REAL"
+                    }
+                  >
+                    Enable real connectivity
+                  </button>
+                </div>
+              </div>
+            )}
+            {plaidSetup.activeErrors.length ? (
+              <div className="mt-6">
+                <h3 className="font-semibold">Active connection errors</h3>
+                <ul className="mt-2 list-disc pl-5 text-sm text-[var(--red)]">
+                  {plaidSetup.activeErrors.map((item) => (
+                    <li key={item.itemId}>
+                      {item.institutionName}: {item.code}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </Card>
+        </div>
+      ) : null}
       {activeTab === "backup" ? (
         <Card className="mt-7 p-7">
           <h2 className="text-xl font-semibold">Backup & Data</h2>
@@ -1308,7 +1557,108 @@ export function SettingsClient({
           <div className="mt-8 border-t border-[var(--border)] pt-6">
             <h2 className="text-xl font-semibold">Workspace</h2>
             <div className="mt-5 rounded-md border border-[var(--border)] p-5">
-              <h3 className="text-lg font-semibold">Start fresh</h3>
+              <h3 className="text-lg font-semibold">Selective reset</h3>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                Every action creates and validates a local safety backup first. Theme and navigation
+                preferences remain in the browser.
+              </p>
+              <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    scope: "TRANSACTIONS" as const,
+                    title: "Clear transactions only",
+                    remove: `${backup.counts.transactions} transactions, transfer matches, and recurring evidence links`,
+                    preserve:
+                      "Accounts, categories, goals, import metadata, learned rules, schedules, Plaid connections, and backups",
+                  },
+                  {
+                    scope: "CSV_HISTORY" as const,
+                    title: "Clear CSV import history",
+                    remove: `${backup.counts.importBatches} import batches, staged rows, and saved import mappings`,
+                    preserve:
+                      "Transactions and original source fields, accounts, learned rules, Plaid connections, and backups",
+                  },
+                  {
+                    scope: "PLAID_CONNECTIONS" as const,
+                    title: "Disconnect Plaid institutions",
+                    remove: `${backup.counts.plaidItems ?? 0} local Item tokens after provider-side revocation`,
+                    preserve:
+                      "Local transaction history, classifications, accounts, learned rules, theme preference, and backups",
+                  },
+                  {
+                    scope: "HOUSEHOLD_FINANCIAL" as const,
+                    title: "Reset household financial data",
+                    remove:
+                      "Accounts, transactions, goals, imports, planning records, learned rules, notifications, and Plaid connections",
+                    preserve:
+                      "Household identity, default and custom categories, audit history, theme preference, and backups",
+                  },
+                ].map((option) => (
+                  <button
+                    key={option.scope}
+                    aria-pressed={selectiveScope === option.scope}
+                    className={`rounded-md border p-4 text-left ${selectiveScope === option.scope ? "border-[var(--teal)] bg-[var(--teal-soft)]" : "border-[var(--border)]"}`}
+                    onClick={() => {
+                      setSelectiveScope(option.scope);
+                      setSelectiveConfirmation("");
+                      setSelectiveResult(null);
+                    }}
+                  >
+                    <strong>{option.title}</strong>
+                    <span className="mt-2 block text-xs text-[var(--red)]">
+                      Removes: {option.remove}.
+                    </span>
+                    <span className="mt-1 block text-xs text-[var(--muted)]">
+                      Preserves: {option.preserve}.
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <input
+                  aria-label="Selective reset confirmation"
+                  className="h-10 rounded-md border border-[var(--border)] px-3"
+                  value={selectiveConfirmation}
+                  onChange={(event) => setSelectiveConfirmation(event.target.value)}
+                  placeholder={
+                    selectiveScope === "TRANSACTIONS"
+                      ? "CLEAR TRANSACTIONS"
+                      : selectiveScope === "CSV_HISTORY"
+                        ? "CLEAR CSV HISTORY"
+                        : selectiveScope === "PLAID_CONNECTIONS"
+                          ? "DISCONNECT PLAID"
+                          : "RESET FINANCIAL DATA"
+                  }
+                />
+                <button
+                  className="h-10 rounded-md border border-[var(--red)] px-4 text-sm font-semibold text-[var(--red)] disabled:opacity-50"
+                  onClick={selectiveReset}
+                  disabled={
+                    status === "saving" ||
+                    selectiveConfirmation !==
+                      {
+                        TRANSACTIONS: "CLEAR TRANSACTIONS",
+                        CSV_HISTORY: "CLEAR CSV HISTORY",
+                        PLAID_CONNECTIONS: "DISCONNECT PLAID",
+                        HOUSEHOLD_FINANCIAL: "RESET FINANCIAL DATA",
+                      }[selectiveScope]
+                  }
+                >
+                  Run selected reset
+                </button>
+              </div>
+              {selectiveResult ? (
+                <div
+                  role="status"
+                  className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm"
+                >
+                  Reset completed. Safety backup: <code>{selectiveResult.safetyBackup}</code>.
+                  Preserved: {selectiveResult.preserved.join(", ")}.
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-5 rounded-md border border-[var(--border)] p-5">
+              <h3 className="text-lg font-semibold">Full workspace reset</h3>
               <p className="mt-2 text-sm text-[var(--muted)]">
                 Removes the sample financial records and creates an empty local workspace for your
                 own data. Browser preferences and backup ZIP files are preserved.

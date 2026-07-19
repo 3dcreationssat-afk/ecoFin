@@ -12,6 +12,11 @@ model WorkspaceMetadata {
   workspaceType          String
   databaseCreationSource String
   workspaceName          String?
+  plaidRealAccessConfirmed Boolean @default(false)
+  plaidRealConnectivityEnabled Boolean @default(false)
+  plaidLastConfigCheckAt DateTime?
+  plaidLastConfigCheckStatus String?
+  plaidLastConfigCheckCode String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }

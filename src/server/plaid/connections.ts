@@ -5,7 +5,10 @@ import { z } from "zod";
 import { bestAccountMatch } from "@/domain/plaid/account-matching";
 import { plaidAmountToMinor } from "@/domain/plaid/money";
 import { auditChange } from "@/server/data/audit";
+import { recalculateAccountBalances } from "@/server/data/account-balances";
 import { AppError } from "@/server/data/errors";
+import { refreshRecurringForTransactions } from "@/server/data/recurring";
+import { scanTransferCandidates } from "@/server/data/transfers";
 import { prisma } from "@/server/db/prisma";
 import { plaidClient } from "./client";
 import { getPlaidConfiguration, requirePlaidSecrets } from "./config";
@@ -18,9 +21,22 @@ const exchangeSchema = z.object({
 });
 
 const accountMatchSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("LINK"), localAccountId: z.string().min(1) }),
-  z.object({ action: z.literal("CREATE") }),
+  z.object({
+    action: z.literal("LINK"),
+    localAccountId: z.string().min(1),
+    confirmation: z.literal("CONFIRM ACCOUNT MATCH"),
+  }),
+  z.object({
+    action: z.literal("CREATE"),
+    confirmation: z.literal("CREATE CONNECTED ACCOUNT"),
+    name: z.string().trim().min(1).max(120).optional(),
+    institution: z.string().trim().min(1).max(120).optional(),
+  }),
   z.object({ action: z.literal("IGNORE") }),
+  z.object({ action: z.literal("DEFER") }),
+  z.object({ action: z.literal("UNLINK") }),
+  z.object({ action: z.literal("DISABLE_SYNC") }),
+  z.object({ action: z.literal("ENABLE_SYNC") }),
 ]);
 
 export async function plaidConnectionDashboard() {
@@ -35,14 +51,14 @@ export async function plaidConnectionDashboard() {
       configured: configuration.configured,
       environment: configuration.environment,
       missing: configuration.missing,
-      realConnectionsEnabled: configuration.realConnectionsEnabled,
+      realConnectionsEnabled: identity?.plaidRealConnectivityEnabled ?? false,
       localOperation: configuration.webhookUrl ? "WEBHOOK_AND_MANUAL_SYNC" : "MANUAL_SYNC",
     },
     workspaceType: identity?.workspaceType ?? "UNKNOWN",
     canConnect: canUseEnvironment(
       identity?.workspaceType,
       configuration.environment,
-      configuration.realConnectionsEnabled,
+      identity?.plaidRealConnectivityEnabled ?? false,
     ),
     items: items.map((item) => ({
       id: item.id,
@@ -185,7 +201,7 @@ export async function exchangePlaidPublicToken(input: unknown) {
         await tx.plaidAccount.create({
           data: {
             plaidItemId: item.id,
-            localAccountId: match?.confidence === "HIGH" ? match.account.id : null,
+            localAccountId: null,
             providerAccountId: account.account_id,
             persistentAccountId: account.persistent_account_id,
             officialName: account.official_name,
@@ -200,8 +216,7 @@ export async function exchangePlaidPublicToken(input: unknown) {
             limitBalanceMinor: nullablePlaidBalance(account.balances.limit),
             balanceAsOf: new Date(),
             selectedForImport: selected.has(account.account_id),
-            matchStatus:
-              match?.confidence === "HIGH" ? "AUTO_LINKED" : match ? "PROPOSED" : "UNMATCHED",
+            matchStatus: match ? "PROPOSED" : "UNMATCHED",
             matchConfidence: match?.confidence,
             matchEvidenceJson: match ? JSON.stringify(match.reasons) : null,
           },
@@ -241,11 +256,60 @@ export async function resolvePlaidAccount(plaidAccountId: string, input: unknown
   if (!account) throw new AppError("Connected account not found.", 404);
   const household = await prisma.household.findUnique({ where: { id: account.item.householdId } });
   if (!household) throw new AppError("Household not found.", 404);
-  if (data.action === "IGNORE") {
-    return prisma.plaidAccount.update({
+  if (
+    data.action === "IGNORE" ||
+    data.action === "DEFER" ||
+    data.action === "UNLINK" ||
+    data.action === "DISABLE_SYNC"
+  ) {
+    const statuses = {
+      IGNORE: "IGNORED",
+      DEFER: "DEFERRED",
+      UNLINK: "UNMATCHED",
+      DISABLE_SYNC: "SYNC_DISABLED",
+    } as const;
+    const clearsMatch = data.action !== "DISABLE_SYNC";
+    const updated = await prisma.plaidAccount.update({
       where: { id: account.id },
-      data: { selectedForImport: false, matchStatus: "IGNORED", localAccountId: null },
+      data: {
+        selectedForImport: false,
+        matchStatus: statuses[data.action],
+        localAccountId: clearsMatch ? null : account.localAccountId,
+      },
     });
+    await auditChange(prisma, {
+      householdId: account.item.householdId,
+      entityType: "PlaidAccount",
+      entityId: account.id,
+      action: data.action.toLowerCase(),
+      field: clearsMatch ? "localAccountId" : "selectedForImport",
+      previousValue: account.localAccountId,
+      newValue: clearsMatch ? null : false,
+      source: "user",
+    });
+    return updated;
+  }
+  if (data.action === "ENABLE_SYNC") {
+    if (!account.localAccountId)
+      throw new AppError("Match this connected account before enabling synchronization.", 422);
+    const updated = await prisma.plaidAccount.update({
+      where: { id: account.id },
+      data: { selectedForImport: true, matchStatus: "USER_LINKED" },
+    });
+    await auditChange(prisma, {
+      householdId: household.id,
+      entityType: "PlaidAccount",
+      entityId: account.id,
+      action: "enable_sync",
+      field: "selectedForImport",
+      previousValue: account.selectedForImport,
+      newValue: true,
+      source: "user",
+    });
+    return updated;
+  }
+  if (data.action !== "LINK" && data.action !== "CREATE") {
+    throw new AppError("Unsupported connected-account decision.", 422);
   }
   let localAccountId: string;
   if (data.action === "LINK") {
@@ -262,8 +326,8 @@ export async function resolvePlaidAccount(plaidAccountId: string, input: unknown
     const local = await prisma.account.create({
       data: {
         householdId: household.id,
-        name: account.displayName,
-        institution: account.item.institutionName ?? "Connected institution",
+        name: data.name ?? account.officialName ?? account.displayName,
+        institution: data.institution ?? account.item.institutionName ?? "Connected institution",
         type: mappedType,
         reportedBalanceMinor: account.currentBalanceMinor,
         reportedAvailableMinor: account.availableBalanceMinor,
@@ -274,26 +338,156 @@ export async function resolvePlaidAccount(plaidAccountId: string, input: unknown
     });
     localAccountId = local.id;
   }
-  const updated = await prisma.plaidAccount.update({
-    where: { id: account.id },
-    data: {
-      localAccountId,
-      matchStatus: data.action === "CREATE" ? "CREATED" : "USER_LINKED",
-      matchConfidence: "USER_CONFIRMED",
-      selectedForImport: true,
+  const result = await prisma.$transaction(async (tx) => {
+    const transactionIds = (
+      await tx.plaidTransactionSource.findMany({
+        where: { plaidAccountId: account.id, transactionId: { not: null } },
+        select: { transactionId: true },
+      })
+    ).flatMap((source) => (source.transactionId ? [source.transactionId] : []));
+    if (transactionIds.length) {
+      await tx.transaction.updateMany({
+        where: { id: { in: transactionIds } },
+        data: { accountId: localAccountId },
+      });
+    }
+    const updated = await tx.plaidAccount.update({
+      where: { id: account.id },
+      data: {
+        localAccountId,
+        matchStatus: data.action === "CREATE" ? "CREATED" : "USER_LINKED",
+        matchConfidence: "USER_CONFIRMED",
+        selectedForImport: true,
+      },
+    });
+    await auditChange(tx, {
+      householdId: household.id,
+      entityType: "PlaidAccount",
+      entityId: account.id,
+      action: account.localAccountId ? "rematch" : "match",
+      field: "localAccountId",
+      previousValue: account.localAccountId,
+      newValue: localAccountId,
+      reason: `${transactionIds.length} connected transaction(s) reassigned; classifications and provenance preserved.`,
+      source: "user",
+    });
+    return { updated, transactionIds };
+  });
+  await recalculateAccountBalances([
+    ...new Set([account.localAccountId, localAccountId].filter((id): id is string => Boolean(id))),
+  ]);
+  if (result.transactionIds.length) {
+    await scanTransferCandidates({
+      householdId: household.id,
+      transactionIds: result.transactionIds,
+    });
+    await refreshRecurringForTransactions(result.transactionIds);
+  }
+  return result.updated;
+}
+
+export async function plaidAccountMatchPreview(plaidAccountId: string, localAccountId: string) {
+  const [connected, local] = await Promise.all([
+    prisma.plaidAccount.findUnique({
+      where: { id: plaidAccountId },
+      include: {
+        item: true,
+        transactionSources: {
+          where: { status: "ACTIVE" },
+          select: { postedDate: true, amountMinor: true, transactionId: true },
+          orderBy: { postedDate: "asc" },
+          take: 10_000,
+        },
+      },
+    }),
+    prisma.account.findUnique({
+      where: { id: localAccountId },
+      include: {
+        transactions: {
+          select: {
+            id: true,
+            transactionDate: true,
+            postedDate: true,
+            amountMinor: true,
+            sourceType: true,
+          },
+          orderBy: { transactionDate: "asc" },
+          take: 10_000,
+        },
+        plaidAccounts: { where: { archivedAt: null }, select: { id: true, displayName: true } },
+      },
+    }),
+  ]);
+  if (!connected || !local || connected.item.householdId !== local.householdId)
+    throw new AppError("Connected and local accounts are not available for preview.", 404);
+  const provider = connected.transactionSources;
+  const overlaps = provider.filter((source) =>
+    local.transactions.some(
+      (transaction) =>
+        transaction.amountMinor === source.amountMinor &&
+        Math.abs(
+          (transaction.postedDate ?? transaction.transactionDate).getTime() -
+            source.postedDate.getTime(),
+        ) <=
+          3 * 86_400_000,
+    ),
+  ).length;
+  const localDates = local.transactions.map((item) => item.postedDate ?? item.transactionDate);
+  const providerDates = provider.map((item) => item.postedDate);
+  const localCountBySource = Object.fromEntries(
+    [...new Set(local.transactions.map((item) => item.sourceType))].map((source) => [
+      source,
+      local.transactions.filter((item) => item.sourceType === source).length,
+    ]),
+  );
+  const linkedElsewhere = local.plaidAccounts.filter((item) => item.id !== connected.id);
+  return {
+    connected: {
+      id: connected.id,
+      institutionName: connected.item.institutionName ?? "Connected institution",
+      displayName: connected.displayName,
+      officialName: connected.officialName,
+      type: connected.type,
+      subtype: connected.subtype,
+      mask: connected.mask,
+      currentBalanceMinor: connected.currentBalanceMinor,
     },
-  });
-  await auditChange(prisma, {
-    householdId: household.id,
-    entityType: "PlaidAccount",
-    entityId: account.id,
-    action: "match",
-    field: "localAccountId",
-    previousValue: account.localAccountId,
-    newValue: localAccountId,
-    source: "user",
-  });
-  return updated;
+    local: {
+      id: local.id,
+      name: local.name,
+      institution: local.institution,
+      type: local.type,
+      mask: null,
+      ledgerBalanceMinor: local.ledgerBalanceMinor,
+      latestTransactionDate: localDates.at(-1) ?? null,
+    },
+    coverage: {
+      localFrom: localDates.at(0) ?? null,
+      localTo: localDates.at(-1) ?? null,
+      providerFrom: providerDates.at(0) ?? null,
+      providerTo: providerDates.at(-1) ?? null,
+      localCount: local.transactions.length,
+      providerCount: provider.length,
+      localCountBySource,
+      possibleOverlaps: overlaps,
+      possibleUnmatchedProvider: Math.max(0, provider.length - overlaps),
+      possibleUnmatchedLocal: Math.max(0, local.transactions.length - overlaps),
+    },
+    impact: {
+      balanceDifferenceMinor:
+        connected.currentBalanceMinor == null || local.ledgerBalanceMinor == null
+          ? null
+          : connected.currentBalanceMinor - local.ledgerBalanceMinor,
+      categoriesPreserved: true,
+      learnedRulesPreserved: true,
+      transferDecisionsPreserved: true,
+      recurringDecisionsPreserved: true,
+      transactionProvenancePreserved: true,
+      existingConnectedAccountWarnings: linkedElsewhere.map((item) => item.displayName),
+      authoritativeLedgerRule:
+        "Reconciled CSV and Plaid source records retain both provenances while only the authoritative transaction affects the ledger.",
+    },
+  };
 }
 
 export async function disconnectPlaidItem(itemId: string, input: unknown) {
@@ -353,13 +547,13 @@ async function plaidContext() {
     !canUseEnvironment(
       identity.workspaceType,
       configuration.environment,
-      configuration.realConnectionsEnabled,
+      identity.plaidRealConnectivityEnabled,
     )
   ) {
     throw new AppError(
       configuration.environment === "sandbox"
         ? "Plaid Sandbox is blocked in a REAL workspace. Use an isolated DEMO or TEST database."
-        : "Real Plaid connections require a REAL workspace and PLAID_REAL_CONNECTIONS_ENABLED=true.",
+        : "Real Plaid connections require a REAL workspace and explicit enablement in Settings.",
       409,
     );
   }

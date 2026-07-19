@@ -39,8 +39,8 @@ Financial Compass Phase 2B implements local backup and restore for the active SQ
 - Startup resolves and logs the absolute database path, reads the stable workspace ID/type, and can
   enforce `FINANCIAL_COMPASS_EXPECTED_WORKSPACE_ID` as a non-sensitive smoke assertion.
 - Unit reset requires `FINANCIAL_COMPASS_WORKSPACE_TYPE=TEST` and a `vitest-*` or `test-results`
-  path. Playwright uses its own database under `test-results/playwright` and never reuses a running
-  server.
+  path. Playwright uses `prisma/vitest-playwright.db` and a separately started test server; test
+  artifacts use `playwright-artifacts/` and never contain the test database.
 
 ## Restore Behavior
 
@@ -97,5 +97,8 @@ Do not commit, upload, email, or share backup ZIP files. Store them only in a lo
 - Category rows, including default/custom identity and hierarchy, are restored exactly from the backup. Restore never invokes the default-category seeder. Start Fresh removes custom categories and recreates only the canonical defaults.
 - Merchant rules and transaction field provenance are included in SQLite backups and schema validation. Start Fresh and demo reset remove rules; canonical demo data seeds none.
 - Opening anchors, ledger/reconciliation state, and reconciliation adjustments are included in backup validation and restore. Demo reset recreates reconciled synthetic anchors; Start Fresh removes adjustments.
-- There is no selective restore, merge UI, encrypted archive format, remote backup provider, or scheduled backup job.
+- Settings provides selective transaction clearing, CSV-history clearing, Plaid disconnect,
+  household-financial-data reset, full workspace reset, and whole-backup restore. There is no
+  selective table-level restore, merge restore, encrypted archive format, remote backup provider, or
+  scheduled backup job.
 - Demo reset clears backup metadata in SQLite but does not delete ZIP files already written under `backups/local/`.

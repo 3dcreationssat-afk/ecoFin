@@ -13,7 +13,6 @@ export function getPlaidConfiguration() {
   const encryptionKey = process.env.PLAID_TOKEN_ENCRYPTION_KEY?.trim();
   const redirectUri = process.env.PLAID_REDIRECT_URI?.trim() || undefined;
   const webhookUrl = process.env.PLAID_WEBHOOK_URL?.trim() || undefined;
-  const realConnectionsEnabled = process.env.PLAID_REAL_CONNECTIONS_ENABLED === "true";
   const configured = Boolean(clientId && secret && environmentResult.success && encryptionKey);
 
   return {
@@ -21,7 +20,6 @@ export function getPlaidConfiguration() {
     environment: environmentResult.success ? environmentResult.data : null,
     redirectUri,
     webhookUrl,
-    realConnectionsEnabled,
     missing: [
       !clientId && "PLAID_CLIENT_ID",
       !secret && "PLAID_SECRET",
@@ -42,6 +40,5 @@ export function requirePlaidSecrets() {
     environment: publicConfiguration.environment,
     redirectUri: publicConfiguration.redirectUri,
     webhookUrl: publicConfiguration.webhookUrl,
-    realConnectionsEnabled: publicConfiguration.realConnectionsEnabled,
   };
 }

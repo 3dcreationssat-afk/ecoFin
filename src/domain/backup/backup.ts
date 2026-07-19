@@ -171,6 +171,7 @@ export function migrationFingerprint() {
     "20260718103000_workspace_identity/migration.sql",
     "20260718180000_plaid_foundation/migration.sql",
     "20260718213000_notification_center/migration.sql",
+    "20260719010000_plaid_setup_gate/migration.sql",
   ];
   const hash = createHash("sha256");
   for (const file of migrationFiles) {

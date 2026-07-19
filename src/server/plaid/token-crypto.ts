@@ -42,3 +42,8 @@ export function decryptPlaidAccessToken(envelope: string) {
     decipher.final(),
   ]).toString("utf8");
 }
+
+export function validatePlaidTokenEncryption() {
+  const probe = "financial-compass-encryption-check";
+  return decryptPlaidAccessToken(encryptPlaidAccessToken(probe)) === probe;
+}

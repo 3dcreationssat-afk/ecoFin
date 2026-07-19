@@ -153,8 +153,8 @@ export function PlaidConnectionsClient({
       {dashboard.configuration.environment === "production" &&
       !dashboard.configuration.realConnectionsEnabled ? (
         <Notice tone="warn">
-          Real connections remain locked until Sandbox validation passes and{" "}
-          <code>PLAID_REAL_CONNECTIONS_ENABLED=true</code> is set locally.
+          Real connections remain locked. Validate the configuration and explicitly enable the
+          real-data gate in Settings → Plaid.
         </Notice>
       ) : null}
       {status ? (
@@ -320,6 +320,7 @@ function Institution({
           <ConnectedAccount
             key={account.id}
             account={account}
+            institutionName={item.institutionName}
             localAccounts={localAccounts}
             onMatch={async (body) => {
               if (await action(`/api/plaid/accounts/${account.id}/match`, body))
@@ -334,14 +335,57 @@ function Institution({
 
 function ConnectedAccount({
   account,
+  institutionName,
   localAccounts,
   onMatch,
 }: {
   account: Dashboard["items"][number]["accounts"][number];
+  institutionName: string;
   localAccounts: Array<{ id: string; name: string; type: string }>;
   onMatch: (body: unknown) => Promise<void>;
 }) {
   const [localId, setLocalId] = useState(account.localAccount?.id ?? "");
+  const [search, setSearch] = useState("");
+  const [preview, setPreview] = useState<null | {
+    local: { name: string; type: string; ledgerBalanceMinor: number | null };
+    connected: { displayName: string; currentBalanceMinor: number | null };
+    coverage: {
+      localFrom: string | null;
+      localTo: string | null;
+      providerFrom: string | null;
+      providerTo: string | null;
+      localCount: number;
+      providerCount: number;
+      localCountBySource: Record<string, number>;
+      possibleOverlaps: number;
+      possibleUnmatchedProvider: number;
+      possibleUnmatchedLocal: number;
+    };
+    impact: {
+      balanceDifferenceMinor: number | null;
+      existingConnectedAccountWarnings: string[];
+      authoritativeLedgerRule: string;
+    };
+  }>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [createName, setCreateName] = useState(account.officialName ?? account.displayName);
+  const [createInstitution, setCreateInstitution] = useState(institutionName);
+
+  async function loadPreview() {
+    setPreviewError("");
+    const response = await fetch(
+      `/api/plaid/accounts/${account.id}/match?localAccountId=${encodeURIComponent(localId)}`,
+    );
+    const payload = await response.json();
+    if (!response.ok) {
+      setPreviewError(payload.error ?? "Unable to preview this account match.");
+      return;
+    }
+    setPreview(payload.preview);
+  }
+  const filteredAccounts = localAccounts.filter((local) =>
+    `${local.name} ${local.type}`.toLowerCase().includes(search.toLowerCase()),
+  );
   return (
     <div className="rounded-md bg-[var(--surface-muted)] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -390,8 +434,29 @@ function ConnectedAccount({
           ))}
         </ul>
       ) : null}
-      {!account.localAccount && account.matchStatus !== "IGNORED" ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3">
+        {account.localAccount ? (
+          <p className="mb-2 text-sm">
+            Matched to <strong>{account.localAccount.name}</strong>. Select another account below to
+            correct this match.
+          </p>
+        ) : account.matchStatus === "IGNORED" ? (
+          <p className="mb-2 text-sm text-[var(--muted)]">
+            Ignored. Choose a match or create an account to include it later.
+          </p>
+        ) : account.matchStatus === "DEFERRED" ? (
+          <p className="mb-2 text-sm text-[var(--muted)]">
+            Decision deferred. No transactions will import until this account is matched.
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <input
+            aria-label={`Search local accounts for ${account.displayName}`}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search local accounts"
+            className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+          />
           <select
             aria-label={`Local account for ${account.displayName}`}
             value={localId}
@@ -399,7 +464,7 @@ function ConnectedAccount({
             className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
           >
             <option value="">Choose local account</option>
-            {localAccounts.map((local) => (
+            {filteredAccounts.map((local) => (
               <option key={local.id} value={local.id}>
                 {local.name} · {local.type}
               </option>
@@ -407,25 +472,131 @@ function ConnectedAccount({
           </select>
           <Button
             variant="secondary"
-            disabled={!localId}
-            onClick={() => onMatch({ action: "LINK", localAccountId: localId })}
+            disabled={!localId || localId === account.localAccount?.id}
+            onClick={loadPreview}
           >
-            Link selected
+            {account.localAccount ? "Preview corrected match" : "Preview match"}
           </Button>
-          <Button variant="secondary" onClick={() => onMatch({ action: "CREATE" })}>
-            Create proposed account
+          <Button variant="secondary" onClick={() => onMatch({ action: "DEFER" })}>
+            Decide later
           </Button>
           <Button variant="secondary" onClick={() => onMatch({ action: "IGNORE" })}>
             Ignore
           </Button>
+          {account.localAccount ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  onMatch({ action: account.selectedForImport ? "DISABLE_SYNC" : "ENABLE_SYNC" })
+                }
+              >
+                {account.selectedForImport ? "Disable sync" : "Enable sync"}
+              </Button>
+              <Button variant="secondary" onClick={() => onMatch({ action: "UNLINK" })}>
+                Unlink
+              </Button>
+            </>
+          ) : null}
         </div>
-      ) : account.localAccount ? (
-        <p className="mt-3 text-sm">
-          Matched to <strong>{account.localAccount.name}</strong>.
-        </p>
-      ) : null}
+        {previewError ? <p className="mt-2 text-sm text-[var(--red)]">{previewError}</p> : null}
+        {preview ? (
+          <div className="mt-4 rounded-md border border-[var(--teal)] bg-[var(--surface)] p-4">
+            <h4 className="font-semibold">Confirm reconciliation preview</h4>
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              <span>Local: {preview.local.name}</span>
+              <span>Plaid: {preview.connected.displayName}</span>
+              <span>
+                Local coverage: {dateRange(preview.coverage.localFrom, preview.coverage.localTo)} (
+                {preview.coverage.localCount})
+              </span>
+              <span>
+                Plaid coverage:{" "}
+                {dateRange(preview.coverage.providerFrom, preview.coverage.providerTo)} (
+                {preview.coverage.providerCount})
+              </span>
+              <span>Possible overlaps: {preview.coverage.possibleOverlaps}</span>
+              <span>
+                Balance difference:{" "}
+                {preview.impact.balanceDifferenceMinor == null
+                  ? "Unavailable"
+                  : formatMoney(preview.impact.balanceDifferenceMinor)}
+              </span>
+            </div>
+            <p className="mt-3 text-xs text-[var(--muted)]">
+              CSV and Plaid provenance, categories, learned rules, confirmed transfers, and
+              recurring decisions are preserved. Overlapping source records are not deleted.{" "}
+              {preview.impact.authoritativeLedgerRule}
+            </p>
+            {preview.impact.existingConnectedAccountWarnings.length ? (
+              <p className="mt-2 text-xs text-[var(--red)]">
+                Warning: this local account is already linked to{" "}
+                {preview.impact.existingConnectedAccountWarnings.join(", ")}.
+              </p>
+            ) : null}
+            <div className="mt-3 flex gap-2">
+              <Button
+                onClick={() => {
+                  void onMatch({
+                    action: "LINK",
+                    localAccountId: localId,
+                    confirmation: "CONFIRM ACCOUNT MATCH",
+                  });
+                  setPreview(null);
+                }}
+              >
+                Confirm account match
+              </Button>
+              <Button variant="secondary" onClick={() => setPreview(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {!account.localAccount ? (
+          <div className="mt-4 rounded-md border border-[var(--border)] p-3">
+            <p className="text-sm font-semibold">Create a new local account</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Provider type, subtype, currency, balances, and effective time will be carried over.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                aria-label={`New local account name for ${account.displayName}`}
+                value={createName}
+                onChange={(event) => setCreateName(event.target.value)}
+                className="rounded-md border border-[var(--border)] px-3"
+              />
+              <input
+                aria-label={`New local institution for ${account.displayName}`}
+                value={createInstitution}
+                onChange={(event) => setCreateInstitution(event.target.value)}
+                className="rounded-md border border-[var(--border)] px-3"
+              />
+              <Button
+                variant="secondary"
+                disabled={!createName.trim() || !createInstitution.trim()}
+                onClick={() =>
+                  onMatch({
+                    action: "CREATE",
+                    confirmation: "CREATE CONNECTED ACCOUNT",
+                    name: createName,
+                    institution: createInstitution,
+                  })
+                }
+              >
+                Review and create account
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
+}
+
+function dateRange(from: string | null, to: string | null) {
+  if (!from || !to) return "No staged history";
+  return `${new Date(from).toLocaleDateString()}–${new Date(to).toLocaleDateString()}`;
 }
 
 function Notice({ children, tone }: { children: React.ReactNode; tone: "warn" }) {
