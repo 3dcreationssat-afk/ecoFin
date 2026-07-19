@@ -1,5 +1,9 @@
 # Release Readiness
 
+> Plaid status (2026-07-18): secure Sandbox-capable foundation and isolated synchronization
+> persistence coverage implemented, but Sandbox Link acceptance is not yet complete. Production Plaid connection remains
+> locked. See `docs/plaid-integration.md` and `docs/product-hardening-audit.md`.
+
 - Planning schedules, satisfaction, and savings policy are durable, audited, backup/reset-safe, and tested.
 - Cash allocation identities reconcile exactly in integer cents across all policy modes and are shared by Cash Flow and Overview.
 
@@ -43,8 +47,9 @@ Date: 2026-07-12
 
 - Seed data is synthetic demonstration data.
 - Report export and applying scenarios to real data remain unavailable.
-- Planned controls are visible but disabled for later phases.
-- Transfer and recurring detection are deterministic and local; they are not AI, bank-connected, or automated account-management services.
+- Unimplemented production actions are removed rather than displayed as disabled controls.
+- Transfer and recurring detection are deterministic and local; Plaid-originated records reuse those
+  engines, but the app does not use AI or perform automated account-management actions.
 
 ## Known Limitations
 
@@ -56,7 +61,8 @@ Date: 2026-07-12
 - Restore demonstration data is intentionally limited to the synthetic single-household environment and is not a general delete-all-data workflow.
 - Start fresh deletes local financial/import/transfer/recurring records after typed confirmation. Remove demo records only and Delete all local financial data remain unimplemented separate workflows.
 - CSV import still requires manual mapping choices for many files.
-- Advanced forecasting, bank connectivity, external AI, automated categorization, and automated service cancellation are out of scope.
+- Plaid Transactions and balance metadata have a gated local integration foundation. Production
+  connection remains unavailable until isolated Sandbox acceptance is complete.
 
 ## Security Limitations
 
@@ -127,6 +133,11 @@ Manual release-readiness checks were rerun with synthetic seed data and the corr
 | Persistence after reload                | Passed | Settings, accounts, goals, contributions, imports, filters, and transaction edits persist after reload.            |
 
 ## Validation Snapshot
+
+The historical snapshot below predates the Plaid hardening increment. For the 2026-07-18 increment,
+format, lint, typecheck, secret scanning, a production build, 10 focused domain/security tests, and 4
+isolated Plaid persistence tests passed. The complete Vitest run and the focused Playwright run both
+stalled in the local Windows harness and are not claimed as passing for this increment.
 
 - `npm run format:check`: passed
 - `npm run lint`: passed

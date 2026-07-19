@@ -1,5 +1,24 @@
 # Change Ledger
 
+## 2026-07-18 — Product hardening and secure Plaid foundation
+
+- Added an additive Plaid persistence model for Items, provider users, connected accounts, encrypted
+  access tokens, cursors, sync runs, provider transaction provenance, pending/posting relationships,
+  modifications, removals, connection health, reauthentication, and disconnect state.
+- Added server-only official Plaid SDK integration for Transactions and balance metadata, Link token
+  exchange, local account proposals, user-triggered cursor synchronization, cautious CSV overlap
+  reconciliation, and provider-first disconnect with local history preservation.
+- Enforced Sandbox/REAL workspace isolation and an explicit production-connection lock. Access tokens
+  use AES-256-GCM with a separately stored local key; raw Plaid responses and tokens are excluded
+  from logs, browser DTOs, and tracked fixtures.
+- Added layered provider interpretation with explicit confidence/review policy, merchant-rule reuse,
+  exact minor-unit conversion, account-match scoring, unit tests, tracked-secret scanning, and a
+  privacy-preserving machine reconciliation report.
+- Removed nonfunctional shell, notification, profile, report-export, report-selector, and duplicate
+  add controls. Added persistent light/dark/system theme behavior and removed internal database and
+  workspace identifiers from Settings client data.
+- Created and validated a complete ignored safety backup before applying the additive migration.
+
 ## 2026-07-18 — Credit-card payment semantics and complete import undo
 
 - Recognized positive credit-card-side payments such as Apple Card ACH transfers using the selected
@@ -217,3 +236,16 @@
 - Removed the runtime Google Fonts dependency and bundled the Inter variable font locally through
   `@fontsource-variable/inter`; local development, tests, and normal use now keep the approved
   typography without an external font request.
+
+# 2026-07-18 — Plaid foundation and product hardening
+
+- Added a server-only, environment-gated Plaid Link and Transactions Sync foundation with encrypted
+  access-token envelopes, cursor pagination, one retry for a mutated page set, provider-first
+  disconnect, explicit account matching, transaction provenance, and provider balance refreshes.
+- Preserved user interpretation fields during provider changes, reused explicit pending-to-posted
+  relationships, and only reconciled CSV overlaps when account, integer amount, merchant, date, and
+  uniqueness evidence agree. Provider transaction and balance changes create audit history.
+- Added additive Plaid persistence, backup coverage, reset guards, tracked secret scanning, ignored
+  reconciliation/source-inventory reports, and verified pre/post-migration backups.
+- Implemented persistent light/dark/system themes and removed inert production controls from the
+  global shell, Transactions, Budget, Debt, Reports, and Settings.

@@ -17,6 +17,7 @@ Implemented:
 
 - Next.js App Router application with strict TypeScript and Tailwind CSS.
 - Responsive application shell with persistent collapsible desktop navigation and mobile/tablet drawer navigation.
+- Persistent light, dark, and system theme preference; unfinished global actions are not displayed.
 - SQLite/Prisma source of truth for household settings, accounts, categories, goals, goal contributions, transactions, and audit records.
 - Repository/service-backed API routes with Zod validation and structured errors.
 - Persistent household settings, account management, category management, goal management/contributions, and transaction normalization edits.
@@ -31,6 +32,9 @@ Implemented:
 - Server-paginated transaction search, advanced URL filters, sorting, durable saved views, and household default-view precedence.
 - Explicit current-page transaction selection, audited bulk review actions, and deterministic merchant rules with preview, manual-override protection, and CSV import application.
 - Explicit account opening anchors, transaction-derived asset/liability ledgers, institution-reported snapshots, reconciliation, adjustments, and balance confidence.
+- Gated Plaid Transactions foundation with encrypted server-side access tokens, Link onboarding,
+  local account proposals, user-triggered incremental synchronization, pending/posted transitions,
+  modifications/removals, CSV overlap reconciliation, reauthentication, and disconnect.
 - Durable expected-income and obligation schedules, occurrence satisfaction/matching, and configurable savings recommendation policy.
 - Deterministic minimum-only, Avalanche, Snowball, and custom debt payoff estimates with saved plans,
   extra-payment simulation, rollover milestones, monthly schedules, confidence, and audit history.
@@ -39,7 +43,9 @@ Implemented:
 
 Still planned:
 
-- OFX/QFX/QBO/PDF imports, direct bank connectivity, Plaid/provider APIs, AI categorization, advanced debt planning, scheduled/encrypted/cloud backup, report export, and validated financial engines.
+- OFX/QFX/QBO/PDF imports, external AI categorization, scheduled/cloud backup, report export, and
+  unattended Plaid synchronization. Production Plaid connection remains locked until isolated
+  Sandbox acceptance passes.
 - Production-grade budget forecasting and report export.
 
 ## Local Setup
@@ -78,6 +84,11 @@ Open `http://localhost:3000`.
 - `npm run db:seed` replaces contents of the target database with synthetic demonstration data.
 - `npm run db:reset` deletes the target SQLite file under `prisma/`, recreates schema, and seeds synthetic data.
 - `npm run db:studio` opens Prisma Studio.
+- `npm run security:scan` checks tracked files for Plaid secrets and access tokens.
+- `npm run audit:reconciliation -- --output <ignored-path>` creates a privacy-preserving,
+  machine-verifiable reconciliation report.
+- `npm run audit:source-files -- --root <directory> --output <ignored-path>` hashes local CSV
+  candidates and verifies them against import metadata without printing filenames.
 
 Do not point `db:seed` or `db:reset` at any database containing personal financial data.
 
@@ -88,7 +99,8 @@ Do not point `db:seed` or `db:reset` at any database containing personal financi
 - CSV import stores durable import batches, row-level validation state, and imported transaction links. The uploaded file contents are not permanently stored.
 - Backup packages contain complete unencrypted SQLite financial data and are stored under `backups/local/`, which is ignored by Git.
 - Browser local storage is limited to non-financial UI preferences such as navigation expanded/collapsed state.
-- No direct bank connectivity, telemetry, analytics, ads, or external AI services are included.
+- Optional Plaid connectivity sends explicitly consented account/transaction data between the local
+  app and Plaid. No telemetry, analytics, ads, or external AI services are included.
 - `.env`, SQLite database files, imports, exports, statements, backups, and secrets are ignored.
 - Only synthetic demonstration data should be committed.
 - Never store bank credentials, card PINs, MFA secrets, security-question answers, complete card numbers, real statements, or real account identifiers.
