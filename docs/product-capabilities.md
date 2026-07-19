@@ -35,5 +35,6 @@
 ## Demonstration or Unavailable Capabilities
 
 - Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, applying
-  scenarios to real records, and report export are not implemented.
+  scenarios to real records are not implemented. Monthly reports support local Print, CSV, and HTML
+  export without transmitting financial data.
 - Disabled controls remain visible only when they identify a planned capability and do not silently perform no action.

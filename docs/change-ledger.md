@@ -249,3 +249,17 @@
   reconciliation/source-inventory reports, and verified pre/post-migration backups.
 - Implemented a persistent light/dark toggle and removed inert production controls from the
   global shell, Transactions, Budget, Debt, Reports, and Settings.
+
+# 2026-07-18 — Intended feature restoration correction
+
+- Replaced removal-as-completion with a documented outcome-preservation audit for every control
+  changed in the recent hardening commit.
+- Restored a persistent notification center with deduplicated Plaid, balance, import, data-quality,
+  obligation, missing-income, backup, restore, and destructive-operation events; notifications have
+  severity, timestamps, workflow links, durable read state, archival, and automatic resolution.
+- Restored audited manual transaction creation with integer minor units, account/category validation,
+  ledger recalculation, and transfer/recurring/forecast refresh.
+- Completed report period selection, prior-month/prior-year comparison, browser printing, quoted CSV,
+  and escaped standalone HTML exports. The global Add control is now a working contextual menu.
+- Retained removal only for documented duplicates or misleading single-workspace/profile controls
+  whose outcomes remain available through complete authoritative workflows.

@@ -43,10 +43,10 @@ Implemented:
 
 Still planned:
 
-- OFX/QFX/QBO/PDF imports, external AI categorization, scheduled/cloud backup, report export, and
+- OFX/QFX/QBO/PDF imports, external AI categorization, scheduled/cloud backup, and
   unattended Plaid synchronization. Production Plaid connection remains locked until isolated
   Sandbox acceptance passes.
-- Production-grade budget forecasting and report export.
+- Production-grade budget forecasting beyond the current deterministic monthly reports.
 
 ## Local Setup
 

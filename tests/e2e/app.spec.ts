@@ -219,6 +219,42 @@ test("theme selection visibly changes and persists", async ({ page }) => {
   await page.getByRole("button", { name: "Switch to light theme" }).click();
 });
 
+test("manual transaction creation persists through the audited workflow", async ({ page }) => {
+  await page.goto("/transactions?period=ALL");
+  await page.getByRole("button", { name: "Add Transaction" }).click();
+  const form = page.getByRole("region", { name: "Add manual transaction" });
+  await form.getByLabel("Date").fill("2026-07-18");
+  await form.getByLabel("Description").fill("Synthetic browser entry");
+  await form.getByLabel("Merchant or source").fill("Synthetic browser merchant");
+  await form.getByLabel("Amount").fill("12.34");
+  await form.getByRole("button", { name: "Save transaction" }).click();
+  await expect(
+    page.getByText("Manual transaction created and account balance recalculated."),
+  ).toBeAttached();
+  await expect(page.getByText("Synthetic browser merchant", { exact: true })).toBeVisible();
+});
+
+test("notification center exposes persisted operation events and read controls", async ({
+  page,
+}) => {
+  await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
+  await page.goto("/");
+  await page.getByRole("button", { name: /Notifications/ }).click();
+  const center = page.getByRole("region", { name: "Notification center" });
+  await expect(center.getByText("Demonstration data restored", { exact: true })).toBeVisible();
+  await center.getByRole("button", { name: "Mark all notifications read" }).click();
+  await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
+});
+
+test("reports support period comparison and local exports", async ({ page }) => {
+  await page.goto("/reports");
+  await page.getByLabel("Compare with").selectOption("PRIOR_MONTH");
+  await expect(page.getByRole("heading", { name: "Compared with prior month" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "CSV" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "HTML" })).toBeEnabled();
+});
+
 test("debt planner recalculates strategies, extra payments, custom order, and schedule", async ({
   page,
 }) => {

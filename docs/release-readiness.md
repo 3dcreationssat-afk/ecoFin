@@ -46,7 +46,8 @@ Date: 2026-07-12
 ## Demonstration-only Capabilities
 
 - Seed data is synthetic demonstration data.
-- Report export and applying scenarios to real data remain unavailable.
+- Monthly report Print, CSV, and HTML exports are available locally. Applying scenarios to real
+  records remains unavailable.
 - Unimplemented production actions are removed rather than displayed as disabled controls.
 - Transfer and recurring detection are deterministic and local; Plaid-originated records reuse those
   engines, but the app does not use AI or perform automated account-management actions.
