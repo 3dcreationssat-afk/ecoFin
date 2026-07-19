@@ -49,11 +49,9 @@ export async function backupDashboard() {
     counts,
     workspace: workspace
       ? {
-          id: workspace.id,
           type: workspace.workspaceType,
           name: workspace.workspaceName,
           creationSource: workspace.databaseCreationSource,
-          databasePath: activeSqlitePath(),
         }
       : null,
     storageLabel: "Application-controlled local backup directory",
@@ -448,6 +446,11 @@ async function validateDatabaseFile(path: string) {
       "WorkspaceMetadata",
       "EmergencyFundConfiguration",
       "EmergencyFundAccount",
+      "PlaidUser",
+      "PlaidItem",
+      "PlaidAccount",
+      "PlaidTransactionSource",
+      "PlaidSyncRun",
       "AuditLog",
     ]) {
       if (!tables.some((entry) => entry.name === table))
@@ -496,6 +499,11 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     forecastOccurrences,
     emergencyFundConfigurations,
     emergencyFundAccounts,
+    plaidUsers,
+    plaidItems,
+    plaidAccounts,
+    plaidTransactionSources,
+    plaidSyncRuns,
     auditLogs,
   ] = await Promise.all([
     client.household.count(),
@@ -521,6 +529,11 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     client.forecastOccurrence.count(),
     client.emergencyFundConfiguration.count(),
     client.emergencyFundAccount.count(),
+    client.plaidUser.count(),
+    client.plaidItem.count(),
+    client.plaidAccount.count(),
+    client.plaidTransactionSource.count(),
+    client.plaidSyncRun.count(),
     client.auditLog.count(),
   ]);
   return {
@@ -547,6 +560,11 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     forecastOccurrences,
     emergencyFundConfigurations,
     emergencyFundAccounts,
+    plaidUsers,
+    plaidItems,
+    plaidAccounts,
+    plaidTransactionSources,
+    plaidSyncRuns,
     auditLogs,
   };
 }

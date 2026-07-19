@@ -461,6 +461,15 @@ export async function resetDemoDataWithResult(input: unknown) {
   if (data.simulateFailure) {
     throw new AppError("Simulated demo reset failure.", 500);
   }
+  const connectedPlaidItems = await prisma.plaidItem.count({
+    where: { status: { not: "DISCONNECTED" }, encryptedAccessToken: { not: null } },
+  });
+  if (connectedPlaidItems) {
+    throw new AppError(
+      "Disconnect connected institutions before restoring demonstration data.",
+      409,
+    );
+  }
   const identity = await prisma.workspaceMetadata.findFirst();
   if (!identity || identity.workspaceType !== "DEMO") {
     throw new AppError("Demo reset is allowed only in an identified DEMO workspace.", 409);
@@ -498,6 +507,16 @@ export async function startFreshWorkspace(input: unknown) {
     throw new AppError("Start-fresh failure simulation is only available in tests.", 403);
   }
   if (data.simulateFailure) throw new AppError("Simulated start-fresh failure.", 500);
+
+  const connectedPlaidItems = await prisma.plaidItem.count({
+    where: { status: { not: "DISCONNECTED" }, encryptedAccessToken: { not: null } },
+  });
+  if (connectedPlaidItems) {
+    throw new AppError(
+      "Disconnect connected institutions before starting fresh so provider consent and local tokens are removed safely.",
+      409,
+    );
+  }
 
   const identity = await prisma.workspaceMetadata.findFirst();
   if (!identity || identity.workspaceType === "TEST") {

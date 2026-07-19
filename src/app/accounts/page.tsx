@@ -5,12 +5,17 @@ import { accountSummaries } from "@/domain/summaries/calculations";
 import { formatMoney } from "@/domain/money/money";
 import { getHousehold, workspaceState } from "@/server/data/repositories";
 import { AccountsClient } from "./accounts-client";
+import { PlaidConnectionsClient } from "./plaid-connections-client";
+import { plaidConnectionDashboard } from "@/server/plaid/connections";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountsPage() {
-  const household = await getHousehold();
-  const state = await workspaceState();
+  const [household, state, plaid] = await Promise.all([
+    getHousehold(),
+    workspaceState(),
+    plaidConnectionDashboard(),
+  ]);
   const summary = accountSummaries(household.accounts);
   const isEmpty = state === "EMPTY";
   return (
@@ -42,6 +47,14 @@ export default async function AccountsPage() {
           <MetricCard label="Net worth" value={formatMoney(summary.netWorthMinor)} featured />
         </div>
       )}
+      <PlaidConnectionsClient
+        dashboard={JSON.parse(JSON.stringify(plaid))}
+        localAccounts={household.accounts.map((account) => ({
+          id: account.id,
+          name: account.name,
+          type: account.type,
+        }))}
+      />
       <AccountsClient
         householdId={household.id}
         accounts={JSON.parse(JSON.stringify(household.accounts))}

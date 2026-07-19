@@ -24,7 +24,10 @@
     "backup:validate": "tsx scripts/backup-validate.ts",
     "restore": "tsx scripts/restore.ts",
     "repair:import-semantics": "tsx scripts/repair-import-semantics.ts",
-    "reimport:verified": "tsx scripts/reimport-verified-batches.ts"
+    "reimport:verified": "tsx scripts/reimport-verified-batches.ts",
+    "audit:reconciliation": "tsx scripts/reconciliation-report.ts",
+    "audit:source-files": "tsx scripts/source-file-inventory.ts",
+    "security:scan": "tsx scripts/scan-tracked-secrets.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
@@ -41,8 +44,10 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
+    "plaid": "^43.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-plaid-link": "^4.1.1",
     "recharts": "^3.9.2",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"

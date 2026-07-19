@@ -59,6 +59,20 @@ model Household {
   emergencyFundConfiguration                EmergencyFundConfiguration?
   forecastRules                             ForecastRule[]
   forecastOccurrences                       ForecastOccurrence[]
+  plaidItems                                PlaidItem[]
+  plaidUsers                                PlaidUser[]
+}
+
+model PlaidUser {
+  id             String    @id @default(cuid())
+  householdId    String
+  providerUserId String    @unique
+  environment    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, environment])
 }
 
 model EmergencyFundConfiguration {
@@ -253,6 +267,7 @@ model Account {
   debtObligations               ScheduledObligation[]      @relation("ObligationDebtAccount")
   emergencyFundLinks            EmergencyFundAccount[]
   forecastRules                 ForecastRule[]
+  plaidAccounts                 PlaidAccount[]
 }
 
 model ReconciliationAdjustment {
@@ -362,6 +377,12 @@ model Transaction {
   categorySource               String                        @default("IMPORT_DEFAULT")
   typeSource                   String                        @default("IMPORT_DEFAULT")
   reviewSource                 String                        @default("IMPORT_DEFAULT")
+  interpretationType          String?
+  interpretationConfidence    String?
+  interpretationReason        String?
+  interpretationEvidenceJson  String?
+  interpretationAutoApplied   Boolean                       @default(false)
+  interpretationReviewRequired Boolean                      @default(false)
   appliedMerchantRuleId        String?
   ruleAppliedAt                DateTime?
   isDemo                       Boolean                       @default(true)
@@ -378,11 +399,122 @@ model Transaction {
   incomeOccurrence             ExpectedIncomeOccurrence?     @relation("IncomeOccurrenceTransaction")
   obligationOccurrence         ObligationOccurrence?         @relation("ObligationOccurrenceTransaction")
   forecastOccurrence           ForecastOccurrence?           @relation("ForecastOccurrenceTransaction")
+  plaidSource                  PlaidTransactionSource?
 
   @@index([householdId, transactionDate])
   @@index([householdId, reviewStatus, sourceType])
   @@index([householdId, accountId, categoryId])
   @@index([householdId, appliedMerchantRuleId])
+}
+
+model PlaidItem {
+  id                       String         @id @default(cuid())
+  householdId              String
+  providerItemId           String         @unique
+  institutionId            String?
+  institutionName          String?
+  encryptedAccessToken     String?
+  tokenKeyVersion          Int            @default(1)
+  environment              String
+  status                   String         @default("ACTIVE")
+  consentExpiresAt         DateTime?
+  syncCursor               String?
+  syncLockedAt             DateTime?
+  lastSyncStartedAt        DateTime?
+  lastSuccessfulSyncAt     DateTime?
+  lastSyncErrorCode        String?
+  lastSyncErrorMessage     String?
+  reauthenticationRequired Boolean        @default(false)
+  disconnectedAt           DateTime?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  household                Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  accounts                 PlaidAccount[]
+  syncRuns                 PlaidSyncRun[]
+
+  @@index([householdId, status])
+}
+
+model PlaidAccount {
+  id                    String                   @id @default(cuid())
+  plaidItemId           String
+  localAccountId        String?
+  providerAccountId     String                   @unique
+  persistentAccountId   String?
+  officialName          String?
+  displayName           String
+  mask                  String?
+  type                  String
+  subtype               String?
+  currency              String?
+  currentBalanceMinor   Int?
+  availableBalanceMinor Int?
+  limitBalanceMinor     Int?
+  balanceAsOf           DateTime?
+  selectedForImport     Boolean                  @default(true)
+  matchStatus           String                   @default("UNMATCHED")
+  matchConfidence       String?
+  matchEvidenceJson     String?
+  archivedAt            DateTime?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  item                  PlaidItem                @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+  localAccount          Account?                 @relation(fields: [localAccountId], references: [id], onDelete: SetNull)
+  transactionSources    PlaidTransactionSource[]
+
+  @@unique([plaidItemId, persistentAccountId])
+  @@index([plaidItemId, archivedAt])
+  @@index([localAccountId])
+}
+
+model PlaidTransactionSource {
+  id                           String       @id @default(cuid())
+  plaidAccountId               String
+  transactionId                String?      @unique
+  providerTransactionId        String       @unique
+  pendingProviderTransactionId String?
+  authorizedDate               DateTime?
+  postedDate                   DateTime
+  amountMinor                  Int
+  currency                     String?
+  rawName                      String
+  merchantName                 String?
+  providerCategoryPrimary      String?
+  providerCategoryDetailed     String?
+  providerTransactionCode      String?
+  pending                      Boolean      @default(false)
+  status                       String       @default("ACTIVE")
+  ledgerDisposition            String       @default("UNMAPPED")
+  reconciliationEvidenceJson   String?
+  removedAt                    DateTime?
+  providerModifiedAt           DateTime?
+  createdAt                    DateTime     @default(now())
+  updatedAt                    DateTime     @updatedAt
+  plaidAccount                 PlaidAccount @relation(fields: [plaidAccountId], references: [id], onDelete: Cascade)
+  transaction                  Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([plaidAccountId, postedDate])
+  @@index([pendingProviderTransactionId])
+}
+
+model PlaidSyncRun {
+  id            String    @id @default(cuid())
+  plaidItemId   String
+  status        String
+  trigger       String
+  cursorBefore  String?
+  cursorAfter   String?
+  addedCount    Int       @default(0)
+  modifiedCount Int       @default(0)
+  removedCount  Int       @default(0)
+  pageCount     Int       @default(0)
+  errorCode     String?
+  errorMessage  String?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  item          PlaidItem @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+
+  @@index([plaidItemId, startedAt])
 }
 
 model TransferMatch {
