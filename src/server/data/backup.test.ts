@@ -218,6 +218,7 @@ function makeZip(
       plaidAccounts: 0,
       plaidTransactionSources: 0,
       plaidSyncRuns: 0,
+      notifications: 0,
       auditLogs: 1,
     },
     databaseFileSize: database.length,

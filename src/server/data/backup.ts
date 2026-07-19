@@ -451,6 +451,7 @@ async function validateDatabaseFile(path: string) {
       "PlaidAccount",
       "PlaidTransactionSource",
       "PlaidSyncRun",
+      "Notification",
       "AuditLog",
     ]) {
       if (!tables.some((entry) => entry.name === table))
@@ -504,6 +505,7 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     plaidAccounts,
     plaidTransactionSources,
     plaidSyncRuns,
+    notifications,
     auditLogs,
   ] = await Promise.all([
     client.household.count(),
@@ -534,6 +536,7 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     client.plaidAccount.count(),
     client.plaidTransactionSource.count(),
     client.plaidSyncRun.count(),
+    client.notification.count(),
     client.auditLog.count(),
   ]);
   return {
@@ -565,6 +568,7 @@ async function currentCounts(client: PrismaClient): Promise<Counts> {
     plaidAccounts,
     plaidTransactionSources,
     plaidSyncRuns,
+    notifications,
     auditLogs,
   };
 }

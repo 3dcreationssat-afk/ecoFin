@@ -8,6 +8,7 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
   Search,
   Shield,
   Sun,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { navSections } from "@/data/demo";
 import { cn } from "@/lib/utils";
+import { NotificationCenter } from "./notification-center";
 
 const NAV_STORAGE_KEY = "financial-compass-nav";
 const NAV_EVENT = "financial-compass-nav";
@@ -90,6 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-label="Search transactions"
               />
             </div>
+            <QuickAddMenu />
             <Link
               href="/transactions?import=1"
               onClick={(event) => {
@@ -102,6 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Upload className="h-4 w-4" /> Import
             </Link>
             <ThemeControl />
+            <NotificationCenter />
           </header>
           <main id="main-content" className="min-w-0 flex-1 px-4 py-5 md:px-6 lg:px-7">
             <div className="mx-auto w-full max-w-[1600px]">{children}</div>
@@ -109,6 +113,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function QuickAddMenu() {
+  const actions = [
+    { href: "/transactions?period=ALL&manual=1", label: "Add transaction" },
+    { href: "/transactions?period=ALL&import=1", label: "Import CSV" },
+    { href: "/accounts", label: "Add account" },
+    { href: "/goals", label: "Add goal" },
+    { href: "/decisions", label: "Create scenario" },
+    { href: "/settings#categories", label: "Add category" },
+  ];
+  return (
+    <details className="group relative hidden xl:block">
+      <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white [&::-webkit-details-marker]:hidden">
+        <Plus className="h-4 w-4" /> Add
+      </summary>
+      <div className="absolute right-0 top-11 z-50 w-52 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl">
+        {actions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className="block px-4 py-2 text-sm hover:bg-[var(--surface-muted)]"
+          >
+            {action.label}
+          </Link>
+        ))}
+      </div>
+    </details>
   );
 }
 

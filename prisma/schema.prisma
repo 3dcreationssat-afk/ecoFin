@@ -61,6 +61,7 @@ model Household {
   forecastOccurrences                       ForecastOccurrence[]
   plaidItems                                PlaidItem[]
   plaidUsers                                PlaidUser[]
+  notifications                             Notification[]
 }
 
 model PlaidUser {
@@ -894,6 +895,30 @@ model AuditLog {
   source        String     @default("user")
   createdAt     DateTime   @default(now())
   household     Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  householdId String
+  dedupeKey   String
+  type        String
+  severity    String
+  title       String
+  message     String
+  href        String?
+  entityType  String?
+  entityId    String?
+  occurredAt  DateTime
+  readAt      DateTime?
+  archivedAt  DateTime?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, dedupeKey])
+  @@index([householdId, archivedAt, resolvedAt, occurredAt])
+  @@index([householdId, readAt, archivedAt])
 }
 
 model BackupRecord {

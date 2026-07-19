@@ -44,6 +44,7 @@ export const backupManifestSchema = z.object({
     plaidAccounts: z.number().int().nonnegative(),
     plaidTransactionSources: z.number().int().nonnegative(),
     plaidSyncRuns: z.number().int().nonnegative(),
+    notifications: z.number().int().nonnegative(),
     auditLogs: z.number().int().nonnegative(),
   }),
   databaseFileSize: z.number().int().positive(),
@@ -169,6 +170,7 @@ export function migrationFingerprint() {
     "20260715210000_cash_flow_intelligence/migration.sql",
     "20260718103000_workspace_identity/migration.sql",
     "20260718180000_plaid_foundation/migration.sql",
+    "20260718213000_notification_center/migration.sql",
   ];
   const hash = createHash("sha256");
   for (const file of migrationFiles) {
