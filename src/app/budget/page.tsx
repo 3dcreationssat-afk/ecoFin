@@ -1,6 +1,5 @@
-import { Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { Button, Card, MetricCard, PageHeader, Pill } from "@/components/data-display/primitives";
+import { Card, MetricCard, PageHeader, Pill } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { formatMoney } from "@/domain/money/money";
 import { categoryBudgetSummaries } from "@/domain/summaries/calculations";
@@ -28,11 +27,6 @@ export default async function BudgetPage() {
         title={pageMeta["/budget"].title}
         subtitle={pageMeta["/budget"].subtitle}
         workspaceState={state}
-        action={
-          <Button disabled title="Category creation is planned">
-            <Plus className="h-4 w-4" /> Add Category
-          </Button>
-        }
       />
       {state === "EMPTY" ? (
         <Card className="p-6">

@@ -72,14 +72,15 @@ type BackupDashboardDto = {
     transferMatches?: number;
     recurringExpenses?: number;
     recurringLinks?: number;
+    plaidItems?: number;
+    plaidAccounts?: number;
+    plaidTransactionSources?: number;
     auditLogs: number;
   };
   workspace: {
-    id: string;
     type: string;
     name?: string | null;
     creationSource: string;
-    databasePath: string;
   } | null;
   storageLabel: string;
   encryptionStatus: string;
@@ -1150,11 +1151,9 @@ export function SettingsClient({
                 </Pill>
                 <span>{backup.workspace.name ?? "Unnamed workspace"}</span>
               </div>
-              <p className="mt-2 break-all text-xs text-[var(--muted)]">
-                ID: {backup.workspace.id} · Created by {backup.workspace.creationSource}
-              </p>
-              <p className="mt-1 break-all text-xs text-[var(--muted)]">
-                Database: {backup.workspace.databasePath}
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Created by {backup.workspace.creationSource}. Internal database identifiers stay
+                server-side.
               </p>
             </div>
           ) : (
@@ -1173,13 +1172,6 @@ export function SettingsClient({
               disabled={status === "saving"}
             >
               Create backup
-            </button>
-            <button
-              className="h-10 cursor-not-allowed rounded-md border border-[var(--border)] px-4 text-sm font-semibold text-[var(--muted)] opacity-70"
-              disabled
-              title="Delete all data is not implemented in Phase 2B"
-            >
-              Delete all data unavailable
             </button>
           </div>
           <div className="mt-6 overflow-x-auto">

@@ -195,11 +195,22 @@ test("mobile navigation reaches accounts", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
 });
 
-test("planned controls are disabled instead of silently inert", async ({ page }) => {
+test("unfinished production controls are not exposed", async ({ page }) => {
   await page.goto("/reports");
-  await expect(page.getByRole("button", { name: /CSV/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /CSV/ })).toHaveCount(0);
   await page.goto("/transactions");
-  await expect(page.getByRole("button", { name: /Add Transaction/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Add Transaction/ })).toHaveCount(0);
+});
+
+test("theme selection visibly changes and persists", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Theme: system. Switch to light." }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Theme: light. Switch to dark." }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Theme: dark. Switch to system." }).click();
 });
 
 test("debt planner recalculates strategies, extra payments, custom order, and schedule", async ({

@@ -2,15 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CheckCircle2,
-  FileText,
-  Link2,
-  Plus,
-  RotateCcw,
-  SlidersHorizontal,
-  Upload,
-} from "lucide-react";
+import { CheckCircle2, FileText, Link2, RotateCcw, SlidersHorizontal, Upload } from "lucide-react";
 import { Button, Card, Pill } from "@/components/data-display/primitives";
 import { formatMoney } from "@/domain/money/money";
 import {
@@ -489,9 +481,6 @@ export function TransactionsClient({
       <div className="mb-4 flex flex-wrap gap-3">
         <Button variant="secondary" onClick={() => setImportOpen(true)}>
           <Upload className="h-4 w-4" /> Import CSV
-        </Button>
-        <Button disabled title="Manual transaction creation is planned">
-          <Plus className="h-4 w-4" /> Add Transaction
         </Button>
         <SavedViews
           views={savedViews}

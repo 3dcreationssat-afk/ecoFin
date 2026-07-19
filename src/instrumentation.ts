@@ -15,7 +15,5 @@ export async function register() {
   if (expectedId && workspace.id !== expectedId) {
     throw new Error("Database identity check failed: configured workspace ID does not match.");
   }
-  console.info(
-    `[Financial Compass] database=${configured.path} workspace=${workspace.id} type=${workspace.workspaceType}`,
-  );
+  console.info(`[Financial Compass] database identity verified; type=${workspace.workspaceType}`);
 }

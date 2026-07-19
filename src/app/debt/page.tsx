@@ -1,6 +1,5 @@
-import { Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { Button, Card, PageHeader } from "@/components/data-display/primitives";
+import { Card, PageHeader } from "@/components/data-display/primitives";
 import { DebtPlanner } from "./debt-planner";
 import { pageMeta } from "@/data/demo";
 import type { DebtInput } from "@/domain/debt/payoff";
@@ -35,11 +34,6 @@ export default async function DebtPage() {
         title={pageMeta["/debt"].title}
         subtitle={pageMeta["/debt"].subtitle}
         workspaceState={state}
-        action={
-          <Button disabled title="Add debt accounts from Accounts">
-            <Plus className="h-4 w-4" /> Add Debt
-          </Button>
-        }
       />
       {state === "EMPTY" ? (
         <Card className="p-6">

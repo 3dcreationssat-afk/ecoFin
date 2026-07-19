@@ -4,15 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
-  Bell,
-  ChevronDown,
   Menu,
   Moon,
+  Monitor,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   Search,
   Shield,
+  Sun,
   Upload,
   X,
 } from "lucide-react";
@@ -21,6 +20,9 @@ import { cn } from "@/lib/utils";
 
 const NAV_STORAGE_KEY = "financial-compass-nav";
 const NAV_EVENT = "financial-compass-nav";
+const THEME_STORAGE_KEY = "financial-compass-theme";
+const THEME_EVENT = "financial-compass-theme";
+type ThemePreference = "light" | "dark" | "system";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -72,12 +74,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <select className="hidden h-9 rounded-md border border-[var(--border)] bg-white px-3 text-sm sm:block">
-              <option>This Month · Jul 2026</option>
-            </select>
-            <select className="hidden h-9 rounded-md border-0 bg-transparent px-3 text-sm md:block">
-              <option>Our Household</option>
-            </select>
             <div className="relative min-w-0 flex-1 sm:min-w-[160px]">
               <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
               <input
@@ -95,13 +91,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-label="Search transactions"
               />
             </div>
-            <button
-              disabled
-              title="Add workflows are planned for a later phase"
-              className="hidden h-9 cursor-not-allowed items-center gap-2 rounded-md bg-[var(--teal)] px-4 text-sm font-semibold text-white opacity-60 xl:flex"
-            >
-              <Plus className="h-4 w-4" /> Add
-            </button>
             <Link
               href="/transactions?import=1"
               onClick={(event) => {
@@ -113,15 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Upload className="h-4 w-4" /> Import
             </Link>
-            <Moon className="hidden h-5 w-5 text-slate-700 lg:block" />
-            <div className="relative hidden lg:block">
-              <Bell className="h-5 w-5 text-slate-700" />
-              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[var(--amber)]" />
-            </div>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--teal)] text-sm font-semibold text-white">
-              JD
-            </button>
-            <ChevronDown className="hidden h-4 w-4 text-slate-500 lg:block" />
+            <ThemeControl />
           </header>
           <main id="main-content" className="min-w-0 flex-1 px-4 py-5 md:px-6 lg:px-7">
             <div className="mx-auto w-full max-w-[1600px]">{children}</div>
@@ -411,4 +392,64 @@ function subscribeToNavPreference(callback: () => void) {
 
 function getNavPreference() {
   return window.localStorage.getItem(NAV_STORAGE_KEY) === "collapsed";
+}
+
+function ThemeControl() {
+  const preference = useSyncExternalStore(
+    subscribeToThemePreference,
+    getThemePreference,
+    () => "system" as ThemePreference,
+  );
+  useEffect(() => applyThemePreference(preference), [preference]);
+  useEffect(() => {
+    if (preference !== "system") return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => applyThemePreference("system");
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [preference]);
+  const next: Record<ThemePreference, ThemePreference> = {
+    system: "light",
+    light: "dark",
+    dark: "system",
+  };
+  const Icon = preference === "light" ? Sun : preference === "dark" ? Moon : Monitor;
+  return (
+    <button
+      className="grid h-9 w-9 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)]"
+      aria-label={`Theme: ${preference}. Switch to ${next[preference]}.`}
+      title={`Theme: ${preference}`}
+      onClick={() => {
+        window.localStorage.setItem(THEME_STORAGE_KEY, next[preference]);
+        window.dispatchEvent(new Event(THEME_EVENT));
+      }}
+    >
+      <Icon className="h-5 w-5" />
+    </button>
+  );
+}
+
+function subscribeToThemePreference(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(THEME_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(THEME_EVENT, callback);
+  };
+}
+
+function getThemePreference(): ThemePreference {
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return stored === "light" || stored === "dark" ? stored : "system";
+}
+
+function applyThemePreference(preference: ThemePreference) {
+  const resolved =
+    preference === "system"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : preference;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.style.colorScheme = resolved;
 }

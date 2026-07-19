@@ -1,6 +1,5 @@
-import { FileDown, Printer } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { Button, Card, MetricCard, PageHeader } from "@/components/data-display/primitives";
+import { Card, MetricCard, PageHeader } from "@/components/data-display/primitives";
 import { pageMeta } from "@/data/demo";
 import { formatMoney } from "@/domain/money/money";
 import { categoryBudgetSummaries, currentPeriodSummary } from "@/domain/summaries/calculations";
@@ -30,19 +29,6 @@ export default async function ReportsPage() {
         title={pageMeta["/reports"].title}
         subtitle={pageMeta["/reports"].subtitle}
         workspaceState={state}
-        action={
-          <div className="flex gap-3">
-            <Button variant="secondary" disabled title="Print export is planned">
-              <Printer className="h-4 w-4" /> Print
-            </Button>
-            <Button variant="secondary" disabled title="CSV export is planned">
-              <FileDown className="h-4 w-4" /> CSV
-            </Button>
-            <Button variant="secondary" disabled title="HTML export is planned">
-              <FileDown className="h-4 w-4" /> HTML
-            </Button>
-          </div>
-        }
       />
       {state === "EMPTY" ? (
         <Card className="p-6">
@@ -56,20 +42,6 @@ export default async function ReportsPage() {
       ) : (
         <>
           <div className="mb-7 flex flex-wrap items-center gap-3">
-            <select
-              disabled
-              title="Additional report types are planned"
-              className="h-11 rounded-md border border-[var(--border)] bg-white px-4 disabled:opacity-60"
-            >
-              <option>Monthly Summary</option>
-            </select>
-            <select
-              disabled
-              title="Additional comparisons are planned"
-              className="h-11 rounded-md border border-[var(--border)] bg-white px-4 disabled:opacity-60"
-            >
-              <option>vs. Prior Month</option>
-            </select>
             <span className="text-[var(--muted)]">Period: current month</span>
           </div>
           <div className="metric-grid mb-7">
