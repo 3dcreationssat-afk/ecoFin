@@ -246,6 +246,13 @@ test("notification center exposes persisted operation events and read controls",
   await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
 });
 
+test("global Add menu routes to completed creation workflows", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("summary").filter({ hasText: "Add" }).click();
+  await page.getByRole("link", { name: "Add transaction" }).click();
+  await expect(page.getByRole("region", { name: "Add manual transaction" })).toBeVisible();
+});
+
 test("reports support period comparison and local exports", async ({ page }) => {
   await page.goto("/reports");
   await page.getByLabel("Compare with").selectOption("PRIOR_MONTH");
