@@ -165,6 +165,10 @@ export function migrationFingerprint() {
     "20260713010000_account_ledger_reconciliation/migration.sql",
     "20260713020000_planning_schedules_policy/migration.sql",
     "20260713030000_emergency_fund_configuration/migration.sql",
+    "20260713103000_default_categories/migration.sql",
+    "20260715210000_cash_flow_intelligence/migration.sql",
+    "20260718103000_workspace_identity/migration.sql",
+    "20260718180000_plaid_foundation/migration.sql",
   ];
   const hash = createHash("sha256");
   for (const file of migrationFiles) {
