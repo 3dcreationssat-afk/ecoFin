@@ -3,6 +3,7 @@ import { bulkActionSchema, ruleTransactionTypes } from "@/domain/merchant-rules/
 import { AppError } from "./errors";
 import { auditChange, auditFields } from "./audit";
 import { reapplyRulesToSelected } from "./merchant-rules";
+import { recommendTransactionReview } from "@/domain/transactions/review";
 
 export async function bulkUpdateTransactions(input: unknown) {
   const data = bulkActionSchema.parse(input);
@@ -11,7 +12,7 @@ export async function bulkUpdateTransactions(input: unknown) {
   if (!household) throw new AppError("Household not found.", 404);
   const uniqueIds = [...new Set(data.transactionIds)];
   if (
-    ["EXCLUDE", "RESTORE", "SET_TYPE"].includes(data.action) &&
+    ["EXCLUDE", "RESTORE", "SET_TYPE", "APPLY_REVIEW_RECOMMENDATIONS"].includes(data.action) &&
     data.confirmation !== "CONFIRM BULK CHANGE"
   )
     throw new AppError("Confirm the reporting-impacting bulk change.", 422);
@@ -25,6 +26,7 @@ export async function bulkUpdateTransactions(input: unknown) {
     const transactions = await tx.transaction.findMany({
       where: { id: { in: uniqueIds }, householdId: household.id },
       include: {
+        account: { select: { type: true } },
         outgoingTransferMatches: true,
         incomingTransferMatches: true,
         recurringLinks: { include: { recurringExpense: true } },
@@ -50,8 +52,9 @@ export async function bulkUpdateTransactions(input: unknown) {
         (link) => link.recurringExpense.status === "CONFIRMED",
       );
       return (
-        (data.action === "SET_TYPE" && confirmedTransfer) ||
-        (["SET_TYPE", "NORMALIZE_MERCHANT"].includes(data.action) && confirmedRecurring)
+        (["SET_TYPE", "APPLY_REVIEW_RECOMMENDATIONS"].includes(data.action) && confirmedTransfer) ||
+        (["SET_TYPE", "NORMALIZE_MERCHANT", "APPLY_REVIEW_RECOMMENDATIONS"].includes(data.action) &&
+          confirmedRecurring)
       );
     });
     if (ineligible.length)
@@ -60,9 +63,28 @@ export async function bulkUpdateTransactions(input: unknown) {
         409,
       );
     const operationId = crypto.randomUUID();
+    let changed = 0;
+    let skipped = 0;
     for (const transaction of transactions) {
-      const update =
-        data.action === "ASSIGN_CATEGORY"
+      const recommendation =
+        data.action === "APPLY_REVIEW_RECOMMENDATIONS" && transaction.reviewStatus === "FLAGGED"
+          ? recommendTransactionReview(transaction)
+          : null;
+      if (data.action === "APPLY_REVIEW_RECOMMENDATIONS" && !recommendation) {
+        skipped += 1;
+        continue;
+      }
+      const update = recommendation
+        ? {
+            type: recommendation.type,
+            typeSource: "BULK_USER",
+            reviewStatus: "REVIEWED",
+            reviewSource: "BULK_USER",
+            affectsIncomeSpendingReports: transaction.excluded
+              ? false
+              : recommendation.affectsIncomeSpendingReports,
+          }
+        : data.action === "ASSIGN_CATEGORY"
           ? { categoryId: data.value, categorySource: "BULK_USER" }
           : data.action === "MARK_REVIEWED"
             ? { reviewStatus: "REVIEWED", reviewSource: "BULK_USER" }
@@ -86,6 +108,7 @@ export async function bulkUpdateTransactions(input: unknown) {
         fields: Object.keys(update).filter((field) => !field.endsWith("Source")),
         source: "bulk_user",
       });
+      changed += 1;
     }
     await auditChange(tx, {
       householdId: household.id,
@@ -94,15 +117,15 @@ export async function bulkUpdateTransactions(input: unknown) {
       action: data.action,
       field: "transactionCount",
       previousValue: 0,
-      newValue: transactions.length,
+      newValue: changed,
       source: "bulk_user",
     });
     return {
       operationId,
       selected: uniqueIds.length,
-      eligible: uniqueIds.length,
-      skipped: 0,
-      changed: transactions.length,
+      eligible: changed,
+      skipped,
+      changed,
     };
   });
 }

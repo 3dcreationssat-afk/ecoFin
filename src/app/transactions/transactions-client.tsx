@@ -18,6 +18,7 @@ import {
   withTransactionQueryChange,
   type TransactionQuery,
 } from "@/domain/transactions/query";
+import { recommendTransactionReview } from "@/domain/transactions/review";
 
 type CategoryDto = { id: string; name: string };
 type AccountDto = { id: string; name: string; type: string };
@@ -38,7 +39,7 @@ type TransactionDto = {
   excluded: boolean;
   notes?: string | null;
   categoryId?: string | null;
-  account: { name: string };
+  account: { name: string; type: string };
   category?: { name: string } | null;
 };
 type TransferMatchDto = {
@@ -1570,21 +1571,47 @@ function BulkActionBar({
   onClear: () => void;
   onComplete: (message: string) => void;
 }) {
-  const [action, setAction] = useState("MARK_REVIEWED");
+  const [action, setAction] = useState("APPLY_REVIEW_RECOMMENDATIONS");
   const [value, setValue] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const selectedRecommendations = useMemo(
+    () =>
+      transactions
+        .filter((transaction) => selectedIds.includes(transaction.id))
+        .map((transaction) => ({
+          transaction,
+          recommendation:
+            transaction.reviewStatus === "FLAGGED" ? recommendTransactionReview(transaction) : null,
+        })),
+    [selectedIds, transactions],
+  );
+  const recommendationCounts = useMemo(
+    () =>
+      selectedRecommendations.reduce(
+        (counts, item) => {
+          if (item.recommendation) counts[item.recommendation.kind] += 1;
+          else counts.UNCERTAIN += 1;
+          return counts;
+        },
+        { CREDIT_CARD_PAYMENT: 0, REFUND: 0, FEE: 0, UNCERTAIN: 0 },
+      ),
+    [selectedRecommendations],
+  );
   const needsValue =
     action === "ASSIGN_CATEGORY" || action === "SET_TYPE" || action === "NORMALIZE_MERCHANT";
   async function apply() {
-    const reportingImpact = ["EXCLUDE", "RESTORE", "SET_TYPE"].includes(action);
-    if (
-      reportingImpact &&
-      !window.confirm(
-        `${action.replaceAll("_", " ")} ${selectedIds.length} explicitly selected transaction(s) on this page?`,
-      )
-    )
-      return;
+    const reportingImpact = [
+      "EXCLUDE",
+      "RESTORE",
+      "SET_TYPE",
+      "APPLY_REVIEW_RECOMMENDATIONS",
+    ].includes(action);
+    const confirmationMessage =
+      action === "APPLY_REVIEW_RECOMMENDATIONS"
+        ? `Apply the displayed recommendations to ${selectedIds.length} selected transaction(s)? Uncertain items will remain flagged.`
+        : `${action.replaceAll("_", " ")} ${selectedIds.length} explicitly selected transaction(s) on this page?`;
+    if (reportingImpact && !window.confirm(confirmationMessage)) return;
     setPending(true);
     setError("");
     const response = await fetch("/api/transactions/bulk", {
@@ -1647,6 +1674,7 @@ function BulkActionBar({
           label="Bulk action"
           value={action}
           values={[
+            "APPLY_REVIEW_RECOMMENDATIONS",
             "ASSIGN_CATEGORY",
             "MARK_REVIEWED",
             "MARK_NEEDS_REVIEW",
@@ -1657,6 +1685,7 @@ function BulkActionBar({
             "REAPPLY_RULES",
           ]}
           labels={{
+            APPLY_REVIEW_RECOMMENDATIONS: "Apply recommended resolutions",
             ASSIGN_CATEGORY: "Assign category",
             MARK_REVIEWED: "Mark reviewed",
             MARK_NEEDS_REVIEW: "Mark needs review",
@@ -1707,7 +1736,11 @@ function BulkActionBar({
           <TextFilter label="Resulting merchant" type="text" value={value} onChange={setValue} />
         ) : null}
         <Button onClick={apply} disabled={pending || (needsValue && !value)}>
-          {pending ? "Applying…" : "Apply to selected"}
+          {pending
+            ? "Applying…"
+            : action === "APPLY_REVIEW_RECOMMENDATIONS"
+              ? "Apply recommendations"
+              : "Apply to selected"}
         </Button>
         <Button variant="secondary" onClick={createRule} disabled={pending}>
           Create merchant rule
@@ -1716,6 +1749,36 @@ function BulkActionBar({
           Clear selection
         </Button>
       </div>
+      {action === "APPLY_REVIEW_RECOMMENDATIONS" ? (
+        <div className="mt-4 rounded-md bg-[var(--surface-muted)] p-4 text-sm">
+          <p className="font-semibold">What the app will do</p>
+          <ul className="mt-2 grid gap-1 text-[var(--muted)] md:grid-cols-2">
+            {recommendationCounts.CREDIT_CARD_PAYMENT ? (
+              <li>
+                {recommendationCounts.CREDIT_CARD_PAYMENT} card payment(s): keep in the card ledger;
+                exclude from income and spending.
+              </li>
+            ) : null}
+            {recommendationCounts.REFUND ? (
+              <li>
+                {recommendationCounts.REFUND} refund/reward(s): keep as spending offsets, not
+                income.
+              </li>
+            ) : null}
+            {recommendationCounts.FEE ? (
+              <li>{recommendationCounts.FEE} fee(s): keep as expenses.</li>
+            ) : null}
+            {recommendationCounts.UNCERTAIN ? (
+              <li>
+                {recommendationCounts.UNCERTAIN} uncertain item(s): leave flagged and unchanged.
+              </li>
+            ) : null}
+          </ul>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Original imported descriptions, dates, amounts, and account assignments are preserved.
+          </p>
+        </div>
+      ) : null}
       {error ? (
         <p role="alert" className="mt-3 text-sm text-[var(--red)]">
           {error}
@@ -2216,88 +2279,106 @@ function TransactionTable({
             </tr>
           </thead>
           <tbody>
-            {transactions.map((transaction) => (
-              <tr
-                key={transaction.id}
-                className="border-b border-[var(--border)] hover:bg-[var(--surface-muted)]"
-              >
-                <td className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${transaction.normalizedMerchant}`}
-                    checked={selectedIds.includes(transaction.id)}
-                    onChange={(event) =>
-                      onSelection(
-                        event.target.checked
-                          ? [...selectedIds, transaction.id]
-                          : selectedIds.filter((id) => id !== transaction.id),
-                      )
-                    }
-                  />
-                </td>
-                <td className="px-4 py-3 text-[var(--muted)]">
-                  {new Date(transaction.transactionDate).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    className="text-left font-semibold"
-                    onClick={() => open(transaction)}
-                  >
-                    {transaction.normalizedMerchant}
-                  </button>
-                  <div className="text-xs text-[var(--muted)]">
-                    {transaction.originalDescription}
-                  </div>
-                  {transferByTransaction.get(transaction.id)?.length ? (
-                    <div className="mt-1 text-xs font-semibold text-[var(--blue)]">
-                      {transferByTransaction
-                        .get(transaction.id)
-                        ?.some((match) => match.status === "CONFIRMED")
-                        ? "Internal transfer"
-                        : "Transfer suggestion"}
-                    </div>
-                  ) : null}
-                </td>
-                <td className="px-4 py-3 text-[var(--muted)]">{transaction.account.name}</td>
-                <td className="px-4 py-3">
-                  {transaction.category?.name ?? (
-                    <span className="italic text-[var(--amber)]">Uncategorized</span>
-                  )}
-                </td>
-                <td
-                  className={
-                    transaction.amountMinor > 0
-                      ? "px-4 py-3 text-right font-semibold text-[var(--green)]"
-                      : "px-4 py-3 text-right font-semibold"
-                  }
+            {transactions.map((transaction) => {
+              const recommendation =
+                transaction.reviewStatus === "FLAGGED"
+                  ? recommendTransactionReview(transaction)
+                  : null;
+              return (
+                <tr
+                  key={transaction.id}
+                  className="border-b border-[var(--border)] hover:bg-[var(--surface-muted)]"
                 >
-                  {formatMoney(transaction.amountMinor)}
-                </td>
-                <td className="px-4 py-3">
-                  <Pill
-                    tone={
-                      transaction.type === "TRANSFER_IN" || transaction.type === "TRANSFER_OUT"
-                        ? "info"
-                        : transaction.reviewStatus === "REVIEWED"
-                          ? "good"
-                          : transaction.reviewStatus === "FLAGGED"
-                            ? "bad"
-                            : "warn"
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${transaction.normalizedMerchant}`}
+                      checked={selectedIds.includes(transaction.id)}
+                      onChange={(event) =>
+                        onSelection(
+                          event.target.checked
+                            ? [...selectedIds, transaction.id]
+                            : selectedIds.filter((id) => id !== transaction.id),
+                        )
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-[var(--muted)]">
+                    {new Date(transaction.transactionDate).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      className="text-left font-semibold"
+                      onClick={() => open(transaction)}
+                    >
+                      {transaction.normalizedMerchant}
+                    </button>
+                    <div className="text-xs text-[var(--muted)]">
+                      {transaction.originalDescription}
+                    </div>
+                    {transferByTransaction.get(transaction.id)?.length ? (
+                      <div className="mt-1 text-xs font-semibold text-[var(--blue)]">
+                        {transferByTransaction
+                          .get(transaction.id)
+                          ?.some((match) => match.status === "CONFIRMED")
+                          ? "Internal transfer"
+                          : "Transfer suggestion"}
+                      </div>
+                    ) : null}
+                    {recommendation ? (
+                      <div className="mt-1 max-w-md text-xs text-[var(--amber)]">
+                        <span className="font-semibold">Review: {recommendation.title}.</span>{" "}
+                        {recommendation.effect}
+                      </div>
+                    ) : transaction.reviewStatus === "FLAGGED" ? (
+                      <div className="mt-1 max-w-md text-xs text-[var(--red)]">
+                        Review needed: the app cannot safely determine this transaction&apos;s
+                        accounting role.
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 text-[var(--muted)]">{transaction.account.name}</td>
+                  <td className="px-4 py-3">
+                    {transaction.category?.name ?? (
+                      <span className="italic text-[var(--amber)]">Uncategorized</span>
+                    )}
+                  </td>
+                  <td
+                    className={
+                      transaction.amountMinor > 0
+                        ? "px-4 py-3 text-right font-semibold text-[var(--green)]"
+                        : "px-4 py-3 text-right font-semibold"
                     }
                   >
-                    {transaction.type === "TRANSFER_IN" || transaction.type === "TRANSFER_OUT"
-                      ? transactionTypeLabels[transaction.type]
-                      : (reviewStatusLabels[transaction.reviewStatus] ?? transaction.reviewStatus)}
-                  </Pill>
-                </td>
-                <td className="px-4 py-3 text-[var(--muted)]">
-                  {sourceTypeLabels[transaction.sourceType ?? "MANUAL"] ??
-                    transaction.sourceType ??
-                    "Manual"}
-                </td>
-              </tr>
-            ))}
+                    {formatMoney(transaction.amountMinor)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Pill
+                      tone={
+                        transaction.type === "TRANSFER_IN" || transaction.type === "TRANSFER_OUT"
+                          ? "info"
+                          : transaction.reviewStatus === "REVIEWED"
+                            ? "good"
+                            : transaction.reviewStatus === "FLAGGED"
+                              ? "bad"
+                              : "warn"
+                      }
+                    >
+                      {transaction.type === "TRANSFER_IN" || transaction.type === "TRANSFER_OUT"
+                        ? transactionTypeLabels[transaction.type]
+                        : (reviewStatusLabels[transaction.reviewStatus] ??
+                          transaction.reviewStatus)}
+                    </Pill>
+                  </td>
+                  <td className="px-4 py-3 text-[var(--muted)]">
+                    {sourceTypeLabels[transaction.sourceType ?? "MANUAL"] ??
+                      transaction.sourceType ??
+                      "Manual"}
+                  </td>
+                </tr>
+              );
+            })}
             {!transactions.length ? (
               <tr>
                 <td className="px-4 py-8 text-center text-[var(--muted)]" colSpan={7}>

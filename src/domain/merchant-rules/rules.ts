@@ -55,6 +55,7 @@ export const bulkActionSchema = z.object({
     "SET_TYPE",
     "NORMALIZE_MERCHANT",
     "REAPPLY_RULES",
+    "APPLY_REVIEW_RECOMMENDATIONS",
   ]),
   value: z.string().trim().max(160).optional(),
   confirmation: z.string().optional(),

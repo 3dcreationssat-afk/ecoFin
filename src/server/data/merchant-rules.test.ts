@@ -116,6 +116,67 @@ describe("merchant rule and bulk services", () => {
         ?.normalizedMerchant,
     ).toBe("Manual merchant");
   });
+  it("applies safe mixed review recommendations and leaves uncertain rows flagged", async () => {
+    const household = await repositories.getHousehold();
+    const creditAccount = await prismaModule.prisma.account.findFirstOrThrow({
+      where: { householdId: household.id, type: "CREDIT" },
+    });
+    const examples = [
+      { description: "Payment Thank You-Mobile", amountMinor: 39454 },
+      { description: "YOUR CASH REWARD/REFUND IS", amountMinor: 29214 },
+      { description: "FOREIGN TRANSACTION FEE", amountMinor: -34 },
+      { description: "MYSTERY CREDIT", amountMinor: 1234 },
+    ];
+    const created = await Promise.all(
+      examples.map((example, index) =>
+        prismaModule.prisma.transaction.create({
+          data: {
+            householdId: household.id,
+            accountId: creditAccount.id,
+            sourceType: "CSV_IMPORT",
+            originalDescription: example.description,
+            originalAmountText: String(example.amountMinor),
+            originalDateText: "07/18/2026",
+            normalizedMerchant: example.description,
+            amountMinor: example.amountMinor,
+            transactionDate: new Date(`2026-07-${String(10 + index).padStart(2, "0")}T12:00:00Z`),
+            type: "UNKNOWN",
+            reviewStatus: "FLAGGED",
+            typeSource: "IMPORT_REPAIR_REVIEW",
+            reviewSource: "IMPORT_DEFAULT",
+            isDemo: true,
+          },
+        }),
+      ),
+    );
+
+    const result = await bulk.bulkUpdateTransactions({
+      transactionIds: created.map((transaction) => transaction.id),
+      action: "APPLY_REVIEW_RECOMMENDATIONS",
+      confirmation: "CONFIRM BULK CHANGE",
+    });
+    expect(result).toMatchObject({ selected: 4, changed: 3, skipped: 1 });
+    const updated = await prismaModule.prisma.transaction.findMany({
+      where: { id: { in: created.map((transaction) => transaction.id) } },
+      orderBy: { transactionDate: "asc" },
+    });
+    expect(updated[0]).toMatchObject({
+      type: "CREDIT_CARD_PAYMENT",
+      reviewStatus: "REVIEWED",
+      affectsIncomeSpendingReports: false,
+    });
+    expect(updated[1]).toMatchObject({
+      type: "REFUND",
+      reviewStatus: "REVIEWED",
+      affectsIncomeSpendingReports: true,
+    });
+    expect(updated[2]).toMatchObject({
+      type: "FEE",
+      reviewStatus: "REVIEWED",
+      affectsIncomeSpendingReports: true,
+    });
+    expect(updated[3]).toMatchObject({ type: "UNKNOWN", reviewStatus: "FLAGGED" });
+  });
   it("start fresh removes rules", async () => {
     await repositories.startFreshWorkspace({ confirmation: "START FRESH" });
     expect(await prismaModule.prisma.merchantRule.count()).toBe(0);
