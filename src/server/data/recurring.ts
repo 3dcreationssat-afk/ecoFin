@@ -31,6 +31,7 @@ export async function scanRecurringExpenses(
     },
     include: {
       account: true,
+      plaidSource: { select: { ledgerDisposition: true } },
       outgoingTransferMatches: { select: { status: true } },
       incomingTransferMatches: { select: { status: true } },
     },

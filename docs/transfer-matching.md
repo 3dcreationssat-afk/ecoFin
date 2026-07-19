@@ -16,7 +16,9 @@ Examples:
 
 ## Candidate Rules
 
-Candidates are generated conservatively and are never silently confirmed.
+Candidates are generated conservatively. A pair is automatically confirmed only when it scores at
+least 95, has `HIGH` confidence, remains valid when rescored, and neither transaction participates
+in another medium-or-higher suggestion. All other valid pairs remain visible for review.
 
 Required:
 
@@ -27,6 +29,8 @@ Required:
 - non-zero amount
 - date difference within the configured three-day window
 - neither side excluded
+- neither side marked as a possible duplicate
+- both sides are authoritative ledger records
 - neither side already in a confirmed transfer
 
 Unsupported automatic matches:
@@ -65,6 +69,8 @@ Signals include:
 - account names in descriptions
 - checking-to-savings pairing
 - checking-to-credit-card payment pairing
+- normalized bank-connection provenance
+- prior confirmed behavior for the same account pair
 
 Confidence:
 
@@ -73,6 +79,10 @@ Confidence:
 - `LOW`: score below 65
 
 Every candidate stores match reasons as JSON and displays them in review surfaces.
+
+Automatically confirmed records use source `AUTOMATIC_CONFIRMED`, create an audit entry, retain both
+transactions, and can be reversed through the same Unmatch workflow as a user-confirmed pair.
+Competing candidates never auto-confirm.
 
 ## Credit-Card Payments
 
@@ -123,7 +133,8 @@ Batch undo is blocked when imported transactions participate in confirmed transf
 - same-currency exact amount matches only
 - no one-to-many or many-to-one matching
 - no transfer-fee decomposition
-- no automatic confirmation
-- no recurring-transfer auto-confirmation
-- no external bank metadata or Plaid support
+- no fuzzy or tolerance-based amount matching; amounts must currently be exact
+- no one-to-many or recurring-transfer batch confirmation
+- Plaid transaction-code weighting is not yet used; bank provenance and reconciled ledger identity are
+  used
 - no multi-currency conversion

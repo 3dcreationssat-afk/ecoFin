@@ -53,10 +53,18 @@ export async function scanTransferCandidates(
   });
   const confirmed = await prisma.transferMatch.findMany({
     where: { householdId: household.id, status: "CONFIRMED" },
-    select: { outgoingTransactionId: true, incomingTransactionId: true },
+    include: {
+      outgoingTransaction: { select: { id: true, accountId: true } },
+      incomingTransaction: { select: { id: true, accountId: true } },
+    },
   });
   const confirmedIds = new Set(
     confirmed.flatMap((match) => [match.outgoingTransactionId, match.incomingTransactionId]),
+  );
+  const historicalAccountPairs = new Set(
+    confirmed.map((match) =>
+      [match.outgoingTransaction.accountId, match.incomingTransaction.accountId].sort().join("|"),
+    ),
   );
   const created: string[] = [];
   const refreshed: string[] = [];
@@ -71,6 +79,14 @@ export async function scanTransferCandidates(
       const score = scoreTransferCandidate(seed, other);
       if (!score.valid) continue;
       const { outgoing, incoming } = classifyTransferPair(seed, other);
+      const reasons = [...score.reasons];
+      const historicalPair = historicalAccountPairs.has(
+        [outgoing.accountId, incoming.accountId].sort().join("|"),
+      );
+      const finalScore = Math.min(100, score.score + (historicalPair ? 10 : 0));
+      const confidence = finalScore >= 85 ? "HIGH" : finalScore >= 65 ? "MEDIUM" : "LOW";
+      if (historicalPair)
+        reasons.push("This account pair has prior user-confirmed transfer history.");
       const existing = await prisma.transferMatch.findUnique({
         where: {
           outgoingTransactionId_incomingTransactionId: {
@@ -86,9 +102,9 @@ export async function scanTransferCandidates(
         incomingTransactionId: incoming.id,
         status: "SUGGESTED",
         source: "AUTOMATIC_CANDIDATE",
-        confidence: score.confidence,
-        score: score.score,
-        reasonsJson: JSON.stringify(score.reasons),
+        confidence,
+        score: finalScore,
+        reasonsJson: JSON.stringify(reasons),
         createdBySource: "scan",
       };
       const match = existing
@@ -117,15 +133,18 @@ export async function scanTransferCandidates(
           source: "transfer",
         });
       }
-      if (score.confidence === "HIGH") highConfidence += 1;
+      if (confidence === "HIGH") highConfidence += 1;
       if (score.isCreditCardPayment) creditCardPaymentCandidates += 1;
     }
   }
+  const automatic = await autoConfirmUnambiguousTransfers(household.id, [...created, ...refreshed]);
   return {
     createdCount: created.length,
     refreshedCount: refreshed.length,
     highConfidence,
     creditCardPaymentCandidates,
+    automaticallyConfirmed: automatic.confirmedCount,
+    automaticRemainders: automatic.remainders,
     candidateIds: [...created, ...refreshed],
   };
 }
@@ -155,6 +174,73 @@ export async function transferReviewQueue() {
   };
 }
 
+async function autoConfirmUnambiguousTransfers(householdId: string, candidateIds: string[]) {
+  if (!candidateIds.length) return { confirmedCount: 0, remainders: [] as string[] };
+  const candidates = await prisma.transferMatch.findMany({
+    where: {
+      householdId,
+      id: { in: candidateIds },
+      status: "SUGGESTED",
+      confidence: "HIGH",
+      score: { gte: 95 },
+    },
+    include: {
+      outgoingTransaction: { include: { account: true } },
+      incomingTransaction: { include: { account: true } },
+    },
+    orderBy: [{ score: "desc" }, { id: "asc" }],
+  });
+  const allSuggestions = await prisma.transferMatch.findMany({
+    where: { householdId, status: "SUGGESTED", score: { gte: 65 } },
+    select: { id: true, outgoingTransactionId: true, incomingTransactionId: true },
+  });
+  const participation = new Map<string, number>();
+  for (const item of allSuggestions) {
+    participation.set(
+      item.outgoingTransactionId,
+      (participation.get(item.outgoingTransactionId) ?? 0) + 1,
+    );
+    participation.set(
+      item.incomingTransactionId,
+      (participation.get(item.incomingTransactionId) ?? 0) + 1,
+    );
+  }
+  let confirmedCount = 0;
+  const remainders: string[] = [];
+  for (const candidate of candidates) {
+    if (
+      participation.get(candidate.outgoingTransactionId) !== 1 ||
+      participation.get(candidate.incomingTransactionId) !== 1
+    ) {
+      remainders.push(`${candidate.id}: competing candidate requires review`);
+      continue;
+    }
+    await prisma.$transaction(async (tx) => {
+      const current = await matchForUpdate(tx, candidate.id);
+      if (current.status !== "SUGGESTED") return;
+      await assertCanConfirm(
+        tx,
+        current.outgoingTransactionId,
+        current.incomingTransactionId,
+        current.id,
+      );
+      const rescored = scoreTransferCandidate(
+        current.outgoingTransaction,
+        current.incomingTransaction,
+      );
+      if (!rescored.valid || current.score < 95 || current.confidence !== "HIGH") return;
+      await applyConfirmedTransfer(tx, current, {
+        source: "AUTOMATIC_CONFIRMED",
+        action: "transfer_auto_confirmed",
+        reasonsJson: current.reasonsJson,
+        notes: "Automatically confirmed: unique high-confidence match with layered evidence.",
+      });
+      confirmedCount += 1;
+    });
+  }
+  return { confirmedCount, remainders };
+}
+
 export async function transferContextForTransaction(transactionId: string) {
   const matches = await prisma.transferMatch.findMany({
     where: {
@@ -181,56 +267,14 @@ export async function confirmTransferMatch(id: string, input: unknown) {
     await assertCanConfirm(tx, match.outgoingTransactionId, match.incomingTransactionId, match.id);
     const score = scoreTransferCandidate(match.outgoingTransaction, match.incomingTransaction);
     if (!score.valid) throw new AppError(score.invalidReasons.join(" "), 422);
-    const updated = await tx.transferMatch.update({
-      where: { id },
-      data: {
-        status: "CONFIRMED",
-        source: "USER_CONFIRMED",
-        confidence: score.confidence,
-        score: score.score,
-        reasonsJson: JSON.stringify(score.reasons),
-        confirmedAt: new Date(),
-        rejectedAt: null,
-        brokenAt: null,
-        notes: data.notes,
-        previousOutgoingType: match.outgoingTransaction.type,
-        previousIncomingType: match.incomingTransaction.type,
-        previousOutgoingReviewStatus: match.outgoingTransaction.reviewStatus,
-        previousIncomingReviewStatus: match.incomingTransaction.reviewStatus,
-      },
+    return applyConfirmedTransfer(tx, match, {
+      source: "USER_CONFIRMED",
+      action: "transfer_confirmed",
+      reasonsJson: JSON.stringify(score.reasons),
+      score: score.score,
+      confidence: score.confidence,
+      notes: data.notes,
     });
-    await tx.transaction.update({
-      where: { id: match.outgoingTransactionId },
-      data: {
-        type: "TRANSFER_OUT",
-        reviewStatus: "REVIEWED",
-        typeSource: "TRANSFER",
-        reviewSource: "TRANSFER",
-        affectsIncomeSpendingReports: false,
-      },
-    });
-    await tx.transaction.update({
-      where: { id: match.incomingTransactionId },
-      data: {
-        type: "TRANSFER_IN",
-        reviewStatus: "REVIEWED",
-        typeSource: "TRANSFER",
-        reviewSource: "TRANSFER",
-        affectsIncomeSpendingReports: false,
-      },
-    });
-    await recalculateAccountBalances(
-      [match.outgoingTransaction.accountId, match.incomingTransaction.accountId],
-      tx,
-    );
-    await auditTransferConfirmed(
-      tx,
-      match.householdId,
-      updated.id,
-      "transfer_confirmed",
-      data.notes,
-    );
-    return updated;
   });
 }
 
@@ -502,6 +546,64 @@ async function assertCanConfirm(
   });
   if (existing)
     throw new AppError("One of these transactions is already in a confirmed transfer.", 409);
+}
+
+async function applyConfirmedTransfer(
+  tx: Db,
+  match: Awaited<ReturnType<typeof matchForUpdate>>,
+  input: {
+    source: "USER_CONFIRMED" | "AUTOMATIC_CONFIRMED";
+    action: string;
+    reasonsJson: string;
+    score?: number;
+    confidence?: string;
+    notes?: string;
+  },
+) {
+  const updated = await tx.transferMatch.update({
+    where: { id: match.id },
+    data: {
+      status: "CONFIRMED",
+      source: input.source,
+      confidence: input.confidence ?? match.confidence,
+      score: input.score ?? match.score,
+      reasonsJson: input.reasonsJson,
+      confirmedAt: new Date(),
+      rejectedAt: null,
+      brokenAt: null,
+      notes: input.notes,
+      previousOutgoingType: match.outgoingTransaction.type,
+      previousIncomingType: match.incomingTransaction.type,
+      previousOutgoingReviewStatus: match.outgoingTransaction.reviewStatus,
+      previousIncomingReviewStatus: match.incomingTransaction.reviewStatus,
+    },
+  });
+  await tx.transaction.update({
+    where: { id: match.outgoingTransactionId },
+    data: {
+      type: "TRANSFER_OUT",
+      reviewStatus: "REVIEWED",
+      typeSource: "TRANSFER",
+      reviewSource: "TRANSFER",
+      affectsIncomeSpendingReports: false,
+    },
+  });
+  await tx.transaction.update({
+    where: { id: match.incomingTransactionId },
+    data: {
+      type: "TRANSFER_IN",
+      reviewStatus: "REVIEWED",
+      typeSource: "TRANSFER",
+      reviewSource: "TRANSFER",
+      affectsIncomeSpendingReports: false,
+    },
+  });
+  await recalculateAccountBalances(
+    [match.outgoingTransaction.accountId, match.incomingTransaction.accountId],
+    tx,
+  );
+  await auditTransferConfirmed(tx, match.householdId, updated.id, input.action, input.notes);
+  return updated;
 }
 
 async function auditTransferConfirmed(

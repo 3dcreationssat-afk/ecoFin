@@ -1,5 +1,23 @@
 # Change Ledger
 
+## 2026-07-19 — Automatic-by-default hardening completion
+
+- Added transaction-derived payroll and income drilldowns with source-linked evidence, cadence,
+  normalized monthly income, unusual-income warnings, and confidence reasons.
+- Added unique score-95+ transfer/card-payment auto-confirmation with historical-pair and bank-source
+  evidence, ambiguity blocking, audit records, report exclusion, and reversible unmatching.
+- Reconciled recurring evidence across authoritative CSV/Plaid identity, excluded duplicate/non-ledger
+  representations, and added repeatable irregular patterns without invented next dates.
+- Added distinct selective reset scopes and mandatory validated safety backups; household-financial
+  reset is now separate from full workspace reset.
+- Added Plaid match preview, explicit confirmation, editable account creation, rematching, unlinking,
+  per-account sync control, and re-evaluation of balances/transfers/recurring after correction.
+- Added a Data Quality review-workload report. On the isolated 2026-07-19 validated real-data backup,
+  it measured 1,603 transactions, eight payroll transactions in one pattern, 45 recurring patterns,
+  700 recurring evidence links, and five mandatory duplicate reviews.
+- Repaired Windows Vitest and Playwright setup by using fingerprinted SQLite templates and separating
+  database paths from automatically cleaned artifact directories.
+
 ## 2026-07-18 — Product hardening and secure Plaid foundation
 
 - Added an additive Plaid persistence model for Items, provider users, connected accounts, encrypted
@@ -263,3 +281,30 @@
   and escaped standalone HTML exports. The global Add control is now a working contextual menu.
 - Retained removal only for documented duplicates or misleading single-workspace/profile controls
   whose outcomes remain available through complete authoritative workflows.
+
+# 2026-07-19 — Windows test harness and explicit Plaid setup gate
+
+- Moved the Playwright database outside its artifact directory so Windows cleanup cannot delete it
+  during managed server startup; added an external-server option and a 120-second startup budget.
+- Added a fingerprinted, isolated SQLite test template. Migrations and seed run once per schema
+  fingerprint; every test database still receives its own copied file and REAL-workspace guards.
+- Added a safe Settings Plaid status surface, server-side configuration test, persisted/audited
+  production connectivity gate, connection counts, last sync, encryption validation, and bounded
+  error status. Enabling the gate never launches Link or imports data.
+- Added exact Windows, Dashboard, OAuth, webhook, environment-switching, encryption recovery, and
+  troubleshooting guidance. Real access tier remains an explicit Dashboard confirmation because
+  Plaid does not expose the commercial tier through the tested API.
+
+# 2026-07-19 — Automatic-by-default product completion
+
+- Completed traceable payroll metrics and drilldowns, high-confidence unambiguous transfer/payment
+  confirmation, and source-aware recurring reconciliation without inventing uncertain dates.
+- Added first-class Plaid account match preview, editable local-account creation, defer/ignore,
+  account-level sync control, reversible rematching, and downstream transfer/recurring recalculation.
+- Added protected selective reset scopes with validated safety backups and explicit preservation
+  summaries, while retaining the distinct typed full-workspace reset.
+- Added an anonymized review-workload audit. The active measurement leaves five possible-duplicate
+  exceptions from 1,603 processed records, a 99.69% reduction from the all-manual baseline.
+- Recorded the outcome-preservation review and validation evidence in
+  `docs/product-hardening-completion-2026-07-19.md`; no intended feature was removed. The approved
+  two-state light/dark theme remains unchanged and system mode was not restored.

@@ -88,6 +88,25 @@ describe("transfer candidate scoring", () => {
     expect(tooFar.valid).toBe(false);
   });
 
+  it("rejects duplicate and non-ledger source representations", () => {
+    const counterpart = tx({
+      id: "tx2",
+      accountId: savings.id,
+      amountMinor: 10000,
+      account: savings,
+    });
+    expect(scoreTransferCandidate(tx({ possibleDuplicate: true }), counterpart)).toMatchObject({
+      valid: false,
+      invalidReasons: expect.arrayContaining(["Possible duplicate transactions require review."]),
+    });
+    expect(scoreTransferCandidate(tx({ affectsLedger: false }), counterpart)).toMatchObject({
+      valid: false,
+      invalidReasons: expect.arrayContaining([
+        "Non-ledger source representations cannot form a second transfer match.",
+      ]),
+    });
+  });
+
   it("recognizes credit-card payments without treating fees or refunds as candidates", () => {
     const payment = scoreTransferCandidate(
       tx({ originalDescription: "Autopay Chase Sapphire" }),

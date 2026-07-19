@@ -24,6 +24,17 @@
 - Isolated saved Decision Scenarios with typed expense, income, recurring cancellation, vehicle,
   debt, savings, policy, and buffer assumptions plus reconciled upfront/monthly/period/first-year
   horizons, fixed-goal affordability, explicit emergency-runway inputs, and deterministic risks.
+- Local-first Plaid setup/status checks, an explicit persisted real-connectivity gate, Plaid Link,
+  account selection, match recommendations, reconciliation preview, editable local-account creation,
+  rematching/unlinking, per-account sync enablement, incremental Transactions Sync, reauthentication,
+  and provider-first disconnect.
+- Payroll drilldown derived from transaction evidence with typical paycheck, normalized monthly
+  payroll, most-recent/next-expected dates, unusual-income warnings, confidence reasons, and linked
+  contributing transactions.
+- Unique high-confidence transfer and credit-card-payment auto-confirmation with audit/reversal,
+  cross-source recurring reconciliation, and a measured review-workload report.
+- Selective reset scopes with mandatory validated safety backups, plus distinct household-financial
+  and full-workspace resets.
 
 ## Preliminary Signals
 
@@ -34,7 +45,10 @@
 
 ## Demonstration or Unavailable Capabilities
 
-- Bank connectivity, automatic balance refresh, AI recommendations, advanced forecasting, applying
-  scenarios to real records are not implemented. Monthly reports support local Print, CSV, and HTML
-  export without transmitting financial data.
+- Live real-institution acceptance remains user-driven and unavailable until local Production
+  credentials, Plaid access approval, token encryption, a successful configuration check, and the
+  explicit real-connectivity gate are present. Automated tests use mocks and isolated databases.
+- AI recommendations, unattended scheduled synchronization, advanced stochastic forecasting, and
+  applying scenarios to real records are not implemented. Monthly reports support local Print, CSV,
+  and HTML export without transmitting financial data.
 - Disabled controls remain visible only when they identify a planned capability and do not silently perform no action.

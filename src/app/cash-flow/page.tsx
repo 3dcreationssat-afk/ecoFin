@@ -6,6 +6,7 @@ import { getCashFlowProjection } from "@/server/data/cash-flow";
 import { forecastRuleDashboard } from "@/server/data/forecast-rules";
 import { CashFlowIntelligenceClient } from "./cash-flow-intelligence-client";
 import { detectForecastRules } from "@/server/data/forecast-rules";
+import { payrollDashboard } from "@/server/data/payroll";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function CashFlowPage() {
   if (state !== "EMPTY") await detectForecastRules();
   const projection = state === "EMPTY" ? null : await getCashFlowProjection();
   const setup = state === "EMPTY" ? null : await forecastRuleDashboard();
+  const payroll = state === "EMPTY" ? null : await payrollDashboard();
   return (
     <AppShell>
       <PageHeader
@@ -47,6 +49,7 @@ export default async function CashFlowPage() {
             householdId={setup!.household.id}
             rules={setup!.rules}
             accounts={setup!.accounts}
+            payrollSummary={JSON.parse(JSON.stringify(payroll))}
           />
         </>
       )}

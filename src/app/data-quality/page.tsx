@@ -11,20 +11,28 @@ import { merchantRuleDataQuality } from "@/server/data/merchant-rules";
 import { monthlyInterestMinor } from "@/domain/debt/payoff";
 import { getCashFlowInput } from "@/server/data/cash-flow";
 import { calculateEmergencyRunway } from "@/domain/planning/emergency-runway";
+import { reviewWorkloadReport } from "@/server/data/review-workload";
 
 export const dynamic = "force-dynamic";
 
 export default async function DataQualityPage() {
   const { household } = await importDashboard();
   const state = await workspaceState();
-  const [transferQuality, recurringQuality, merchantRuleQuality, cashFlowInput, activeBatches] =
-    await Promise.all([
-      transferDataQuality(),
-      recurringDataQuality(),
-      merchantRuleDataQuality(),
-      getCashFlowInput(new Date("2026-07-11")),
-      actionableImportBatches(household.id),
-    ]);
+  const [
+    transferQuality,
+    recurringQuality,
+    merchantRuleQuality,
+    cashFlowInput,
+    activeBatches,
+    reviewWorkload,
+  ] = await Promise.all([
+    transferDataQuality(),
+    recurringDataQuality(),
+    merchantRuleDataQuality(),
+    getCashFlowInput(new Date("2026-07-11")),
+    actionableImportBatches(household.id),
+    reviewWorkloadReport(),
+  ]);
   const runway = calculateEmergencyRunway(cashFlowInput);
   const quality = dataQualityRules({
     transactions: household.transactions,
@@ -315,6 +323,36 @@ export default async function DataQualityPage() {
                 </p>
               </div>
             </div>
+          </Card>
+          <Card className="mb-7 p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Review workload evidence</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  A transparent baseline-to-current comparison from unique local transactions.
+                </p>
+              </div>
+              <Pill tone={reviewWorkload.after.remainingManualReview ? "warn" : "good"}>
+                {(reviewWorkload.after.reductionBasisPoints / 100).toFixed(1)}% reduced
+              </Pill>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Baseline review items", reviewWorkload.baseline.manualReviewItems],
+                ["Avoided manual review", reviewWorkload.after.avoidedManualReview],
+                ["Remaining exceptions", reviewWorkload.after.remainingManualReview],
+                [
+                  "Auto-confirmed transfer pairs",
+                  reviewWorkload.after.automaticallyConfirmedTransferPairs,
+                ],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-md border border-[var(--border)] p-4">
+                  <p className="text-sm text-[var(--muted)]">{label}</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-[var(--muted)]">{reviewWorkload.methodology}</p>
           </Card>
           <Card className="p-6">
             <h2 className="text-xl font-semibold">Issues Found</h2>

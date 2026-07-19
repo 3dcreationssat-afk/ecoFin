@@ -27,6 +27,7 @@
     "reimport:verified": "tsx scripts/reimport-verified-batches.ts",
     "audit:reconciliation": "tsx scripts/reconciliation-report.ts",
     "audit:source-files": "tsx scripts/source-file-inventory.ts",
+    "audit:review-workload": "tsx scripts/review-workload-report.ts",
     "security:scan": "tsx scripts/scan-tracked-secrets.ts"
   },
   "dependencies": {

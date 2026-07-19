@@ -9,6 +9,7 @@ import { getHousehold, workspaceState } from "@/server/data/repositories";
 import { cashAllocationSummary, getCashFlowProjection } from "@/server/data/cash-flow";
 import { calculatePayoff, type DebtInput } from "@/domain/debt/payoff";
 import { getDebtPlan } from "@/server/data/debt-plans";
+import { payrollDashboard } from "@/server/data/payroll";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,7 @@ export default async function Home() {
     : null;
   const nextDebt = household.accounts.find((account) => account.id === payoff?.orderedDebtIds[0]);
   const allocation = cashFlow ? cashAllocationSummary(cashFlow) : null;
+  const payroll = isEmpty ? null : await payrollDashboard();
   const summaryCards = [
     {
       label: "Available Cash",
@@ -128,6 +130,83 @@ export default async function Home() {
               <MetricCard key={card.label} {...card} />
             ))}
           </div>
+          <Card className="mb-5 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Payroll and income</h2>
+                <p className="text-sm text-[var(--muted)]">
+                  Evidence-based payroll summary; select any value to inspect its source
+                  transactions.
+                </p>
+              </div>
+              <Pill tone={payroll?.confidence === "HIGH" ? "good" : "warn"}>
+                {payroll?.confidence ?? "LIMITED"} confidence
+              </Pill>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                {
+                  label: "Current-month income",
+                  value: formatMoney(payroll?.currentMonthIncomeMinor ?? 0),
+                  detail: `${payroll?.currentMonthIncomeCount ?? 0} transactions`,
+                  href: "/transactions?period=CURRENT_MONTH&type=INCOME",
+                },
+                {
+                  label: "Payroll income",
+                  value: formatMoney(payroll?.payrollIncomeMinor ?? 0),
+                  detail: `${payroll?.payrollIncomeCount ?? 0} payroll deposits`,
+                  href: `/transactions?period=ALL&q=${encodeURIComponent(payroll?.primary?.merchantKey ?? "payroll")}`,
+                },
+                {
+                  label: "Typical paycheck",
+                  value:
+                    payroll?.typicalPaycheckMinor == null
+                      ? "Unavailable"
+                      : formatMoney(payroll.typicalPaycheckMinor),
+                  detail: payroll?.primary?.cadence ?? "More history required",
+                  href: "/cash-flow#payroll",
+                },
+                {
+                  label: "Next expected",
+                  value: payroll?.nextExpectedPaycheck
+                    ? formatDate(new Date(payroll.nextExpectedPaycheck))
+                    : "Unavailable",
+                  detail: payroll?.primary?.displayName ?? "No stable pattern",
+                  href: "/cash-flow#payroll",
+                },
+                {
+                  label: "Normalized monthly",
+                  value:
+                    payroll?.normalizedMonthlyPayrollMinor == null
+                      ? "Unavailable"
+                      : formatMoney(payroll.normalizedMonthlyPayrollMinor),
+                  detail: "Annual cadence normalized",
+                  href: "/cash-flow#payroll",
+                },
+                {
+                  label: "Unusual income",
+                  value: formatMoney(payroll?.unusualIncomeMinor ?? 0),
+                  detail: `${payroll?.unusualIncomeCount ?? 0} transactions`,
+                  href: "/transactions?period=CURRENT_MONTH&type=INCOME&status=NEEDS_REVIEW",
+                },
+              ].map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className="rounded-md border border-[var(--border)] p-3 hover:border-[var(--teal)]"
+                >
+                  <span className="text-xs font-semibold uppercase text-[var(--muted)]">
+                    {item.label}
+                  </span>
+                  <strong className="mt-1 block text-lg">{item.value}</strong>
+                  <span className="text-xs text-[var(--muted)]">{item.detail}</span>
+                </a>
+              ))}
+            </div>
+            {payroll?.warnings.length ? (
+              <p className="mt-3 text-sm text-[var(--amber)]">{payroll.warnings.join(" ")}</p>
+            ) : null}
+          </Card>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
             <Card>
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5">

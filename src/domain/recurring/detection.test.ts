@@ -16,6 +16,8 @@ function tx(input: {
   type?: string;
   categoryId?: string | null;
   excluded?: boolean;
+  sourceType?: string;
+  accountId?: string;
 }) {
   return {
     id: input.id,
@@ -27,7 +29,8 @@ function tx(input: {
     type: input.type ?? "DEBIT",
     categoryId: input.categoryId ?? "category",
     excluded: input.excluded ?? false,
-    account: { type: "CHECKING" },
+    sourceType: input.sourceType,
+    account: { id: input.accountId ?? "checking", type: "CHECKING" },
     outgoingTransferMatches: [],
     incomingTransferMatches: [],
   };
@@ -145,6 +148,56 @@ describe("recurring detection", () => {
       new Date("2026-07-15"),
     );
     expect(candidates).toHaveLength(0);
+  });
+
+  it("reconciles cross-source evidence and labels repeatable irregular activity without a date", () => {
+    const candidates = detectRecurringCandidates(
+      [
+        tx({
+          id: "c1",
+          date: "2026-04-01",
+          amount: -2400,
+          merchant: "Seasonal Service",
+          sourceType: "CSV_IMPORT",
+        }),
+        tx({
+          id: "p1",
+          date: "2026-04-01",
+          amount: -2400,
+          merchant: "Seasonal Service",
+          sourceType: "BANK_CONNECTION",
+        }),
+        tx({
+          id: "c2",
+          date: "2026-04-21",
+          amount: -2400,
+          merchant: "Seasonal Service",
+          sourceType: "CSV_IMPORT",
+        }),
+        tx({
+          id: "p2",
+          date: "2026-05-18",
+          amount: -2400,
+          merchant: "Seasonal Service",
+          sourceType: "BANK_CONNECTION",
+        }),
+        tx({
+          id: "p3",
+          date: "2026-06-10",
+          amount: -2400,
+          merchant: "Seasonal Service",
+          sourceType: "BANK_CONNECTION",
+        }),
+      ],
+      new Date("2026-06-15"),
+    );
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      frequency: "IRREGULAR_RECURRING",
+      nextExpectedDate: null,
+    });
+    expect(candidates[0].transactionIds).toHaveLength(4);
+    expect(candidates[0].reasons.join(" ")).toMatch(/CSV and bank-connection/);
   });
 
   it("counts identical same-day rows once and rejects ambiguous same-day charges", () => {

@@ -2,7 +2,8 @@ export const TRANSFER_DATE_WINDOW_DAYS = 3;
 
 export type TransferConfidence = "HIGH" | "MEDIUM" | "LOW";
 export type TransferStatus = "SUGGESTED" | "CONFIRMED" | "REJECTED" | "BROKEN" | "UNMATCHED";
-export type TransferSource = "AUTOMATIC_CANDIDATE" | "USER_CONFIRMED" | "USER_CREATED";
+export type TransferSource =
+  "AUTOMATIC_CANDIDATE" | "AUTOMATIC_CONFIRMED" | "USER_CONFIRMED" | "USER_CREATED";
 
 export type TransferTransaction = {
   id: string;
@@ -16,6 +17,9 @@ export type TransferTransaction = {
   type?: string | null;
   reviewStatus?: string | null;
   excluded?: boolean | null;
+  possibleDuplicate?: boolean | null;
+  affectsLedger?: boolean | null;
+  sourceType?: string | null;
   account: { id: string; name: string; type: string };
 };
 
@@ -69,6 +73,10 @@ export function scoreTransferCandidate(
     invalidReasons.push("Zero-value transactions are not supported.");
   if (a.excluded || b.excluded)
     invalidReasons.push("Excluded transactions require explicit handling.");
+  if (a.possibleDuplicate || b.possibleDuplicate)
+    invalidReasons.push("Possible duplicate transactions require review.");
+  if (a.affectsLedger === false || b.affectsLedger === false)
+    invalidReasons.push("Non-ledger source representations cannot form a second transfer match.");
   if (a.amountMinor + b.amountMinor !== 0) {
     invalidReasons.push("Only exact opposite-sign amount matches are supported.");
   }
@@ -137,6 +145,12 @@ export function scoreTransferCandidate(
     reasons.push("Credit-card payments do not create new household spending.");
   }
 
+  if (outgoing.sourceType === "BANK_CONNECTION" || incoming.sourceType === "BANK_CONNECTION") {
+    score += 4;
+    reasons.push("At least one side has normalized bank-connection provenance.");
+  }
+
+  score = Math.min(100, score);
   const confidence: TransferConfidence = score >= 85 ? "HIGH" : score >= 65 ? "MEDIUM" : "LOW";
   return {
     valid: true,

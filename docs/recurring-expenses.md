@@ -20,6 +20,8 @@ Recurring candidates are built only from household expense transactions. The det
 - explicit P2P and instant-transfer descriptors such as XFER, Zelle, Cash App, and bill pay
 - interest and fees
 - excluded transactions
+- possible duplicate transactions
+- non-ledger CSV/Plaid source representations
 - zero-amount transactions
 - future-dated transactions
 
@@ -41,11 +43,10 @@ The detector uses date-gap tolerance windows and requires at least three distinc
 every supported cadence. Identical same-day rows count as one occurrence; differing charges from the
 same merchant on one day are treated as ambiguous and are not inferred as one recurring series.
 
-Automatic candidates require a supported cadence. Arbitrary irregular gaps are not promoted to
-recurring expenses because they do not support a defensible next occurrence or monthly equivalent.
-Users can still create or edit an explicitly irregular recurring record when they know the financial
-contract. Evidence must also be recent: a pattern is no longer detected after more than two expected
-occurrences pass without another matching charge.
+Automatic candidates normally require a supported cadence. Four or more repeatable observations
+with a stable median interval may be labeled `IRREGULAR`; those candidates intentionally do not
+invent a precise next date. Arbitrary volatile gaps are still rejected. Users can also create or edit
+an explicitly irregular record when they know the financial contract. Evidence must remain recent.
 
 ## Amounts
 
@@ -77,6 +78,11 @@ Each candidate stores:
 
 Candidates are never confirmed automatically. Users can confirm, reject, edit, cancel, or reactivate records.
 
+CSV and Plaid evidence is reconciled through authoritative ledger identity before grouping. Detection
+groups by household, local account identity, normalized merchant, direction, cadence, and amount
+range; reconciled non-ledger representations and possible duplicates are excluded. Reasons identify
+consistent account identity and mixed CSV/bank provenance when both sources contribute.
+
 ## Price Changes
 
 The service flags a price change when the most recent charge is materially different from the previous charge and the historical amount pattern is not highly variable. Small rounding-level changes are ignored.
@@ -96,7 +102,7 @@ Recurring expense records and recurring transaction links are included in backup
 
 ## Limitations
 
-- No bank connectivity or provider metadata.
+- Provider category labels are supporting metadata only and do not determine recurring identity.
 - No AI categorization.
 - No automatic service cancellation.
 - No one-click merchant contact.

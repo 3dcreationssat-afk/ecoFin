@@ -30,18 +30,83 @@ describe("transfer matching service", () => {
     await prismaModule?.prisma.$disconnect();
   });
 
-  it("creates idempotent candidates, rejects suggestions, confirms, and unmatches", async () => {
+  it("auto-confirms unique evidence while keeping lower-confidence decisions reversible", async () => {
     const first = await transfers.scanTransferCandidates();
     const second = await transfers.scanTransferCandidates();
     expect(first.createdCount).toBeGreaterThanOrEqual(2);
+    expect(first.automaticallyConfirmed).toBeGreaterThan(0);
     expect(second.createdCount).toBe(0);
 
-    const suggested = await prismaModule.prisma.transferMatch.findMany({
-      where: { status: "SUGGESTED" },
-      orderBy: { score: "desc" },
+    const automaticallyConfirmed = await prismaModule.prisma.transferMatch.findFirstOrThrow({
+      where: { status: "CONFIRMED", source: "AUTOMATIC_CONFIRMED" },
+      include: { outgoingTransaction: true, incomingTransaction: true },
     });
-    const rejectable = suggested.at(-1);
-    expect(rejectable).toBeTruthy();
+    expect(automaticallyConfirmed.outgoingTransaction.affectsIncomeSpendingReports).toBe(false);
+    expect(automaticallyConfirmed.incomingTransaction.affectsIncomeSpendingReports).toBe(false);
+    await transfers.unmatchTransfer(automaticallyConfirmed.id, {
+      confirmation: "UNMATCH TRANSFER",
+    });
+    expect(
+      await prismaModule.prisma.transferMatch.findUniqueOrThrow({
+        where: { id: automaticallyConfirmed.id },
+      }),
+    ).toMatchObject({ status: "UNMATCHED" });
+
+    const checking = await prismaModule.prisma.account.findFirstOrThrow({
+      where: { type: "CHECKING" },
+    });
+    const credit = await prismaModule.prisma.account.findFirstOrThrow({
+      where: { type: "CREDIT" },
+    });
+    const savings = await prismaModule.prisma.account.findFirstOrThrow({
+      where: { type: "SAVINGS" },
+    });
+    const createPair = async (
+      amountMinor: number,
+      incomingDate: string,
+      description: string,
+      outgoingAccount = checking,
+    ) => {
+      const outgoing = await prismaModule.prisma.transaction.create({
+        data: {
+          householdId: outgoingAccount.householdId,
+          accountId: outgoingAccount.id,
+          originalDescription: description,
+          originalAmountText: String(-amountMinor),
+          originalDateText: "2026-07-10",
+          normalizedMerchant: description,
+          amountMinor: -amountMinor,
+          transactionDate: new Date("2026-07-10T00:00:00.000Z"),
+          postedDate: new Date("2026-07-10T00:00:00.000Z"),
+          type: "DEBIT",
+        },
+      });
+      const incoming = await prismaModule.prisma.transaction.create({
+        data: {
+          householdId: credit.householdId,
+          accountId: credit.id,
+          originalDescription: description,
+          originalAmountText: String(amountMinor),
+          originalDateText: incomingDate,
+          normalizedMerchant: description,
+          amountMinor,
+          transactionDate: new Date(`${incomingDate}T00:00:00.000Z`),
+          postedDate: new Date(`${incomingDate}T00:00:00.000Z`),
+          type: "CREDIT",
+        },
+      });
+      await transfers.scanTransferCandidates({ transactionIds: [outgoing.id, incoming.id] });
+      return { outgoing, incoming };
+    };
+
+    const rejectPair = await createPair(12_345, "2026-07-13", "Account movement");
+    const rejectable = await prismaModule.prisma.transferMatch.findFirstOrThrow({
+      where: {
+        outgoingTransactionId: rejectPair.outgoing.id,
+        incomingTransactionId: rejectPair.incoming.id,
+        status: "SUGGESTED",
+      },
+    });
     await transfers.rejectTransferMatch(rejectable!.id, {
       confirmation: "REJECT TRANSFER",
       notes: "not the same movement",
@@ -50,8 +115,14 @@ describe("transfer matching service", () => {
       transfers.rejectTransferMatch(rejectable!.id, { confirmation: "REJECT TRANSFER" }),
     ).resolves.toMatchObject({ status: "REJECTED" });
 
+    const confirmPair = await createPair(23_456, "2026-07-11", "Card payment transfer", savings);
     const confirmable = await prismaModule.prisma.transferMatch.findFirstOrThrow({
-      where: { status: "SUGGESTED", confidence: "HIGH" },
+      where: {
+        outgoingTransactionId: confirmPair.outgoing.id,
+        incomingTransactionId: confirmPair.incoming.id,
+        status: "SUGGESTED",
+        confidence: "HIGH",
+      },
     });
     const matchedTransactions = await prismaModule.prisma.transaction.findMany({
       where: {
@@ -150,6 +221,55 @@ describe("transfer matching service", () => {
         confirmation: "CONFIRM TRANSFER",
       }),
     ).rejects.toThrow(/already in a confirmed transfer/);
+  });
+
+  it("leaves competing high-confidence matches in the review queue", async () => {
+    const checking = await prismaModule.prisma.account.findFirstOrThrow({
+      where: { type: "CHECKING" },
+    });
+    const destinations = await prismaModule.prisma.account.findMany({
+      where: { type: { in: ["SAVINGS", "CREDIT"] } },
+      take: 2,
+    });
+    const common = {
+      householdId: checking.householdId,
+      originalDescription: "Online transfer payment",
+      originalDateText: "2026-07-15",
+      normalizedMerchant: "Online Transfer",
+      transactionDate: new Date("2026-07-15T00:00:00.000Z"),
+      postedDate: new Date("2026-07-15T00:00:00.000Z"),
+    };
+    const outgoing = await prismaModule.prisma.transaction.create({
+      data: {
+        ...common,
+        accountId: checking.id,
+        originalAmountText: "-777.77",
+        amountMinor: -77_777,
+        type: "DEBIT",
+      },
+    });
+    const incoming = await Promise.all(
+      destinations.map((account) =>
+        prismaModule.prisma.transaction.create({
+          data: {
+            ...common,
+            accountId: account.id,
+            originalAmountText: "777.77",
+            amountMinor: 77_777,
+            type: "CREDIT",
+          },
+        }),
+      ),
+    );
+    const result = await transfers.scanTransferCandidates({
+      transactionIds: [outgoing.id, ...incoming.map((item) => item.id)],
+    });
+    expect(result.automaticallyConfirmed).toBe(0);
+    expect(
+      await prismaModule.prisma.transferMatch.count({
+        where: { outgoingTransactionId: outgoing.id, status: "SUGGESTED" },
+      }),
+    ).toBe(2);
   });
 
   it("blocks import undo when an imported transaction is in a confirmed transfer", async () => {

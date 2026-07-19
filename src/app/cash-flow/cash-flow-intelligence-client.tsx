@@ -27,17 +27,51 @@ type Rule = {
 };
 type Account = { id: string; name: string; type: string };
 type ForecastEvent = CashFlowProjection["events"][number];
+type PayrollSummary = {
+  currentMonthIncomeMinor: number;
+  currentMonthIncomeCount: number;
+  payrollIncomeMinor: number;
+  payrollIncomeCount: number;
+  typicalPaycheckMinor: number | null;
+  normalizedMonthlyPayrollMinor: number | null;
+  nextExpectedPaycheck: string | null;
+  mostRecentPaycheck: { id: string; date: string; amountMinor: number } | null;
+  unusualIncomeMinor: number;
+  unusualIncomeCount: number;
+  confidence: string;
+  confidenceScore: number;
+  warnings: string[];
+  reasons: string[];
+  primary: {
+    merchantKey: string;
+    displayName: string;
+    cadence: string;
+    minAmountMinor: number;
+    maxAmountMinor: number;
+    contributingTransactions: {
+      id: string;
+      date: string;
+      amountMinor: number;
+      merchant: string;
+      accountName: string;
+      sourceType: string;
+      unusual: boolean;
+    }[];
+  } | null;
+};
 
 export function CashFlowIntelligenceClient({
   projection,
   rules,
   accounts,
   householdId,
+  payrollSummary,
 }: {
   projection: CashFlowProjection;
   rules: Rule[];
   accounts: Account[];
   householdId: string;
+  payrollSummary: PayrollSummary;
 }) {
   const router = useRouter();
   const [scenario, setScenario] = useState<"confirmed" | "likely" | "conservative">("confirmed");
@@ -155,6 +189,164 @@ export function CashFlowIntelligenceClient({
       </div>
 
       {detail ? <HeadlineDetail detail={detail} projection={projection} /> : null}
+
+      <div id="payroll">
+        <Card className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <Pill tone={payrollSummary.confidence === "HIGH" ? "good" : "warn"}>
+                {payrollSummary.confidence} payroll confidence
+              </Pill>
+              <h2 className="mt-2 text-xl font-semibold">Payroll and income drilldown</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Cadence, amount stability, account identity, transfer exclusions, and normalized
+                source text determine payroll. Categories alone do not.
+              </p>
+            </div>
+            <a
+              className="text-sm font-semibold text-[var(--teal)]"
+              href="/transactions?period=ALL&type=INCOME"
+            >
+              Review all income
+            </a>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <PayrollMetric
+              label="Current-month income"
+              value={formatMoney(payrollSummary.currentMonthIncomeMinor)}
+              detail={`${payrollSummary.currentMonthIncomeCount} contributing transactions`}
+              href="/transactions?period=CURRENT_MONTH&type=INCOME"
+            />
+            <PayrollMetric
+              label="Payroll income"
+              value={formatMoney(payrollSummary.payrollIncomeMinor)}
+              detail={`${payrollSummary.payrollIncomeCount} payroll deposits this month`}
+              href={`/transactions?period=ALL&q=${encodeURIComponent(payrollSummary.primary?.merchantKey ?? "payroll")}`}
+            />
+            <PayrollMetric
+              label="Typical paycheck"
+              value={
+                payrollSummary.typicalPaycheckMinor == null
+                  ? "Unavailable"
+                  : formatMoney(payrollSummary.typicalPaycheckMinor)
+              }
+              detail={
+                payrollSummary.primary
+                  ? cadenceLabel(payrollSummary.primary.cadence)
+                  : "More history required"
+              }
+              href={`/transactions?period=ALL&q=${encodeURIComponent(payrollSummary.primary?.merchantKey ?? "payroll")}`}
+            />
+            <PayrollMetric
+              label="Normalized monthly payroll"
+              value={
+                payrollSummary.normalizedMonthlyPayrollMinor == null
+                  ? "Unavailable"
+                  : formatMoney(payrollSummary.normalizedMonthlyPayrollMinor)
+              }
+              detail="Typical check × annual cadence ÷ 12"
+              href={`/transactions?period=ALL&q=${encodeURIComponent(payrollSummary.primary?.merchantKey ?? "payroll")}`}
+            />
+            <PayrollMetric
+              label="Most recent paycheck"
+              value={
+                payrollSummary.mostRecentPaycheck
+                  ? formatMoney(payrollSummary.mostRecentPaycheck.amountMinor)
+                  : "Unavailable"
+              }
+              detail={
+                payrollSummary.mostRecentPaycheck
+                  ? longDate(payrollSummary.mostRecentPaycheck.date)
+                  : "No qualifying payroll"
+              }
+              href={`/transactions?period=ALL&q=${encodeURIComponent(payrollSummary.primary?.merchantKey ?? "payroll")}`}
+            />
+            <PayrollMetric
+              label="Next expected paycheck"
+              value={
+                payrollSummary.nextExpectedPaycheck
+                  ? longDate(payrollSummary.nextExpectedPaycheck)
+                  : "Unavailable"
+              }
+              detail={payrollSummary.primary?.displayName ?? "No stable pattern"}
+              href={`/transactions?period=ALL&q=${encodeURIComponent(payrollSummary.primary?.merchantKey ?? "payroll")}`}
+            />
+            <PayrollMetric
+              label="Unusual income"
+              value={formatMoney(payrollSummary.unusualIncomeMinor)}
+              detail={`${payrollSummary.unusualIncomeCount} non-payroll or outlier transactions`}
+              href="/transactions?period=CURRENT_MONTH&type=INCOME&status=NEEDS_REVIEW"
+            />
+            <PayrollMetric
+              label="Detection confidence"
+              value={`${payrollSummary.confidenceScore}%`}
+              detail={payrollSummary.warnings[0] ?? "Evidence is internally consistent"}
+              href={`/transactions?period=ALL&q=${encodeURIComponent(payrollSummary.primary?.merchantKey ?? "payroll")}`}
+            />
+          </div>
+          {payrollSummary.warnings.length ? (
+            <ul className="mt-4 list-disc pl-5 text-sm text-[var(--amber)]">
+              {payrollSummary.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
+          {payrollSummary.reasons.length ? (
+            <details className="mt-5">
+              <summary className="cursor-pointer font-semibold">
+                Detection reasoning and contributing transactions
+              </summary>
+              <ul className="mt-3 list-disc pl-5 text-sm text-[var(--muted)]">
+                {payrollSummary.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[700px] text-left text-sm">
+                  <thead>
+                    <tr>
+                      {["Date", "Source", "Account", "Amount", "Provenance", "Evidence"].map(
+                        (label) => (
+                          <th key={label} className="py-2 pr-3">
+                            {label}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payrollSummary.primary?.contributingTransactions.map((transaction) => (
+                      <tr key={transaction.id} className="border-t border-[var(--border)]">
+                        <td className="py-2 pr-3">
+                          <a
+                            className="underline"
+                            href={`/transactions?period=ALL&q=${encodeURIComponent(transaction.merchant)}`}
+                          >
+                            {shortDate(transaction.date)}
+                          </a>
+                        </td>
+                        <td className="py-2 pr-3">{transaction.merchant}</td>
+                        <td className="py-2 pr-3">{transaction.accountName}</td>
+                        <td className="py-2 pr-3 font-semibold">
+                          {formatMoney(transaction.amountMinor)}
+                        </td>
+                        <td className="py-2 pr-3">{transaction.sourceType.replaceAll("_", " ")}</td>
+                        <td className="py-2 pr-3">
+                          {transaction.unusual ? (
+                            <Pill tone="warn">Unusual amount</Pill>
+                          ) : (
+                            <Pill tone="good">Typical</Pill>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ) : null}
+        </Card>
+      </div>
 
       {payroll.length ? (
         <Card className="border-[var(--teal)] p-5">
@@ -485,6 +677,29 @@ export function CashFlowIntelligenceClient({
         />
       ) : null}
     </div>
+  );
+}
+
+function PayrollMetric({
+  label,
+  value,
+  detail,
+  href,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  href: string;
+}) {
+  return (
+    <a
+      className="rounded-md border border-[var(--border)] p-4 hover:border-[var(--teal)]"
+      href={href}
+    >
+      <span className="text-xs font-semibold uppercase text-[var(--muted)]">{label}</span>
+      <strong className="mt-1 block text-lg">{value}</strong>
+      <span className="mt-1 block text-xs text-[var(--muted)]">{detail}</span>
+    </a>
   );
 }
 

@@ -24,7 +24,11 @@ export type RecurringTransactionInput = {
   postedDate?: Date | string | null;
   type?: string | null;
   excluded?: boolean | null;
-  account?: { type?: string | null } | null;
+  possibleDuplicate?: boolean | null;
+  affectsLedger?: boolean | null;
+  sourceType?: string | null;
+  plaidSource?: { ledgerDisposition?: string | null } | null;
+  account?: { id?: string | null; type?: string | null } | null;
   outgoingTransferMatches?: { status: string }[];
   incomingTransferMatches?: { status: string }[];
 };
@@ -149,6 +153,7 @@ export function normalizeRecurringMerchant(input: string) {
 
 export function isRecurringEligible(transaction: RecurringTransactionInput) {
   if (transaction.excluded) return false;
+  if (transaction.possibleDuplicate || transaction.affectsLedger === false) return false;
   if (transaction.amountMinor >= 0) return false;
   if (transaction.amountMinor === 0) return false;
   if (
@@ -323,6 +328,22 @@ function chooseFrequency(intervals: number[], occurrences: number) {
     }
   }
   if (best.matchRatio >= 0.7) return best;
+  if (occurrences >= 4 && intervals.length >= 3) {
+    const expectedDays = median(intervals);
+    const toleranceDays = Math.max(3, Math.round(expectedDays * 0.35));
+    const matches = intervals.filter(
+      (interval) => Math.abs(interval - expectedDays) <= toleranceDays,
+    );
+    if (matches.length / intervals.length >= 0.75) {
+      return {
+        frequency: "IRREGULAR_RECURRING" as const,
+        expectedDays,
+        toleranceDays,
+        matchRatio: matches.length / intervals.length,
+        label: "Irregular but repeatable",
+      };
+    }
+  }
   return best;
 }
 
@@ -463,6 +484,20 @@ function buildReasons(
     `${transactions.length} matching expense transactions share a normalized merchant.`,
     `${frequency.label} interval pattern matched ${Math.round(frequency.matchRatio * 100)}% of gaps.`,
   ];
+  const accountIds = new Set(transactions.map((transaction) => transaction.account?.id ?? ""));
+  const sourceTypes = new Set(
+    transactions.map((transaction) => transaction.sourceType).filter(Boolean),
+  );
+  if (accountIds.size === 1)
+    reasons.push("Supporting activity has consistent account-type identity.");
+  if (sourceTypes.size > 1 || transactions.some((transaction) => transaction.plaidSource)) {
+    reasons.push(
+      "CSV and bank-connection provenance was reconciled into one authoritative pattern.",
+    );
+  }
+  if (frequency.frequency === "IRREGULAR_RECURRING") {
+    reasons.push("Intervals are repeatable but not precise enough to invent an exact next date.");
+  }
   if (amountVariabilityBps <= 500) reasons.push("Amounts are highly consistent.");
   else if (amountVariabilityBps <= 2500) reasons.push("Amounts vary within a moderate range.");
   else reasons.push("Amounts vary significantly, so review as a variable recurring bill.");
@@ -534,6 +569,12 @@ function addDays(date: Date, days: number) {
 
 function roundDiv(numerator: number, denominator: number) {
   return Math.trunc((numerator + Math.trunc(denominator / 2)) / denominator);
+}
+
+function median(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : roundDiv(sorted[middle - 1] + sorted[middle], 2);
 }
 
 function mostCommon(values: string[]) {
