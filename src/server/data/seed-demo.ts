@@ -963,6 +963,41 @@ export async function seedDemoData(source = "seed", db?: SeedClient) {
       ],
     });
 
+    if (process.env.FINANCIAL_COMPASS_PLAYWRIGHT_FIXTURES === "true") {
+      const item = await client.plaidItem.create({
+        data: {
+          householdId: household.id,
+          providerItemId: `playwright-item-${household.id}`,
+          institutionId: "ins_playwright",
+          institutionName: "Playwright Community Bank",
+          environment: "sandbox",
+          status: "ACTIVE",
+        },
+      });
+      await client.plaidAccount.create({
+        data: {
+          plaidItemId: item.id,
+          providerAccountId: `playwright-account-${household.id}`,
+          officialName: "Playwright Everyday Checking",
+          displayName: "Everyday Checking",
+          mask: "4242",
+          type: "depository",
+          subtype: "checking",
+          currency: "USD",
+          currentBalanceMinor: 236_842,
+          availableBalanceMinor: 226_842,
+          balanceAsOf: new Date("2026-07-11T12:00:00.000Z"),
+          selectedForImport: false,
+          matchStatus: "PROPOSED",
+          matchConfidence: "HIGH",
+          matchEvidenceJson: JSON.stringify([
+            "Account type is compatible.",
+            "Institution and account name resemble an existing local account.",
+          ]),
+        },
+      });
+    }
+
     await client.auditLog.create({
       data: {
         householdId: household.id,

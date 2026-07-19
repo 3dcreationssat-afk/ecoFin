@@ -117,15 +117,15 @@ test("transactions drawer opens from a transaction row", async ({ page }) => {
   await expect(page.getByTestId("transaction-drawer")).toBeHidden();
 });
 
-test("transactions appear before import and transfer activity", async ({ page }) => {
+test("transactions appear before transfer activity", async ({ page }) => {
   await page.goto("/transactions");
   const ledgerHeading = page.getByRole("heading", { name: "Transactions", exact: true }).last();
-  const historyHeading = page.getByRole("heading", { name: "Import Batch History" });
+  const transferHeading = page.getByRole("heading", { name: "Transfer Review" });
   await expect(ledgerHeading).toBeVisible();
-  await expect(historyHeading).toBeAttached();
+  await expect(transferHeading).toBeAttached();
   const ledgerBox = await ledgerHeading.boundingBox();
-  const historyBox = await historyHeading.boundingBox();
-  expect(ledgerBox?.y).toBeLessThan(historyBox?.y ?? 0);
+  const transferBox = await transferHeading.boundingBox();
+  expect(ledgerBox?.y).toBeLessThan(transferBox?.y ?? 0);
 });
 
 test("settings tabs, privacy, and household persistence work after reload", async ({ page }) => {
@@ -195,15 +195,20 @@ test("mobile navigation reaches accounts", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
 });
 
-test("unfinished production controls are not exposed", async ({ page }) => {
+test("intended report and transaction controls are exposed", async ({ page }) => {
   await page.goto("/reports");
-  await expect(page.getByRole("button", { name: /CSV/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "CSV" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "HTML" })).toBeVisible();
   await page.goto("/transactions");
-  await expect(page.getByRole("button", { name: /Add Transaction/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add Transaction" })).toBeVisible();
 });
 
 test("theme selection visibly changes and persists", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("financial-compass-theme", "light"));
+  await page.addInitScript(() => {
+    if (localStorage.getItem("financial-compass-theme") === null) {
+      localStorage.setItem("financial-compass-theme", "light");
+    }
+  });
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   const themeToggle = page.getByRole("button", { name: "Switch to dark theme" });
@@ -217,6 +222,62 @@ test("theme selection visibly changes and persists", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Switch to light theme" }).click();
+});
+
+test("Plaid setup reports missing configuration without exposing or enabling controls", async ({
+  page,
+}) => {
+  await page.goto("/settings#plaid");
+  await page.getByRole("button", { name: "Plaid", exact: true }).click();
+  await expect(page.getByText("CREDENTIALS MISSING", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Test Plaid configuration" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Enable real connectivity" })).toBeDisabled();
+  await expect(page.getByText(/Missing required variables:.*PLAID_SECRET/)).toBeVisible();
+  await expect(page.locator('input[type="password"]')).toHaveCount(0);
+});
+
+test("Plaid account matching previews, confirms, controls sync, and unlinks", async ({ page }) => {
+  await page.goto("/accounts");
+  await expect(page.getByText("Playwright Community Bank", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Everyday Checking ••••4242/)).toBeVisible();
+  await page.getByLabel("Search local accounts for Everyday Checking").fill("Everyday");
+  await page
+    .getByLabel("Local account for Everyday Checking")
+    .selectOption({ label: "Everyday Checking · CHECKING" });
+  await page.getByRole("button", { name: "Preview match" }).click();
+  await expect(page.getByRole("heading", { name: "Confirm reconciliation preview" })).toBeVisible();
+  await expect(page.getByText(/CSV and Plaid provenance/)).toBeVisible();
+  let decisionResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/plaid/accounts/") &&
+      response.url().endsWith("/match") &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Confirm account match" }).click();
+  await decisionResponse;
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Disable sync" })).toBeVisible();
+  decisionResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/match") && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Disable sync" }).click();
+  await decisionResponse;
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Enable sync" })).toBeVisible();
+  decisionResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/match") && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Enable sync" }).click();
+  await decisionResponse;
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Disable sync" })).toBeVisible();
+  decisionResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/match") && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Unlink" }).click();
+  await decisionResponse;
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Preview match" })).toBeVisible();
 });
 
 test("manual transaction creation persists through the audited workflow", async ({ page }) => {
@@ -243,7 +304,7 @@ test("notification center exposes persisted operation events and read controls",
   const center = page.getByRole("region", { name: "Notification center" });
   await expect(center.getByText("Demonstration data restored", { exact: true })).toBeVisible();
   await center.getByRole("button", { name: "Mark all notifications read" }).click();
-  await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Notifications/ })).toBeVisible();
 });
 
 test("global Add menu routes to completed creation workflows", async ({ page }) => {
@@ -396,7 +457,9 @@ test("decision scenario duplicate, rename, archive, and delete are explicit", as
 test("decision simulator remains usable on mobile without document overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/decisions");
-  await expect(page.getByRole("heading", { name: "Build your scenario" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Build your scenario|Create your first scenario/ }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -566,7 +629,7 @@ test("account creation, duplicate prevention, archive, restore, and delete persi
   await expect(page.getByLabel("Available balance")).toHaveCount(0);
   await page.getByLabel("Type").selectOption("CHECKING");
   await page.getByLabel("Current balance", { exact: true }).fill("123.45");
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   const creationNotice = page.getByRole("status", {
     name: `${accountName} created successfully`,
@@ -589,7 +652,7 @@ test("account creation, duplicate prevention, archive, restore, and delete persi
     .fill(`  ${accountName.toUpperCase()}  `);
   await page.getByLabel("Institution", { exact: true }).selectOption("Other institution");
   await page.getByLabel("Other institution name").fill(" test   bank ");
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
   await expect(page.getByText("Use a unique account name for this institution.")).toBeVisible();
   await page.getByRole("button", { name: accountName }).click();
   await expect(page.getByRole("heading", { name: "Edit Account" })).toBeVisible();
@@ -628,7 +691,7 @@ test("category creation persists and validation errors are accessible", async ({
 }, testInfo) => {
   const categoryName = `Playwright Category ${testInfo.project.name}`;
   await page.goto("/settings");
-  await page.getByRole("button", { name: "Categories" }).click();
+  await page.getByRole("button", { name: "Categories", exact: true }).click();
   await expect(page.getByText("Info: The label used on transactions")).toBeVisible();
   await page.getByLabel("Category name").fill(categoryName);
   await page.getByLabel("Budget").fill("12.34");
@@ -760,6 +823,8 @@ test("advanced transaction filters, history, and saved views work", async ({ pag
     page.waitForResponse((response) => response.url().endsWith("/api/transaction-saved-views")),
     page.getByRole("button", { name: "Save current view" }).click(),
   ]);
+  await page.reload();
+  await page.getByRole("button", { name: "Saved Views" }).click();
   await expect(page.getByText(viewName, { exact: true })).toBeVisible();
   await page
     .getByText(viewName, { exact: true })
@@ -832,7 +897,7 @@ test("transaction drawer edit persists and original values remain unchanged", as
   ).toBeVisible();
 });
 
-test("transfer review scan, confirm, reject, manual match, and unmatch", async ({
+test("transfer review automatically confirms unambiguous pairs and supports unmatch", async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -842,13 +907,6 @@ test("transfer review scan, confirm, reject, manual match, and unmatch", async (
   await page.goto("/transactions");
   await page.getByRole("button", { name: "Scan transfers" }).click();
   await expect(page.getByText("Transfer scan complete.")).toBeAttached();
-  await expect(page.getByText("Credit-card payment candidate").first()).toBeVisible();
-
-  await page.getByRole("button", { name: "Reject suggestion" }).first().click();
-  await expect(page.getByText("Transfer suggestion rejected.")).toBeAttached();
-
-  await page.getByRole("button", { name: "Confirm transfer" }).first().click();
-  await expect(page.getByText("Transfer confirmed.")).toBeAttached();
   await expect(page.getByText("Internal transfer").first()).toBeVisible();
 
   await page
@@ -860,23 +918,6 @@ test("transfer review scan, confirm, reject, manual match, and unmatch", async (
   await expect(page.getByText("Transfer unmatched.")).toBeAttached();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("transaction-drawer")).toBeHidden();
-
-  const manualOutgoing = await page.getByLabel("Manual outgoing transaction").evaluate((select) => {
-    const option = [...(select as HTMLSelectElement).options].find((item) =>
-      item.textContent?.includes("-$500.00"),
-    );
-    return option?.value ?? "";
-  });
-  await page.getByLabel("Manual outgoing transaction").selectOption(manualOutgoing);
-  const manualIncoming = await page.getByLabel("Manual incoming transaction").evaluate((select) => {
-    const option = [...(select as HTMLSelectElement).options].find(
-      (item) => item.textContent?.includes("$500.00") && !item.textContent.includes("-$500.00"),
-    );
-    return option?.value ?? "";
-  });
-  await page.getByLabel("Manual incoming transaction").selectOption(manualIncoming);
-  await page.getByRole("button", { name: "Create manual match" }).click();
-  await expect(page.getByText("Manual transfer created.")).toBeAttached();
 });
 
 test("data quality exposes transfer review issues", async ({ page }) => {
@@ -997,7 +1038,7 @@ test("demo reset is observable, resets canonical data, and preserves navigation 
   await page.goto("/");
   await page.getByRole("button", { name: "Collapse navigation" }).click();
   await page.goto("/settings");
-  await page.getByRole("button", { name: "Categories" }).click();
+  await page.getByRole("button", { name: "Categories", exact: true }).click();
   await page.getByLabel("Category name").fill("Reset E2E Category");
   await page.getByRole("textbox", { name: /Budget/ }).fill("1.23");
   await page.getByRole("button", { name: "Add category" }).click();
@@ -1007,7 +1048,7 @@ test("demo reset is observable, resets canonical data, and preserves navigation 
   await page.getByRole("button", { name: "Backup & Data" }).click();
   await expect(page.getByText(/Type RESET DEMO DATA/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset to sample data" })).toBeDisabled();
-  await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
+  await page.getByLabel("Reset confirmation", { exact: true }).fill("RESET DEMO DATA");
   await page.route("**/api/demo-reset", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     await route.continue();
@@ -1023,10 +1064,10 @@ test("demo reset is observable, resets canonical data, and preserves navigation 
   await resetResponse;
   await expect(page.getByText("Demonstration data was reset.")).toBeVisible();
   await expect(page.getByText(/1 household, 6 accounts, 14 categories/)).toBeVisible();
-  await expect(page.getByLabel("Reset confirmation")).toHaveValue("");
+  await expect(page.getByLabel("Reset confirmation", { exact: true })).toHaveValue("");
   await page.reload();
   await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
-  await page.getByRole("button", { name: "Categories" }).click();
+  await page.getByRole("button", { name: "Categories", exact: true }).click();
   await expect(page.locator("strong", { hasText: "Reset E2E Category" })).toHaveCount(0);
   await expect(page.locator("strong", { hasText: "Groceries" })).toBeVisible();
 });
@@ -1045,9 +1086,48 @@ test("demo reset surfaces server failure", async ({ page }) => {
       }),
     });
   });
-  await page.getByLabel("Reset confirmation").fill("RESET DEMO DATA");
+  await page.getByLabel("Reset confirmation", { exact: true }).fill("RESET DEMO DATA");
   await page.getByRole("button", { name: "Reset to sample data" }).click();
   await expect(page.getByText("Demonstration data could not be reset.")).toBeVisible();
+});
+
+test("selective reset scopes disclose impact and require exact confirmation", async ({ page }) => {
+  const requests: Array<{ scope: string; confirmation: string }> = [];
+  await page.route("**/api/workspace/selective-reset", async (route) => {
+    const body = route.request().postDataJSON() as { scope: string; confirmation: string };
+    requests.push(body);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        scope: body.scope,
+        removed: {},
+        preserved: ["theme preference", "validated safety backup"],
+        safetyBackup: `safety-${body.scope}.zip`,
+      }),
+    });
+  });
+  await page.goto("/settings#backup");
+  const cases = [
+    ["Clear transactions only", "TRANSACTIONS", "CLEAR TRANSACTIONS"],
+    ["Clear CSV import history", "CSV_HISTORY", "CLEAR CSV HISTORY"],
+    ["Disconnect Plaid institutions", "PLAID_CONNECTIONS", "DISCONNECT PLAID"],
+    ["Reset household financial data", "HOUSEHOLD_FINANCIAL", "RESET FINANCIAL DATA"],
+  ] as const;
+  for (const [title, scope, confirmation] of cases) {
+    await page.getByRole("button", { name: new RegExp(`^${title}`) }).click();
+    await expect(
+      page
+        .getByText(/Removes:/)
+        .filter({ hasText: /./ })
+        .first(),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run selected reset" })).toBeDisabled();
+    await page.getByLabel("Selective reset confirmation").fill(confirmation);
+    await page.getByRole("button", { name: "Run selected reset" }).click();
+    await expect(page.getByText(`safety-${scope}.zip`)).toBeVisible();
+  }
+  expect(requests).toEqual(cases.map(([, scope, confirmation]) => ({ scope, confirmation })));
 });
 
 test("start fresh empties demo data, updates badges, and preserves navigation preference", async ({
@@ -1061,7 +1141,7 @@ test("start fresh empties demo data, updates badges, and preserves navigation pr
     await page.getByRole("button", { name: "Collapse navigation" }).click();
 
     await page.goto("/settings#backup");
-    await expect(page.getByRole("heading", { name: "Start fresh" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Full workspace reset" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start fresh" })).toBeDisabled();
     await page.getByLabel("Start fresh confirmation").fill("START FRESH");
     await page.route("**/api/workspace/start-fresh", async (route) => {
@@ -1090,7 +1170,7 @@ test("start fresh empties demo data, updates badges, and preserves navigation pr
     await expect(page.getByRole("heading", { name: "No transactions yet." })).toBeVisible();
     await expect(page.getByText("Whole Foods Market")).toHaveCount(0);
     await page.goto("/settings");
-    await page.getByRole("button", { name: "Categories" }).click();
+    await page.getByRole("button", { name: "Categories", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Category Management" })).toBeVisible();
     await expect(page.getByText("Default", { exact: true })).toHaveCount(14);
     await expect(page.getByText("Custom", { exact: true })).toHaveCount(0);
@@ -1112,7 +1192,7 @@ test("start fresh empties demo data, updates badges, and preserves navigation pr
     await page.getByLabel("Institution", { exact: true }).selectOption("Other institution");
     await page.getByLabel("Other institution name").fill("Local Test Bank");
     await page.getByLabel("Current balance", { exact: true }).fill("25.00");
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     await expect(page.getByRole("status", { name: /Your data/ })).toBeVisible();
     await page.reload();

@@ -14,6 +14,7 @@ build/
 *.db-journal
 *.sqlite
 *.sqlite3
+/prisma/vitest-template.fingerprint
 /backups/
 /exports/
 /imports/
@@ -27,6 +28,7 @@ build/
 coverage/
 playwright-report/
 test-results/
+playwright-artifacts/
 
 # private UAT evidence
 /uat/**/screens/
