@@ -14,6 +14,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Keep scope narrow. Do not begin CSV import, bank connectivity, investment advice, tax advice, or unrelated redesign work without explicit approval.
 - Keep commits coherent, conventional, and reviewable. Update `docs/change-ledger.md` for meaningful product, architecture, schema, calculation, persistence, or design changes.
 - Stop and report if required data, credentials, legal/financial judgment, or destructive ambiguity blocks safe progress.
+- The user has authorized controlled restarts of this repository's local development server when
+  needed for verification. Identify the repo-owned listener before stopping it, preserve the
+  configured database/workspace environment, announce the temporary interruption, restart it in
+  the background, and verify localhost responds afterward. This authorization does not extend to
+  unrelated processes, database resets, or other destructive actions.
 
 ## Financial Correctness
 

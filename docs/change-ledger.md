@@ -214,5 +214,6 @@
   costs explicitly, and the result distinguishes cash-flow affordability from unmodeled vehicle-loan
   balance/APR/payoff. User-facing risks now show currency and months instead of minor units and basis
   points, while the validated scenario engine and isolated persistence contracts remain unchanged.
-- Removed the runtime Google Fonts dependency; the approved interface now uses the local system font
-  stack so local development, tests, and normal use do not require an external network request.
+- Removed the runtime Google Fonts dependency and bundled the Inter variable font locally through
+  `@fontsource-variable/inter`; local development, tests, and normal use now keep the approved
+  typography without an external font request.
