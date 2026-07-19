@@ -51,10 +51,30 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Engineering
 
 - Use Next.js App Router, React, strict TypeScript, Tailwind CSS, Prisma, SQLite, Zod, Vitest, and Playwright.
+- Use the Node.js 22 LTS line for local development. Keep the installed patch at `22.22.0` or
+  newer so Codex browser tooling can run; do not change Node major versions without explicit
+  approval. Verify `node --version` and `npm --version` after runtime upgrades.
 - Use route handlers or server actions, application services, repositories, Prisma, and domain calculations with clear boundaries. Do not access Prisma directly from arbitrary client components.
 - Use Zod validation for writes and return structured validation errors for invalid input, not found, archived edits, foreign-key mismatches, invalid dates, invalid minor units, invalid account/category relationships, and conflicting actions.
 - Prefer repository-derived screen data over scattered page constants for persisted domains.
 - Keep approved Base44-derived design and collapsible navigation unless the task explicitly asks for redesign.
+
+## Local Browser Verification
+
+- The repository development server is expected at `http://127.0.0.1:3000` or
+  `http://localhost:3000`. Confirm the repo-owned listener and an HTTP success response before
+  browser verification.
+- When the Chrome control skill is available and connected, use it for rendered UI audits and
+  interactive localhost verification. Restrict inspection and control to Financial Compass tabs;
+  do not inspect, claim, or disclose unrelated browser tabs, history, or signed-in sessions. If
+  tab discovery is required, filter immediately for the localhost Financial Compass target and do
+  not emit unrelated tab metadata.
+- Browser access to the real workspace is read-only by default. Do not submit forms or trigger
+  imports, resets, restores, Plaid actions, account changes, transaction decisions, or other
+  financial mutations unless the current task explicitly authorizes that action.
+- Use the repository's Playwright suite for repeatable regression coverage and whenever Chrome
+  control is unavailable. Keep automated tests isolated from the real database and real Plaid
+  credentials.
 
 ## Testing And Definition Of Done
 
