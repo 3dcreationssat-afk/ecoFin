@@ -205,3 +205,14 @@
   with review-status changes only can discard those review decisions through a separately confirmed,
   audited reset and then use the existing protected undo. Categories, merchants, types, notes,
   exclusions, and confirmed transfers remain hard blockers.
+- Added an explicit `Apply recommended resolutions` review action for mixed flagged transactions.
+  The UI previews credit-card payments, refunds/rewards, fees, and unresolved rows before confirmation;
+  the audited service keeps card payments in the ledger but out of income/spending, keeps refunds as
+  spending offsets and fees as expenses, and leaves uncertain or protected rows unchanged.
+- Reworked Decisions around a Base44-style guided comparison: a plain-language bottom line now leads
+  the page, vehicle scenarios expose loan payment, down payment, trade-in, insurance, and operating
+  costs explicitly, and the result distinguishes cash-flow affordability from unmodeled vehicle-loan
+  balance/APR/payoff. User-facing risks now show currency and months instead of minor units and basis
+  points, while the validated scenario engine and isolated persistence contracts remain unchanged.
+- Removed the runtime Google Fonts dependency; the approved interface now uses the local system font
+  stack so local development, tests, and normal use do not require an external network request.

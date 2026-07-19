@@ -16,6 +16,7 @@ import {
   type EmergencyRunwayResult,
 } from "@/domain/planning/emergency-runway";
 import type { ScenarioComponentInput } from "./schema";
+import { formatMoney } from "@/domain/money/money";
 
 export type ScenarioComponent = ScenarioComponentInput & { id: string };
 export type ScenarioRisk = {
@@ -611,7 +612,7 @@ function componentCashAmounts(input: CashFlowInput, component: ScenarioComponent
       return {
         oneTimeMinor: trade - down,
         monthlyMinor: -monthly,
-        explanation: `Vehicle: down payment ${down}, trade-in ${trade}, monthly payment ${Math.abs(component.amountMinor ?? 0)}, insurance ${Math.abs(component.insuranceIncreaseMinor ?? 0)}, operating ${Math.abs(component.operatingIncreaseMinor ?? 0)} minor units.`,
+        explanation: `Vehicle: ${formatMoney(Math.abs(component.amountMinor ?? 0))} loan payment, ${formatMoney(Math.abs(component.insuranceIncreaseMinor ?? 0))} added insurance, and ${formatMoney(Math.abs(component.operatingIncreaseMinor ?? 0))} added operating costs per month; ${formatMoney(down)} down payment and ${formatMoney(trade)} trade-in credit upfront.`,
       };
     }
     case "CANCEL_RECURRING": {
@@ -792,7 +793,7 @@ function buildRisks(input: {
       level: "WARNING",
       code: "SAFE_TO_SPEND_DOWN",
       title: "Safe to Spend decreases",
-      explanation: `Scenario reduces Safe to Spend by ${input.baseline.safeToSpendMinor - input.scenario.safeToSpendMinor} minor units.`,
+      explanation: `Scenario reduces Safe to Spend by ${formatMoney(input.baseline.safeToSpendMinor - input.scenario.safeToSpendMinor)}.`,
     });
   if (
     input.scenarioRunway != null &&
@@ -803,7 +804,7 @@ function buildRisks(input: {
       level: "WARNING",
       code: "RUNWAY_LOW",
       title: "Emergency runway is below the configured target",
-      explanation: `Runway is ${input.scenarioRunway} basis points versus the configured ${input.targetRunwayBasisPoints} basis-point target.`,
+      explanation: `Emergency runway is ${(input.scenarioRunway / 10_000).toFixed(1)} months versus the configured ${(input.targetRunwayBasisPoints / 10_000).toFixed(1)}-month target.`,
     });
   if (input.goalImpacts.some((goal) => (goal.differenceMonths ?? 0) > 0))
     risks.push({
@@ -826,7 +827,7 @@ function buildRisks(input: {
       level: "POSITIVE",
       code: "DEBT_IMPROVES",
       title: "Debt cost improves",
-      explanation: `The existing payoff engine estimates ${input.scenarioDebt.interestSavedMinor} minor units less interest.`,
+      explanation: `The existing payoff engine estimates ${formatMoney(input.scenarioDebt.interestSavedMinor ?? 0)} less interest.`,
     });
   if (!risks.length)
     risks.push({

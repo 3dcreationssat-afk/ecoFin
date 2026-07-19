@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Archive, Copy, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Archive,
+  Car,
+  Copy,
+  Pencil,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { Button, Card, MetricCard, Pill } from "@/components/data-display/primitives";
 import { formatMoney, parseMoneyToMinor } from "@/domain/money/money";
 import type { ScenarioEvaluation } from "@/domain/decisions/engine";
@@ -75,7 +85,11 @@ export function DecisionsClient({
 }) {
   const { selected, evaluation } = dashboard;
   const [newName, setNewName] = useState("");
-  const [type, setType] = useState<(typeof componentOptions)[number][0]>("RECURRING_EXPENSE");
+  const [type, setType] = useState<(typeof componentOptions)[number][0]>(
+    selected?.components.some((component) => component.type === "VEHICLE_PAYMENT")
+      ? "VEHICLE_PAYMENT"
+      : "RECURRING_EXPENSE",
+  );
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [secondaryAmount, setSecondaryAmount] = useState("");
@@ -291,6 +305,8 @@ export function DecisionsClient({
             ? dashboard.options.accounts
             : [];
 
+  const decisionSummary = evaluation ? summarizeDecision(evaluation) : null;
+
   return (
     <div className="space-y-6">
       {emptyWorkspace ? (
@@ -306,7 +322,16 @@ export function DecisionsClient({
         </Card>
       ) : null}
 
-      <Card className="p-4 sm:p-5">
+      <Card className="p-4 sm:p-5" aria-label="Scenario controls">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Your scenarios</h2>
+            <p className="text-sm text-[var(--muted)]">
+              Each option is isolated from your real records.
+            </p>
+          </div>
+          <Pill tone="info">What-if only</Pill>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {dashboard.scenarios.map((scenario) => (
             <a
@@ -321,7 +346,7 @@ export function DecisionsClient({
         </div>
         <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-[var(--border)] pt-4">
           <label className="min-w-[220px] flex-1 text-sm font-medium">
-            New scenario name
+            Compare another option
             <input
               aria-label="New scenario name"
               value={newName}
@@ -330,7 +355,7 @@ export function DecisionsClient({
             />
           </label>
           <Button disabled={!newName.trim() || busy} onClick={createScenario}>
-            <Plus className="h-4 w-4" /> New scenario
+            <Plus className="h-4 w-4" /> Create scenario
           </Button>
           {selected ? (
             <>
@@ -371,16 +396,41 @@ export function DecisionsClient({
               <Card className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-semibold">Scenario builder</h2>
+                    <h2 className="text-xl font-semibold">Build your scenario</h2>
                     <p className="mt-1 text-sm text-[var(--muted)]">
-                      Assumptions stay isolated from actual records.
+                      Add only the changes this decision would create.
                     </p>
                   </div>
                   <Pill tone="info">Isolated</Pill>
                 </div>
+                <div className="mt-5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                    Quick start
+                  </span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[
+                      ["VEHICLE_PAYMENT", "Vehicle purchase"],
+                      ["RECURRING_EXPENSE", "Monthly cost"],
+                      ["ONE_TIME_EXPENSE", "One-time purchase"],
+                      ["RECURRING_INCOME_CHANGE", "Income change"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setType(value as typeof type);
+                          setLinkedId("");
+                        }}
+                        className={`rounded-lg border px-3 py-2 text-sm ${type === value ? "border-[var(--teal)] bg-[var(--teal-soft)] font-semibold text-[var(--teal)]" : "border-[var(--border)]"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="mt-5 space-y-4">
                   <label className="block text-sm font-medium">
-                    Component type
+                    What changes?
                     <select
                       aria-label="Component type"
                       value={type}
@@ -398,7 +448,7 @@ export function DecisionsClient({
                     </select>
                   </label>
                   <label className="block text-sm font-medium">
-                    Name
+                    {type === "VEHICLE_PAYMENT" ? "Vehicle or scenario label" : "Name"}
                     <input
                       aria-label="Component name"
                       value={name}
@@ -408,9 +458,11 @@ export function DecisionsClient({
                   </label>
                   {!(["CANCEL_RECURRING", "SAVINGS_POLICY_OVERRIDE"] as string[]).includes(type) ? (
                     <label className="block text-sm font-medium">
-                      {type === "RECURRING_INCOME_CHANGE" || type === "SAVINGS_CHANGE"
-                        ? "Monthly change (negative reduces)"
-                        : "Amount"}
+                      {type === "VEHICLE_PAYMENT"
+                        ? "Monthly loan payment"
+                        : type === "RECURRING_INCOME_CHANGE" || type === "SAVINGS_CHANGE"
+                          ? "Monthly change (negative reduces)"
+                          : "Amount"}
                       <input
                         aria-label="Component amount"
                         inputMode="decimal"
@@ -418,12 +470,18 @@ export function DecisionsClient({
                         onChange={(event) => setAmount(event.target.value)}
                         className="mt-2 w-full border border-[var(--border)] px-3"
                       />
+                      {type === "VEHICLE_PAYMENT" ? (
+                        <span className="mt-1 block text-xs font-normal text-[var(--muted)]">
+                          Enter only the lender payment. Insurance and operating costs are added
+                          below.
+                        </span>
+                      ) : null}
                     </label>
                   ) : null}
                   {type === "VEHICLE_PAYMENT" ? (
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="text-sm font-medium">
-                        Down payment
+                        Cash down payment
                         <input
                           aria-label="Down payment"
                           inputMode="decimal"
@@ -433,7 +491,7 @@ export function DecisionsClient({
                         />
                       </label>
                       <label className="text-sm font-medium">
-                        Trade-in proceeds
+                        Trade-in credit
                         <input
                           aria-label="Trade-in proceeds"
                           inputMode="decimal"
@@ -443,7 +501,7 @@ export function DecisionsClient({
                         />
                       </label>
                       <label className="text-sm font-medium">
-                        Insurance increase
+                        Added insurance per month
                         <input
                           aria-label="Insurance increase"
                           inputMode="decimal"
@@ -453,7 +511,7 @@ export function DecisionsClient({
                         />
                       </label>
                       <label className="text-sm font-medium">
-                        Fuel and maintenance increase
+                        Added fuel and maintenance per month
                         <input
                           aria-label="Fuel and maintenance increase"
                           inputMode="decimal"
@@ -466,7 +524,9 @@ export function DecisionsClient({
                   ) : null}
                   {linkOptions.length ? (
                     <label className="block text-sm font-medium">
-                      Linked record
+                      {type === "VEHICLE_PAYMENT"
+                        ? "Account used for the down payment (optional)"
+                        : "Linked record"}
                       <select
                         aria-label="Linked record"
                         value={linkedId}
@@ -550,7 +610,7 @@ export function DecisionsClient({
                       />
                     </label>
                     <label className="text-sm font-medium">
-                      Duration months
+                      {type === "VEHICLE_PAYMENT" ? "Loan term (months)" : "Duration months"}
                       <input
                         aria-label="Duration months"
                         inputMode="numeric"
@@ -562,7 +622,11 @@ export function DecisionsClient({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button disabled={!name.trim() || busy} onClick={saveComponent}>
-                      {editingId ? "Save component" : "Add component"}
+                      {editingId
+                        ? "Save assumption"
+                        : type === "VEHICLE_PAYMENT"
+                          ? "Add vehicle costs"
+                          : "Add assumption"}
                     </Button>
                     {editingId ? (
                       <Button variant="secondary" onClick={resetBuilder}>
@@ -573,7 +637,7 @@ export function DecisionsClient({
                 </div>
               </Card>
               <Card className="p-5">
-                <h2 className="text-xl font-semibold">Active components</h2>
+                <h2 className="text-xl font-semibold">Scenario assumptions</h2>
                 <div className="mt-4 space-y-3">
                   {selected.components.length ? (
                     selected.components.map((component) => (
@@ -585,10 +649,7 @@ export function DecisionsClient({
                           <div>
                             <strong>{component.name}</strong>
                             <p className="mt-1 text-xs text-[var(--muted)]">
-                              {friendlyType(component.type)} ·{" "}
-                              {component.amountMinor == null
-                                ? "Linked assumption"
-                                : formatMoney(component.amountMinor)}
+                              {componentSummary(component)}
                               {component.startDate
                                 ? ` · ${new Date(component.startDate).toISOString().slice(0, 10)}`
                                 : ""}
@@ -623,36 +684,84 @@ export function DecisionsClient({
             </div>
 
             <div className="min-w-0 space-y-6">
-              <div className="metric-grid" aria-label="Scenario impact horizons">
+              {decisionSummary ? (
+                <section aria-label="Decision summary">
+                  <Card className="overflow-hidden border-[var(--teal)]">
+                    <div className="grid gap-5 p-5 lg:grid-cols-[1.2fr_1fr] lg:p-6">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          {decisionSummary.tone === "bad" ? (
+                            <AlertTriangle className="h-5 w-5 text-[var(--red)]" />
+                          ) : decisionSummary.tone === "warn" ? (
+                            <AlertTriangle className="h-5 w-5 text-[var(--amber)]" />
+                          ) : (
+                            <ShieldCheck className="h-5 w-5 text-[var(--teal)]" />
+                          )}
+                          <span className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
+                            Bottom line
+                          </span>
+                        </div>
+                        <h2 className="mt-3 text-2xl font-semibold">{decisionSummary.title}</h2>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                          {decisionSummary.explanation}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Pill tone={decisionSummary.tone}>
+                            {titleCase(evaluation.confidence)} confidence
+                          </Pill>
+                          <Pill tone="info">Scenario only—no real records changed</Pill>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <DecisionNumber
+                          label="Added each month"
+                          value={formatMoney(Math.abs(evaluation.impacts.ongoingMonthlyMinor))}
+                        />
+                        <DecisionNumber
+                          label="Cash needed upfront"
+                          value={formatMoney(Math.abs(evaluation.impacts.oneTimeMinor))}
+                        />
+                        <DecisionNumber
+                          label="Safe to spend after"
+                          value={formatMoney(evaluation.scenario.safeToSpendMinor)}
+                        />
+                        <DecisionNumber
+                          label="Emergency runway after"
+                          value={formatRunway(evaluation.scenarioEmergencyRunwayBps)}
+                        />
+                      </div>
+                    </div>
+                    {selected.components.some(
+                      (component) => component.type === "VEHICLE_PAYMENT",
+                    ) ? (
+                      <div className="flex gap-3 border-t border-[var(--border)] bg-[var(--surface-muted)] px-5 py-4 text-sm">
+                        <Car className="mt-0.5 h-5 w-5 shrink-0 text-[var(--teal)]" />
+                        <p>
+                          <strong>Vehicle scope:</strong> this measures the payment, down payment,
+                          trade-in, insurance, and operating-cost impact. It does not add the new
+                          car loan balance, APR, or payoff schedule to Debt.
+                        </p>
+                      </div>
+                    ) : null}
+                  </Card>
+                </section>
+              ) : null}
+              <div className="metric-grid" aria-label="Key scenario results">
                 <MetricCard
-                  label="Upfront impact"
-                  value={formatSigned(evaluation.impacts.oneTimeMinor)}
-                  detail="Net one-time cash events; never included in the monthly amount"
+                  label="Current-period cash flow after"
+                  value={formatMoney(
+                    evaluation.scenario.projectedMonthEndMinor -
+                      evaluation.scenario.startingUsableLiquidCashMinor,
+                  )}
+                  detail={deltaText(
+                    evaluation.scenario.projectedMonthEndMinor -
+                      evaluation.scenario.startingUsableLiquidCashMinor -
+                      (evaluation.baseline.projectedMonthEndMinor -
+                        evaluation.baseline.startingUsableLiquidCashMinor),
+                  )}
                 />
                 <MetricCard
-                  label="Ongoing monthly impact"
-                  value={formatSigned(evaluation.impacts.ongoingMonthlyMinor)}
-                  detail="Recurring change for one modeled monthly occurrence"
-                />
-                <MetricCard
-                  label="Current-period impact"
-                  value={formatSigned(evaluation.impacts.currentPeriodMinor)}
-                  detail="Only events and occurrences in the selected financial period"
-                />
-                <MetricCard
-                  label="First 12-month impact"
-                  value={formatSigned(evaluation.impacts.firstYearMinor)}
-                  detail="Upfront events plus applicable recurring occurrences"
-                />
-              </div>
-              <div className="metric-grid">
-                <MetricCard
-                  label="Scenario confidence"
-                  value={titleCase(evaluation.confidence)}
-                  detail={`${evaluation.validation.length} validation issues`}
-                />
-                <MetricCard
-                  label="Projected month-end"
+                  label="Month-end cash after"
                   value={formatMoney(evaluation.scenario.projectedMonthEndMinor)}
                   detail={deltaText(
                     evaluation.scenario.projectedMonthEndMinor -
@@ -660,7 +769,7 @@ export function DecisionsClient({
                   )}
                 />
                 <MetricCard
-                  label="Safe to Save"
+                  label="Safe to save after"
                   value={formatMoney(evaluation.scenario.recommendedSafeToSaveMinor)}
                   detail={deltaText(
                     evaluation.scenario.recommendedSafeToSaveMinor -
@@ -668,7 +777,7 @@ export function DecisionsClient({
                   )}
                 />
                 <MetricCard
-                  label="Safe to Spend"
+                  label="Safe to spend after"
                   value={formatMoney(evaluation.scenario.safeToSpendMinor)}
                   detail={deltaText(
                     evaluation.scenario.safeToSpendMinor - evaluation.baseline.safeToSpendMinor,
@@ -1024,6 +1133,58 @@ function Impact({ label, value }: { label: string; value: string }) {
       <strong className="mt-1 block whitespace-nowrap tabular-nums">{value}</strong>
     </div>
   );
+}
+function DecisionNumber({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+      <span className="text-xs text-[var(--muted)]">{label}</span>
+      <strong className="mt-1 block text-lg tabular-nums">{value}</strong>
+    </div>
+  );
+}
+function summarizeDecision(evaluation: ScenarioEvaluation): {
+  tone: "good" | "warn" | "bad";
+  title: string;
+  explanation: string;
+} {
+  const safeToSpendChange =
+    evaluation.scenario.safeToSpendMinor - evaluation.baseline.safeToSpendMinor;
+  const monthlyCost = Math.abs(evaluation.impacts.ongoingMonthlyMinor);
+  if (evaluation.scenario.safeToSpendMinor < 0 || evaluation.scenario.projectedMonthEndMinor < 0)
+    return {
+      tone: "bad",
+      title: "This scenario does not fit the current plan.",
+      explanation: `It adds ${formatMoney(monthlyCost)} per month and would leave ${formatMoney(evaluation.scenario.safeToSpendMinor)} safe to spend. Reduce the cost, increase income, or change another commitment before considering it workable.`,
+    };
+  if (evaluation.confidence === "LIMITED")
+    return {
+      tone: "warn",
+      title: "The cash flow may fit, but the answer is not reliable enough yet.",
+      explanation: `The scenario leaves ${formatMoney(evaluation.scenario.safeToSpendMinor)} safe to spend after the modeled changes (${formatSigned(safeToSpendChange)} versus today). Limited confidence means important baseline data is missing or unconfirmed, so treat this as a planning estimate—not a purchase decision.`,
+    };
+  if (evaluation.risks.some((risk) => risk.level === "CRITICAL" || risk.level === "WARNING"))
+    return {
+      tone: "warn",
+      title: "This is a tight fit with tradeoffs to review.",
+      explanation: `The scenario adds ${formatMoney(monthlyCost)} per month and leaves ${formatMoney(evaluation.scenario.safeToSpendMinor)} safe to spend. Review the warnings below, especially changes to emergency runway and savings goals.`,
+    };
+  return {
+    tone: "good",
+    title: "This appears to fit the current plan.",
+    explanation: `After the modeled changes, the plan retains ${formatMoney(evaluation.scenario.safeToSpendMinor)} safe to spend and ${formatRunway(evaluation.scenarioEmergencyRunwayBps)} of emergency runway. This is a planning result, not financial advice.`,
+  };
+}
+function componentSummary(component: ComponentRecord) {
+  if (component.type !== "VEHICLE_PAYMENT")
+    return `${friendlyType(component.type)} · ${
+      component.amountMinor == null ? "Linked assumption" : formatMoney(component.amountMinor)
+    }`;
+  const monthly =
+    (component.amountMinor ?? 0) +
+    (component.insuranceIncreaseMinor ?? 0) +
+    (component.operatingIncreaseMinor ?? 0);
+  const netUpfront = (component.secondaryAmountMinor ?? 0) - (component.tradeInMinor ?? 0);
+  return `Vehicle · ${formatMoney(monthly)}/month total · ${formatMoney(Math.max(0, netUpfront))} net upfront`;
 }
 function friendlyType(value: string) {
   return value

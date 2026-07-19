@@ -256,8 +256,13 @@ test("decision simulator persists isolated components and comparisons", async ({
   await page.request.post("/api/demo-reset", { data: { confirmation: "RESET DEMO DATA" } });
   await page.goto("/decisions");
   await page.getByRole("link", { name: "Add vehicle payment" }).click();
+  await expect(page.getByRole("region", { name: "Decision summary" })).toBeVisible();
+  await expect(page.getByText("Bottom line", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Vehicle scope:/)).toBeVisible();
+  await expect(page.getByLabel("Component amount")).toBeVisible();
+  await expect(page.locator("label").filter({ hasText: "Monthly loan payment" })).toBeVisible();
   await page.getByText("Detailed impact-horizon breakdown", { exact: true }).click();
-  await expect(page.getByText(/Vehicle: down payment/)).toBeVisible();
+  await expect(page.getByText(/Vehicle: .* loan payment/)).toBeVisible();
   await expect(
     page.getByText(/Immediate linked emergency-fund balance divided by average monthly essential/),
   ).toBeVisible();
@@ -267,24 +272,22 @@ test("decision simulator persists isolated components and comparisons", async ({
   await expect(page.getByText("Essential monthly obligations", { exact: true })).toBeVisible();
   const scenarioName = `Playwright decision ${testInfo.project.name}`;
   await page.getByLabel("New scenario name").fill(scenarioName);
-  await page.getByRole("button", { name: "New scenario" }).click();
+  await page.getByRole("button", { name: "Create scenario" }).click();
   await expect(page.getByRole("link", { name: scenarioName })).toBeVisible();
 
   await page.getByLabel("Component name").fill("Synthetic monthly cost");
   await page.getByLabel("Component amount").fill("200.00");
-  await page.getByRole("button", { name: "Add component" }).click();
+  await page.getByRole("button", { name: "Add assumption" }).click();
   await expect(page.getByText("Synthetic monthly cost", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Current plan vs. scenario" })).toBeVisible();
 
   await page.getByLabel("Component type").selectOption("ONE_TIME_EXPENSE");
   await page.getByLabel("Component name").fill("Synthetic purchase");
   await page.getByLabel("Component amount").fill("350.00");
-  await page.getByRole("button", { name: "Add component" }).click();
+  await page.getByRole("button", { name: "Add assumption" }).click();
   await expect(page.getByText("Synthetic purchase", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Upfront impact", { exact: true })).toBeVisible();
-  await expect(page.getByText("Ongoing monthly impact", { exact: true })).toBeVisible();
-  await expect(page.getByText("Current-period impact", { exact: true })).toBeVisible();
-  await expect(page.getByText("First 12-month impact", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Decision summary" })).toBeVisible();
+  await expect(page.getByText("Cash needed upfront", { exact: true })).toBeVisible();
   await page.getByText("Detailed impact-horizon breakdown", { exact: true }).click();
   await expect(page.getByRole("columnheader", { name: "Bounded total" })).toBeVisible();
   await expect(page.getByText("Monthly net cash flow", { exact: true })).toHaveCount(0);
@@ -292,14 +295,14 @@ test("decision simulator persists isolated components and comparisons", async ({
   await page.getByLabel("Component type").selectOption("CANCEL_RECURRING");
   await page.getByLabel("Component name").fill("Cancel synthetic recurring");
   await page.getByLabel("Linked record").selectOption({ index: 1 });
-  await page.getByRole("button", { name: "Add component" }).click();
+  await page.getByRole("button", { name: "Add assumption" }).click();
   await expect(page.getByText("Cancel synthetic recurring", { exact: true }).first()).toBeVisible();
 
   await page.getByLabel("Component type").selectOption("DEBT_EXTRA_PAYMENT");
   await page.getByLabel("Component name").fill("Synthetic debt extra");
   await page.getByLabel("Component amount").fill("250.00");
   await page.getByLabel("Linked record").selectOption({ index: 1 });
-  await page.getByRole("button", { name: "Add component" }).click();
+  await page.getByRole("button", { name: "Add assumption" }).click();
   await expect(page.getByText("Synthetic debt extra", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Debt impact" })).toBeVisible();
 
@@ -307,7 +310,7 @@ test("decision simulator persists isolated components and comparisons", async ({
   await page.getByLabel("Component name").fill("Synthetic policy");
   await page.getByLabel("Policy mode").selectOption("CUSTOM");
   await page.getByLabel("Savings target percent").fill("65");
-  await page.getByRole("button", { name: "Add component" }).click();
+  await page.getByRole("button", { name: "Add assumption" }).click();
   await expect(page.getByText("Synthetic policy", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Interpretation and risks" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Scenario timeline" })).toBeVisible();
@@ -333,7 +336,7 @@ test("decision scenario duplicate, rename, archive, and delete are explicit", as
 test("decision simulator remains usable on mobile without document overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/decisions");
-  await expect(page.getByRole("heading", { name: "Scenario builder" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Build your scenario" })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -711,6 +714,9 @@ test("current-page selection and safe bulk review work", async ({ page }) => {
   const first = page.getByRole("checkbox", { name: /Select Whole Foods Market/ });
   await first.check();
   await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Bulk action")).toHaveValue("APPLY_REVIEW_RECOMMENDATIONS");
+  await expect(page.getByText("What the app will do")).toBeVisible();
+  await expect(page.getByText(/uncertain item.*leave flagged and unchanged/i)).toBeVisible();
   await page.getByLabel("Bulk action").selectOption("MARK_REVIEWED");
   await page.getByRole("button", { name: "Apply to selected" }).click();
   await expect(page.getByText(/Bulk action complete/)).toBeAttached();

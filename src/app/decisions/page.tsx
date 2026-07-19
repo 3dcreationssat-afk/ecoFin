@@ -18,7 +18,7 @@ export default async function DecisionsPage({
     <AppShell>
       <PageHeader
         title={pageMeta["/decisions"].title}
-        subtitle="Compare isolated assumptions with your validated current plan"
+        subtitle="See what a decision changes before you commit"
         workspaceState={state}
       />
       <DecisionsClient dashboard={dashboard} emptyWorkspace={state === "EMPTY"} />
