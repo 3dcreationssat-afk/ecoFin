@@ -17,7 +17,7 @@ Implemented:
 
 - Next.js App Router application with strict TypeScript and Tailwind CSS.
 - Responsive application shell with persistent collapsible desktop navigation and mobile/tablet drawer navigation.
-- Persistent light, dark, and system theme preference; unfinished global actions are not displayed.
+- Persistent light/dark theme toggle; unfinished global actions are not displayed.
 - SQLite/Prisma source of truth for household settings, accounts, categories, goals, goal contributions, transactions, and audit records.
 - Repository/service-backed API routes with Zod validation and structured errors.
 - Persistent household settings, account management, category management, goal management/contributions, and transaction normalization edits.

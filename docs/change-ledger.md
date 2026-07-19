@@ -15,7 +15,7 @@
   exact minor-unit conversion, account-match scoring, unit tests, tracked-secret scanning, and a
   privacy-preserving machine reconciliation report.
 - Removed nonfunctional shell, notification, profile, report-export, report-selector, and duplicate
-  add controls. Added persistent light/dark/system theme behavior and removed internal database and
+  add controls. Added persistent light/dark theme behavior and removed internal database and
   workspace identifiers from Settings client data.
 - Created and validated a complete ignored safety backup before applying the additive migration.
 
@@ -247,5 +247,5 @@
   uniqueness evidence agree. Provider transaction and balance changes create audit history.
 - Added additive Plaid persistence, backup coverage, reset guards, tracked secret scanning, ignored
   reconciliation/source-inventory reports, and verified pre/post-migration backups.
-- Implemented persistent light/dark/system themes and removed inert production controls from the
+- Implemented a persistent light/dark toggle and removed inert production controls from the
   global shell, Transactions, Budget, Debt, Reports, and Settings.

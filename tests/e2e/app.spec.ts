@@ -203,14 +203,20 @@ test("unfinished production controls are not exposed", async ({ page }) => {
 });
 
 test("theme selection visibly changes and persists", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("financial-compass-theme", "light"));
   await page.goto("/");
-  await page.getByRole("button", { name: "Theme: system. Switch to light." }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.getByRole("button", { name: "Theme: light. Switch to dark." }).click();
+  const themeToggle = page.getByRole("button", { name: "Switch to dark theme" });
+  await expect(themeToggle).toHaveAttribute("data-icon", "moon");
+  await themeToggle.click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Switch to light theme" })).toHaveAttribute(
+    "data-icon",
+    "sun",
+  );
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.getByRole("button", { name: "Theme: dark. Switch to system." }).click();
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
 });
 
 test("debt planner recalculates strategies, extra payments, custom order, and schedule", async ({

@@ -6,7 +6,6 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Menu,
   Moon,
-  Monitor,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -22,7 +21,7 @@ const NAV_STORAGE_KEY = "financial-compass-nav";
 const NAV_EVENT = "financial-compass-nav";
 const THEME_STORAGE_KEY = "financial-compass-theme";
 const THEME_EVENT = "financial-compass-theme";
-type ThemePreference = "light" | "dark" | "system";
+type ThemePreference = "light" | "dark";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -398,29 +397,19 @@ function ThemeControl() {
   const preference = useSyncExternalStore(
     subscribeToThemePreference,
     getThemePreference,
-    () => "system" as ThemePreference,
+    () => "light" as ThemePreference,
   );
   useEffect(() => applyThemePreference(preference), [preference]);
-  useEffect(() => {
-    if (preference !== "system") return;
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => applyThemePreference("system");
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [preference]);
-  const next: Record<ThemePreference, ThemePreference> = {
-    system: "light",
-    light: "dark",
-    dark: "system",
-  };
-  const Icon = preference === "light" ? Sun : preference === "dark" ? Moon : Monitor;
+  const next: ThemePreference = preference === "light" ? "dark" : "light";
+  const Icon = preference === "light" ? Moon : Sun;
   return (
     <button
       className="grid h-9 w-9 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)]"
-      aria-label={`Theme: ${preference}. Switch to ${next[preference]}.`}
-      title={`Theme: ${preference}`}
+      aria-label={`Switch to ${next} theme`}
+      title={`Switch to ${next} theme`}
+      data-icon={preference === "light" ? "moon" : "sun"}
       onClick={() => {
-        window.localStorage.setItem(THEME_STORAGE_KEY, next[preference]);
+        window.localStorage.setItem(THEME_STORAGE_KEY, next);
         window.dispatchEvent(new Event(THEME_EVENT));
       }}
     >
@@ -440,16 +429,11 @@ function subscribeToThemePreference(callback: () => void) {
 
 function getThemePreference(): ThemePreference {
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return stored === "light" || stored === "dark" ? stored : "system";
+  if (stored === "light" || stored === "dark") return stored;
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
 function applyThemePreference(preference: ThemePreference) {
-  const resolved =
-    preference === "system"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : preference;
-  document.documentElement.dataset.theme = resolved;
-  document.documentElement.style.colorScheme = resolved;
+  document.documentElement.dataset.theme = preference;
+  document.documentElement.style.colorScheme = preference;
 }
