@@ -2,7 +2,15 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, Link2, RotateCcw, SlidersHorizontal, Upload } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Link2,
+  Plus,
+  RotateCcw,
+  SlidersHorizontal,
+  Upload,
+} from "lucide-react";
 import { Button, Card, Pill } from "@/components/data-display/primitives";
 import { formatMoney } from "@/domain/money/money";
 import {
@@ -210,6 +218,192 @@ const batchStatusLabels: Record<string, string> = {
   UNDONE: "Undone",
 };
 
+function ManualTransactionForm({
+  accounts,
+  categories,
+  onCancel,
+  onCreated,
+}: {
+  accounts: AccountDto[];
+  categories: CategoryDto[];
+  onCancel: () => void;
+  onCreated: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    accountId: accounts[0]?.id ?? "",
+    categoryId: "",
+    description: "",
+    merchant: "",
+    amount: "",
+    direction: "MONEY_OUT",
+    transactionDate: "",
+    type: "EXPENSE",
+    notes: "",
+  });
+
+  function field(name: keyof typeof form, value: string) {
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    const response = await fetch("/api/transactions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...form, categoryId: form.categoryId || null }),
+    });
+    const body = await response.json().catch(() => ({}));
+    setSaving(false);
+    if (!response.ok) {
+      setError(body.error ?? body.issues?.[0]?.message ?? "Transaction could not be created.");
+      return;
+    }
+    onCreated();
+  }
+
+  return (
+    <div role="region" aria-label="Add manual transaction">
+      <Card className="mb-5 p-5">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">Add transaction</h2>
+          <p className="text-sm text-[var(--muted)]">
+            Manual entries are persisted, audited, and included in the selected account ledger.
+          </p>
+        </div>
+        {accounts.length === 0 ? (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-950">
+            Add an account before creating a transaction.
+          </p>
+        ) : (
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
+            <label className="text-sm font-medium">
+              Account
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                value={form.accountId}
+                onChange={(event) => field("accountId", event.target.value)}
+                required
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium">
+              Date
+              <input
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                type="date"
+                value={form.transactionDate}
+                onChange={(event) => field("transactionDate", event.target.value)}
+                required
+              />
+            </label>
+            <label className="text-sm font-medium">
+              Description
+              <input
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                value={form.description}
+                onChange={(event) => {
+                  field("description", event.target.value);
+                  if (!form.merchant) field("merchant", event.target.value);
+                }}
+                maxLength={500}
+                required
+              />
+            </label>
+            <label className="text-sm font-medium">
+              Merchant or source
+              <input
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                value={form.merchant}
+                onChange={(event) => field("merchant", event.target.value)}
+                maxLength={160}
+                required
+              />
+            </label>
+            <label className="text-sm font-medium">
+              Direction
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                value={form.direction}
+                onChange={(event) => field("direction", event.target.value)}
+              >
+                <option value="MONEY_OUT">Money out</option>
+                <option value="MONEY_IN">Money in</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium">
+              Amount
+              <input
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.amount}
+                onChange={(event) => field("amount", event.target.value)}
+                required
+              />
+            </label>
+            <label className="text-sm font-medium">
+              Type
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                value={form.type}
+                onChange={(event) => field("type", event.target.value)}
+              >
+                {Object.entries(transactionTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium">
+              Category
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3"
+                value={form.categoryId}
+                onChange={(event) => field("categoryId", event.target.value)}
+              >
+                <option value="">Uncategorized</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium md:col-span-2">
+              Notes (optional)
+              <textarea
+                className="mt-1 min-h-20 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] p-3"
+                value={form.notes}
+                onChange={(event) => field("notes", event.target.value)}
+                maxLength={1000}
+              />
+            </label>
+            {error ? <p className="text-sm text-red-700 md:col-span-2">{error}</p> : null}
+            <div className="flex gap-3 md:col-span-2">
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving…" : "Save transaction"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={onCancel}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export function TransactionsClient({
   transactions,
   categories,
@@ -223,6 +417,7 @@ export function TransactionsClient({
   query,
   savedViews,
   initialImportOpen = false,
+  initialManualOpen = false,
   initialImportAccountId,
 }: {
   transactions: TransactionDto[];
@@ -237,6 +432,7 @@ export function TransactionsClient({
   query: TransactionQuery;
   savedViews: { id: string; name: string; queryJson: string; isDefault: boolean }[];
   initialImportOpen?: boolean;
+  initialManualOpen?: boolean;
   initialImportAccountId?: string;
 }) {
   const router = useRouter();
@@ -249,6 +445,7 @@ export function TransactionsClient({
   const [undoConfirmed, setUndoConfirmed] = useState(false);
   const [undoError, setUndoError] = useState("");
   const [importOpen, setImportOpen] = useState(initialImportOpen);
+  const [manualOpen, setManualOpen] = useState(initialManualOpen);
   const [drawerTransfers, setDrawerTransfers] = useState<TransferMatchDto[]>([]);
   const [transferNote, setTransferNote] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -479,6 +676,9 @@ export function TransactionsClient({
   return (
     <>
       <div className="mb-4 flex flex-wrap gap-3">
+        <Button onClick={() => setManualOpen((current) => !current)}>
+          <Plus className="h-4 w-4" /> Add Transaction
+        </Button>
         <Button variant="secondary" onClick={() => setImportOpen(true)}>
           <Upload className="h-4 w-4" /> Import CSV
         </Button>
@@ -495,6 +695,19 @@ export function TransactionsClient({
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
+      {manualOpen ? (
+        <ManualTransactionForm
+          accounts={accounts}
+          categories={categories}
+          onCancel={() => setManualOpen(false)}
+          onCreated={() => {
+            setManualOpen(false);
+            setStatus("saved");
+            setAnnouncement("Manual transaction created and account balance recalculated.");
+            startTransition(() => router.refresh());
+          }}
+        />
+      ) : null}
       <TransactionFilters
         filters={filters}
         accounts={accounts}

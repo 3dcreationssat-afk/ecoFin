@@ -23,6 +23,7 @@ export const dynamic = "force-dynamic";
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const raw = await searchParams;
   const importRequested = raw.import === "1";
+  const manualRequested = raw.manual === "1";
   const requestedAccountId = typeof raw.accountId === "string" ? raw.accountId : undefined;
   if (!importRequested && !hasExplicitTransactionState(raw)) {
     const savedDefault = await defaultSavedView();
@@ -47,7 +48,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         <Card className="mb-5 p-6">
           <h2 className="text-xl font-semibold">No transactions yet.</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Import a CSV after adding an account. Manual transaction creation is still planned.
+            Add a manual transaction or import a CSV after creating an account.
           </p>
         </Card>
       ) : null}
@@ -64,6 +65,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         batches={JSON.parse(JSON.stringify(batches))}
         transferMatches={JSON.parse(JSON.stringify(transferQueue.matches))}
         initialImportOpen={importRequested}
+        initialManualOpen={manualRequested}
         initialImportAccountId={requestedAccountId}
       />
     </AppShell>

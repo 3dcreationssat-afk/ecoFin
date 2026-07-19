@@ -8,6 +8,8 @@ import { DEMO_RESET_CONFIRMATION, demoResetSchema } from "@/domain/demo-reset/sc
 import { goalContributionSchema, goalSchema } from "@/domain/goals/schema";
 import { householdSettingsSchema } from "@/domain/household/schema";
 import { transactionUpdateSchema } from "@/domain/transactions/schema";
+import { manualTransactionSchema } from "@/domain/transactions/schema";
+import { parseMoneyToMinor } from "@/domain/money/money";
 import {
   START_FRESH_CONFIRMATION,
   startFreshSchema,
@@ -436,6 +438,85 @@ export async function updateTransactionEditable(id: string, input: unknown) {
   await refreshTransferStateForTransactions([id]);
   const { refreshRecurringForTransactions } = await import("./recurring");
   await refreshRecurringForTransactions([id]);
+  return transaction;
+}
+
+export async function createManualTransaction(input: unknown) {
+  const data = manualTransactionSchema.parse(input);
+  const household = await getHousehold();
+  const account = await prisma.account.findFirst({
+    where: { id: data.accountId, householdId: household.id, archivedAt: null },
+  });
+  if (!account) throw new AppError("Account is invalid for this transaction.", 422);
+  if (data.categoryId) {
+    const category = await prisma.category.findFirst({
+      where: { id: data.categoryId, householdId: household.id, archivedAt: null },
+    });
+    if (!category) throw new AppError("Category is invalid for this transaction.", 422);
+  }
+  const magnitude = Math.abs(parseMoneyToMinor(data.amount));
+  if (magnitude === 0) throw new AppError("Transaction amount must be greater than zero.", 422);
+  const amountMinor = data.direction === "MONEY_OUT" ? -magnitude : magnitude;
+  const transactionDate = new Date(`${data.transactionDate}T00:00:00.000Z`);
+  if (Number.isNaN(transactionDate.getTime())) {
+    throw new AppError("Transaction date is invalid.", 422);
+  }
+  const affectsIncomeSpendingReports = ![
+    "TRANSFER_OUT",
+    "TRANSFER_IN",
+    "CREDIT_CARD_PAYMENT",
+  ].includes(data.type);
+  const transaction = await prisma.$transaction(async (tx) => {
+    const created = await tx.transaction.create({
+      data: {
+        householdId: household.id,
+        accountId: account.id,
+        categoryId: data.categoryId || null,
+        sourceType: "MANUAL",
+        sourceAccountName: account.name,
+        originalDescription: data.description,
+        originalAmountText: data.direction === "MONEY_OUT" ? `-${data.amount}` : data.amount,
+        originalDateText: data.transactionDate,
+        normalizedMerchant: data.merchant,
+        amountMinor,
+        transactionDate,
+        postedDate: transactionDate,
+        type: data.type,
+        reviewStatus: data.type === "UNKNOWN" ? "NEEDS_REVIEW" : "REVIEWED",
+        notes: data.notes || null,
+        affectsIncomeSpendingReports,
+        merchantSource: "USER",
+        categorySource: "USER",
+        typeSource: "USER",
+        reviewSource: "USER",
+        interpretationType: data.type,
+        interpretationConfidence: "HIGH",
+        interpretationReason: "Entered explicitly by the user.",
+        interpretationEvidenceJson: JSON.stringify(["Manual entry"]),
+        interpretationAutoApplied: false,
+        interpretationReviewRequired: data.type === "UNKNOWN",
+        isDemo: account.isDemo,
+      },
+    });
+    await auditChange(tx, {
+      householdId: household.id,
+      entityType: "Transaction",
+      entityId: created.id,
+      action: "create",
+      field: "sourceType",
+      newValue: "MANUAL",
+      source: "user",
+    });
+    await recalculateAccountBalance(account.id, tx);
+    return created;
+  });
+  const { refreshRecurringForTransactions } = await import("./recurring");
+  const { refreshForecastIntelligence } = await import("./forecast-rules");
+  await Promise.allSettled([
+    refreshTransferStateForTransactions([transaction.id]),
+    refreshRecurringForTransactions([transaction.id]),
+    refreshForecastIntelligence(household.id, [transaction.id]),
+  ]);
   return transaction;
 }
 
